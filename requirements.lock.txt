@@ -1,0 +1,12 @@
+# Install a CUDA-appropriate torch build separately before these dependencies.
+# This file is intentionally small in v1 and will likely be replaced by a fuller
+# lock strategy once the backend settles.
+accelerate==1.10.1
+git+https://github.com/huggingface/diffusers.git
+fastapi==0.116.1
+huggingface-hub==0.34.4
+Pillow==11.3.0
+pydantic==2.11.7
+safetensors==0.7.0
+transformers==4.55.4
+uvicorn==0.35.0

@@ -1,0 +1,12 @@
+.venv/
+.venv-nunchaku/
+outputs/
+logs/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.log
+*.pid
+*.tmp
+*.swp

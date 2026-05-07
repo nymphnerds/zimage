@@ -1,0 +1,50 @@
+{
+  "manifest_version": 1,
+  "id": "zimage",
+  "name": "Z-Image Turbo",
+  "short_name": "ZI",
+  "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
+  "category": "image",
+  "packaging": "repo",
+  "repo": {
+    "url": "https://github.com/nymphnerds/zimage.git",
+    "branch": "main"
+  },
+  "install": {
+    "path": "$HOME/Z-Image",
+    "script": "scripts/install_zimage.sh"
+  },
+  "runtime": {
+    "host": "127.0.0.1",
+    "port": 8090,
+    "health_url": "http://127.0.0.1:8090/health",
+    "server_info_url": "http://127.0.0.1:8090/server_info"
+  },
+  "manager": {
+    "page": "custom",
+    "status": "scripts/zimage_status.sh",
+    "start": "scripts/zimage_start.sh",
+    "stop": "scripts/zimage_stop.sh",
+    "open": "scripts/zimage_open.sh",
+    "logs": "scripts/zimage_logs.sh",
+    "fetch_models": "scripts/zimage_fetch_models.sh",
+    "smoke_test": "scripts/zimage_smoke_test.sh"
+  },
+  "dependencies": {
+    "python": "3.11",
+    "cuda": "13.0",
+    "torch": "2.11.0+cu130",
+    "diffusers": "0.37.1",
+    "nunchaku": {
+      "repo": "https://github.com/nymphnerds/nunchaku.git",
+      "commit": "a2a4f2444a092974ba53323ba0681a523ff98031"
+    },
+    "model": "Tongyi-MAI/Z-Image-Turbo",
+    "nunchaku_weights": "nunchaku-ai/nunchaku-z-image-turbo"
+  },
+  "notes": [
+    "This module replaces the old Nymphs2D2 manager install target.",
+    "The backend still accepts NYMPHS2D2 compatibility environment variables during migration.",
+    "Do not vendor the Nunchaku clone or model weights into this repo."
+  ]
+}
