@@ -28,7 +28,25 @@
     "open": "scripts/zimage_open.sh",
     "logs": "scripts/zimage_logs.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
-    "smoke_test": "scripts/zimage_smoke_test.sh"
+    "smoke_test": "scripts/zimage_smoke_test.sh",
+    "uninstall": "scripts/zimage_uninstall.sh"
+  },
+  "uninstall": {
+    "supports_purge": true,
+    "requires_confirmation": true,
+    "dry_run_arg": "--dry-run",
+    "confirm_arg": "--yes",
+    "purge_arg": "--purge",
+    "preserve_by_default": [
+      "outputs",
+      "logs",
+      "Hugging Face cache"
+    ],
+    "removes_by_default": [
+      "runtime source files",
+      ".venv-nunchaku",
+      "generated module scripts"
+    ]
   },
   "dependencies": {
     "python": "3.11",
