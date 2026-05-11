@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "packaging": "repo",
@@ -58,7 +58,7 @@
     "manager_ui": {
       "type": "local_html",
       "entrypoint": "ui/manager.html",
-      "title": "Z-Image Turbo Controls"
+      "title": "Fetch Models"
     }
   },
   "uninstall": {
