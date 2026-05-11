@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_zimage_common.sh"
 
+zimage_ensure_log_dir
+
 if zimage_is_running; then
   echo "Z-Image Turbo is already running at ${Z_IMAGE_SERVER_URL}"
   exit 0

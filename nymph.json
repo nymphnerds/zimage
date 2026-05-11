@@ -3,6 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
+  "version": "0.1.0",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "packaging": "repo",
@@ -10,9 +11,19 @@
     "url": "https://github.com/nymphnerds/zimage.git",
     "branch": "main"
   },
+  "source": {
+    "type": "repo",
+    "repo": "https://github.com/nymphnerds/zimage.git",
+    "ref": "main"
+  },
   "install": {
-    "path": "$HOME/Z-Image",
-    "script": "scripts/install_zimage.sh"
+    "root": "$HOME/Z-Image",
+    "entrypoint": "scripts/install_zimage.sh",
+    "version_marker": "$HOME/Z-Image/.nymph-module-version",
+    "installed_markers": [
+      "$HOME/Z-Image/.nymph-module-version",
+      "$HOME/Z-Image/api_server.py"
+    ]
   },
   "runtime": {
     "host": "127.0.0.1",
@@ -20,8 +31,17 @@
     "health_url": "http://127.0.0.1:8090/health",
     "server_info_url": "http://127.0.0.1:8090/server_info"
   },
-  "manager": {
-    "page": "custom",
+  "artifacts": {
+    "models_root": "$HOME/NymphsData/models",
+    "cache_root": "$HOME/NymphsData/cache",
+    "outputs_root": "$HOME/NymphsData/outputs/zimage",
+    "logs_root": "$HOME/NymphsData/logs/zimage",
+    "legacy_outputs_root": "$HOME/Z-Image/outputs",
+    "legacy_logs_root": "$HOME/Z-Image/logs",
+    "huggingface_cache": "$HOME/NymphsData/cache/huggingface"
+  },
+  "entrypoints": {
+    "install": "scripts/install_zimage.sh",
     "status": "scripts/zimage_status.sh",
     "start": "scripts/zimage_start.sh",
     "stop": "scripts/zimage_stop.sh",
@@ -30,6 +50,16 @@
     "fetch_models": "scripts/zimage_fetch_models.sh",
     "smoke_test": "scripts/zimage_smoke_test.sh",
     "uninstall": "scripts/zimage_uninstall.sh"
+  },
+  "ui": {
+    "page": "custom",
+    "page_kind": "zimage",
+    "sort_order": 20,
+    "standard_lifecycle_rail": true,
+    "manager_surface": {
+      "type": "declarative",
+      "schema": "ui/manager.surface.json"
+    }
   },
   "uninstall": {
     "supports_purge": true,
@@ -58,7 +88,14 @@
       "commit": "a2a4f2444a092974ba53323ba0681a523ff98031"
     },
     "model": "Tongyi-MAI/Z-Image-Turbo",
-    "nunchaku_weights": "nunchaku-ai/nunchaku-z-image-turbo"
+    "nunchaku_weights": "nunchaku-ai/nunchaku-z-image-turbo",
+    "supported_precisions": [
+      "auto",
+      "int4",
+      "fp4"
+    ],
+    "default_precision": "auto",
+    "default_rank": 32
   },
   "notes": [
     "This module replaces the old Nymphs2D2 manager install target.",

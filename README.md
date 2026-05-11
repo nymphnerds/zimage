@@ -18,9 +18,9 @@ Expected in-distro layout:
 
 - module repo: `~/Z-Image`
 - runtime venv: `~/Z-Image/.venv-nunchaku`
-- outputs: `~/Z-Image/outputs`
-- logs: `~/Z-Image/logs`
-- Hugging Face cache: `~/.cache/huggingface/hub`
+- outputs: `~/NymphsData/outputs/zimage`
+- logs: `~/NymphsData/logs/zimage`
+- Hugging Face cache: `~/NymphsData/cache/huggingface`
 
 The manager should install or update this repo as a module. It should not copy virtual environments, generated images, model weights, or cache folders into git.
 
@@ -41,7 +41,13 @@ scripts/zimage_fetch_models.sh
 scripts/zimage_smoke_test.sh
 ```
 
-The module page in the manager should remain custom. This manifest and script contract are for discovery, install, status, launch, logs, and repair.
+The module page uses the standard NymphsCore detail shell. Z-Image owns the center surface declared in:
+
+```text
+ui/manager.surface.json
+```
+
+That surface describes backend readiness, quantized model fetching, and endpoint facts. The Manager should keep the standard right rail and lifecycle contract buttons.
 
 ## Important Dependency
 
@@ -97,6 +103,7 @@ svdq-*_r32-z-image-turbo.safetensors
 scripts/zimage_start.sh
 scripts/zimage_status.sh
 scripts/zimage_logs.sh
+scripts/zimage_fetch_models.sh --precision auto --rank 32
 ```
 
 The default local URL is:
@@ -124,5 +131,6 @@ This repo should stay clean:
 - keep source code, scripts, lockfiles, docs, and `nymph.json`
 - do not commit `.venv-nunchaku`
 - do not commit `outputs`
+- do not commit `NymphsData`
 - do not commit Hugging Face model cache
 - do not commit user-generated images or metadata

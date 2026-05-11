@@ -37,8 +37,10 @@ if [[ "${PURGE}" -eq 1 ]]; then
 else
   echo "mode=uninstall"
   echo "delete=runtime files, source files, venvs inside ${ZIMAGE_INSTALL_ROOT}"
-  echo "preserve=${ZIMAGE_INSTALL_ROOT}/outputs"
-  echo "preserve=${ZIMAGE_INSTALL_ROOT}/logs"
+  echo "preserve=${ZIMAGE_OUTPUT_DIR}"
+  echo "preserve=${ZIMAGE_LOG_DIR}"
+  echo "preserve_legacy=${ZIMAGE_INSTALL_ROOT}/outputs"
+  echo "preserve_legacy=${ZIMAGE_INSTALL_ROOT}/logs"
 fi
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -60,9 +62,9 @@ fi
 if [[ "${PURGE}" -eq 1 ]]; then
   rm -rf "${ZIMAGE_INSTALL_ROOT}"
 else
+  rm -f "${ZIMAGE_INSTALL_ROOT}/.nymph-module-version"
   find "${ZIMAGE_INSTALL_ROOT}" -mindepth 1 \
-    ! -name outputs \
-    ! -name logs \
+    \( -name outputs -o -name logs \) -prune -o \
     -exec rm -rf {} +
 fi
 
