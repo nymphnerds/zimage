@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "packaging": "repo",
