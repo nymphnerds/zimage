@@ -119,13 +119,19 @@
       <p>Fetch the base model and the selected Nunchaku quantized weight into the module cache.</p>
       <div class="controls">
         <label>
-          Nunchaku Weight
-          <select id="weight">
-            <option value="int4:32">INT4 r32 - fast / lower VRAM</option>
-            <option value="int4:128">INT4 r128 - balanced</option>
-            <option value="int4:256">INT4 r256 - highest rank</option>
-            <option value="fp4:32">FP4 r32 - experimental compare</option>
-            <option value="fp4:128">FP4 r128 - experimental compare</option>
+          Precision
+          <select id="precision" onchange="syncRankOptions()">
+            <option value="int4">INT4</option>
+            <option value="fp4">FP4</option>
+            <option value="auto">Auto</option>
+          </select>
+        </label>
+        <label>
+          Rank
+          <select id="rank">
+            <option value="32">r32</option>
+            <option value="128">r128</option>
+            <option value="256">r256</option>
           </select>
         </label>
         <button type="button" onclick="fetchModels()"> // fetch_models </button>
@@ -133,9 +139,10 @@
       </div>
       <ul>
         <li>These are Nunchaku generation weights for Z-Image Turbo, not LoRA training precision.</li>
+        <li>Published weights: INT4 r32/r128/r256 and FP4 r32/r128.</li>
         <li>LoRA training uses BF16 separately.</li>
         <li>On 12-16 GB VRAM, INT4 r32 is the safer first choice.</li>
-        <li>FP4 can be tested when the GPU/runtime supports it and output quality is worth comparing.</li>
+        <li>Auto only supports r32/r128 because r256 is INT4-only.</li>
       </ul>
     </section>
 
@@ -170,13 +177,29 @@
       window.location.href = "nymphs-module-action://" + action + query;
     }
 
+    function syncRankOptions() {
+      var precision = document.getElementById("precision").value;
+      var rank = document.getElementById("rank");
+      var current = rank.value;
+      var ranks = precision === "int4" ? ["32", "128", "256"] : ["32", "128"];
+      rank.innerHTML = "";
+      ranks.forEach(function(value) {
+        var option = document.createElement("option");
+        option.value = value;
+        option.textContent = "r" + value;
+        rank.appendChild(option);
+      });
+      rank.value = ranks.indexOf(current) >= 0 ? current : ranks[0];
+    }
+
     function fetchModels() {
-      var selected = document.getElementById("weight").value.split(":");
       runAction("fetch_models", {
-        precision: selected[0],
-        rank: selected[1]
+        precision: document.getElementById("precision").value,
+        rank: document.getElementById("rank").value
       });
     }
+
+    syncRankOptions();
   </script>
 </body>
 </html>
