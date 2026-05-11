@@ -56,9 +56,10 @@
     "page_kind": "zimage",
     "sort_order": 20,
     "standard_lifecycle_rail": true,
-    "manager_surface": {
-      "type": "declarative",
-      "schema": "ui/manager.surface.json"
+    "manager_ui": {
+      "type": "local_html",
+      "entrypoint": "ui/manager.html",
+      "title": "Z-Image Turbo Controls"
     }
   },
   "uninstall": {

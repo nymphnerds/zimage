@@ -41,13 +41,14 @@ scripts/zimage_fetch_models.sh
 scripts/zimage_smoke_test.sh
 ```
 
-The module page uses the standard NymphsCore detail shell. Z-Image owns the center surface declared in:
+The module page uses the standard NymphsCore install/detail shell before install.
+After install, the Manager can host the local module-owned UI declared in:
 
 ```text
-ui/manager.surface.json
+ui/manager.html
 ```
 
-That surface describes backend readiness, quantized model fetching, and endpoint facts. The Manager should keep the standard right rail and lifecycle contract buttons.
+That UI describes backend controls and quantized model fetching. The Manager should only act as a generic host for this local installed file; it should not hardcode Z-Image controls.
 
 ## Important Dependency
 

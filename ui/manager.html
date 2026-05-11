@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Z-Image Turbo Controls</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071112;
+      --panel: #0c191a;
+      --edge: #244244;
+      --text: #edf8f6;
+      --muted: #9db8b4;
+      --accent: #23e7db;
+      --lime: #97df48;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Bahnschrift", "Segoe UI", sans-serif;
+      font-size: 15px;
+    }
+
+    main {
+      padding: 22px;
+      max-width: 980px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      line-height: 1;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      color: var(--lime);
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .panel {
+      border: 1px solid var(--edge);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 18px;
+      margin-top: 18px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--text);
+      font-weight: 600;
+      min-width: 150px;
+    }
+
+    select {
+      min-height: 34px;
+      background: #101d1f;
+      color: var(--text);
+      border: 1px solid var(--edge);
+      border-radius: 4px;
+      padding: 6px 10px;
+    }
+
+    button {
+      min-height: 34px;
+      background: #101d1f;
+      color: var(--accent);
+      border: 1px solid var(--edge);
+      border-radius: 4px;
+      padding: 7px 13px;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Z-Image Turbo</h1>
+    <p>Installed module controls for the local Z-Image Turbo backend.</p>
+
+    <section class="panel">
+      <h2>// MODEL WEIGHTS</h2>
+      <p>Fetch the base model and the selected Nunchaku quantized weight into the module cache.</p>
+      <div class="controls">
+        <label>
+          Precision
+          <select id="precision">
+            <option value="auto">Auto</option>
+            <option value="int4">INT4</option>
+            <option value="fp4">FP4</option>
+          </select>
+        </label>
+        <label>
+          Rank
+          <select id="rank">
+            <option value="32">r32</option>
+          </select>
+        </label>
+        <button type="button" onclick="fetchModels()"> // fetch_models </button>
+        <button type="button" onclick="runAction('status')"> // verify_cache </button>
+      </div>
+      <ul>
+        <li>Use Auto for most GPUs.</li>
+        <li>On 12-16 GB VRAM, INT4 r32 is the safer first choice.</li>
+        <li>FP4 can be tested when the GPU/runtime supports it and output quality is worth comparing.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>// BACKEND</h2>
+      <div class="controls">
+        <button type="button" onclick="runAction('start')"> // start </button>
+        <button type="button" onclick="runAction('stop')"> // stop </button>
+        <button type="button" onclick="runAction('open')"> // open </button>
+        <button type="button" onclick="runAction('logs')"> // logs </button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function buildQuery(params) {
+      var parts = [];
+      var key;
+      if (!params) {
+        return "";
+      }
+      for (key in params) {
+        if (Object.prototype.hasOwnProperty.call(params, key)) {
+          parts.push(encodeURIComponent(key) + "=" + encodeURIComponent(params[key]));
+        }
+      }
+      return parts.length ? "?" + parts.join("&") : "";
+    }
+
+    function runAction(action, params) {
+      var query = buildQuery(params);
+      window.location.href = "nymphs-module-action://" + action + query;
+    }
+
+    function fetchModels() {
+      runAction("fetch_models", {
+        precision: document.getElementById("precision").value,
+        rank: document.getElementById("rank").value
+      });
+    }
+  </script>
+</body>
+</html>

@@ -6,12 +6,50 @@ source "${SCRIPT_DIR}/_zimage_common.sh"
 
 echo "Z-Image Turbo: installing module into ${ZIMAGE_INSTALL_ROOT}"
 
-if ! command -v python3.11 >/dev/null 2>&1; then
-  echo "python3.11 is required for Z-Image Turbo." >&2
-  exit 1
-fi
+has_apt_candidate() {
+  local package_name="$1"
+  local candidate
+  candidate="$(apt-cache policy "${package_name}" 2>/dev/null | awk '/Candidate:/ {print $2; exit}')"
+  [[ -n "${candidate}" && "${candidate}" != "(none)" ]]
+}
 
-module_version="$(python3 - "${MODULE_ROOT}/nymph.json" <<'PY'
+ensure_python311() {
+  if command -v python3.11 >/dev/null 2>&1 &&
+     python3.11 - <<'PY' >/dev/null 2>&1 &&
+import venv
+PY
+     { ! command -v dpkg >/dev/null 2>&1 || dpkg -s python3.11-dev >/dev/null 2>&1; }; then
+    return 0
+  fi
+
+  echo "python3.11, python3.11-venv, and python3.11-dev are required for the pinned Z-Image Turbo Nunchaku runtime."
+
+  if ! command -v sudo >/dev/null 2>&1 || ! command -v apt-cache >/dev/null 2>&1; then
+    echo "python3.11 is missing and automatic apt installation is not available." >&2
+    echo "Install python3.11, python3.11-venv, and python3.11-dev, then retry." >&2
+    exit 1
+  fi
+
+  if ! has_apt_candidate python3.11 || ! has_apt_candidate python3.11-venv || ! has_apt_candidate python3.11-dev; then
+    echo "Python 3.11 packages are not available in current apt sources. Adding deadsnakes PPA..."
+    sudo apt update
+    sudo apt install -y software-properties-common
+    sudo add-apt-repository -y ppa:deadsnakes/ppa
+    sudo apt update
+  fi
+
+  echo "Installing Python 3.11 runtime packages..."
+  sudo apt install -y python3.11 python3.11-venv python3.11-dev
+
+  if ! command -v python3.11 >/dev/null 2>&1; then
+    echo "python3.11 installation did not complete. Install python3.11, python3.11-venv, and python3.11-dev, then retry." >&2
+    exit 1
+  fi
+}
+
+ensure_python311
+
+module_version="$(python3.11 - "${MODULE_ROOT}/nymph.json" <<'PY'
 import json
 import sys
 
@@ -27,9 +65,13 @@ mkdir -p "${install_parent}"
 
 STAGING_ROOT="$(mktemp -d "${install_parent}/.zimage-install-staging.XXXXXX")"
 OLD_ROOT=""
+FILTERED_LOCK_FILE=""
 
 cleanup_on_exit() {
   local exit_code=$?
+  if [[ -n "${FILTERED_LOCK_FILE}" ]]; then
+    rm -f "${FILTERED_LOCK_FILE}" || true
+  fi
   if [[ "${exit_code}" -ne 0 ]]; then
     rm -rf "${STAGING_ROOT}" || true
     if [[ -n "${OLD_ROOT}" && -d "${OLD_ROOT}" && ! -e "${ZIMAGE_INSTALL_ROOT}" ]]; then
@@ -81,26 +123,65 @@ echo "Creating staged runtime venv: ${STAGING_VENV_DIR}"
 python3.11 -m venv "${STAGING_VENV_DIR}"
 
 VENV_PYTHON="${STAGING_VENV_DIR}/bin/python"
+FILTERED_LOCK_FILE="$(mktemp)"
 
-"${VENV_PYTHON}" -m pip install --upgrade pip setuptools wheel
+"${VENV_PYTHON}" -m pip install --upgrade pip "setuptools<82" wheel
 "${VENV_PYTHON}" -m pip install torch==2.11.0 torchvision torchaudio --index-url "${ZIMAGE_TORCH_INDEX_URL}"
-"${VENV_PYTHON}" -m pip install -r "${STAGING_ROOT}/requirements.lock.txt"
-"${VENV_PYTHON}" -m pip install "${ZIMAGE_NUNCHAKU_SPEC}"
-"${VENV_PYTHON}" -m pip install --force-reinstall "${ZIMAGE_DIFFUSERS_SPEC}"
+
+grep -Evi '(diffusers|safetensors)' "${STAGING_ROOT}/requirements.lock.txt" > "${FILTERED_LOCK_FILE}"
+"${VENV_PYTHON}" -m pip install -r "${FILTERED_LOCK_FILE}"
+
+"${VENV_PYTHON}" -m pip install --no-deps --pre "${ZIMAGE_NUNCHAKU_SPEC}"
+"${VENV_PYTHON}" -m pip install httpx importlib_metadata einops "peft>=0.17" protobuf sentencepiece
+"${VENV_PYTHON}" -m pip install --no-deps --force-reinstall safetensors==0.7.0
+
+diffusers_attempts=3
+diffusers_success=0
+for diffusers_attempt in $(seq 1 "${diffusers_attempts}"); do
+  if [[ "${diffusers_attempt}" -gt 1 ]]; then
+    echo "Retrying diffusers install (${diffusers_attempt}/${diffusers_attempts})..."
+    sleep $((5 * diffusers_attempt))
+  fi
+
+  if "${VENV_PYTHON}" -m pip install --no-deps --force-reinstall "${ZIMAGE_DIFFUSERS_SPEC}"; then
+    diffusers_success=1
+    break
+  fi
+done
+
+if [[ "${diffusers_success}" -ne 1 ]]; then
+  echo "diffusers install failed after ${diffusers_attempts} attempts." >&2
+  exit 1
+fi
 
 (
   cd "${STAGING_ROOT}"
   "${VENV_PYTHON}" -m py_compile api_server.py config.py image_store.py model_manager.py nunchaku_compat.py progress_state.py schemas.py scripts/prefetch_model.py scripts/run_nunchaku_zimage_test.py
   "${VENV_PYTHON}" - <<'PY'
+from diffusers.pipelines.z_image.pipeline_z_image import ZImagePipeline
+from diffusers.pipelines.z_image.pipeline_z_image_img2img import ZImageImg2ImgPipeline
 from nunchaku import NunchakuZImageTransformer2DModel
 from nunchaku_compat import patch_zimage_transformer_forward
 
 patched = patch_zimage_transformer_forward(NunchakuZImageTransformer2DModel)
 if not patched:
     raise SystemExit("nunchaku forward patch validation failed")
+missing_methods = [
+    name
+    for name in ("update_lora_params", "set_lora_strength", "reset_lora")
+    if not hasattr(NunchakuZImageTransformer2DModel, name)
+]
+if missing_methods:
+    raise SystemExit(f"nunchaku LoRA method(s) missing after install: {', '.join(missing_methods)}")
+print(f"zimage_pipeline={ZImagePipeline.__name__}")
+print(f"zimage_img2img_pipeline={ZImageImg2ImgPipeline.__name__}")
+print(f"nunchaku_transformer={NunchakuZImageTransformer2DModel.__name__}")
 print("Z-Image Turbo runtime imports validated.")
 PY
 )
+
+rm -f "${FILTERED_LOCK_FILE}"
+FILTERED_LOCK_FILE=""
 
 cat > "${STAGING_VENV_DIR}/.nymphs_nunchaku_runtime.json" <<EOF
 {
