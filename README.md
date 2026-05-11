@@ -50,6 +50,29 @@ ui/manager.html
 
 That UI describes backend controls and quantized model fetching. The Manager should only act as a generic host for this local installed file; it should not hardcode Z-Image controls.
 
+The current Fetch Models UI exposes all published Nunchaku Z-Image Turbo
+generation weights:
+
+- INT4 r32
+- INT4 r128
+- INT4 r256
+- FP4 r32
+- FP4 r128
+
+`auto` is allowed for r32/r128 only, because r256 is INT4-only. These choices
+are Nunchaku generation weights, not LoRA training precision. LoRA training BF16
+is handled separately by the training stack.
+
+The Fetch Models UI also has an optional `HF Token` password field. In the
+NymphsCore Manager, that token is persisted in the Windows user profile under:
+
+```text
+%LOCALAPPDATA%\NymphsCore\shared-secrets.json
+```
+
+The token is passed into model downloads as `NYMPHS3D_HF_TOKEN` and must not be
+printed to logs.
+
 ## Important Dependency
 
 Z-Image Turbo depends on the Nymph Nerds Nunchaku fork:
@@ -110,6 +133,12 @@ scripts/zimage_start.sh
 scripts/zimage_status.sh
 scripts/zimage_logs.sh
 scripts/zimage_fetch_models.sh --precision auto --rank 32
+```
+
+For private or gated Hugging Face downloads:
+
+```bash
+NYMPHS3D_HF_TOKEN=hf_xxx scripts/zimage_fetch_models.sh --precision int4 --rank 32
 ```
 
 The default local URL is:

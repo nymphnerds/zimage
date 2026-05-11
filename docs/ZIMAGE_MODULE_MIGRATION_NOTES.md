@@ -76,3 +76,26 @@ The manager should eventually stop special-casing `install_nymphs2d2.sh` and ins
 ## Custom Page Rule
 
 The Z-Image Turbo manager page should be custom, not the generic fallback facts page. The manifest tells the manager how to discover/install/run the module; it does not replace the designed module page.
+
+Current module-owned UI expectations:
+
+```text
+ui.manager_ui.type = local_html
+ui.manager_ui.entrypoint = ui/manager.html
+```
+
+The Fetch Models surface should stay module-owned. It currently offers all
+published Nunchaku Z-Image Turbo weights:
+
+```text
+INT4 r32/r128/r256
+FP4 r32/r128
+Auto r32/r128 only
+```
+
+Those options are generation weights, not LoRA training precision. BF16 belongs
+to the LoRA/training path.
+
+The Manager may hydrate the optional `HF Token` field from its shared local
+secrets file and passes it to downloads through `NYMPHS3D_HF_TOKEN`. Do not log
+the token, commit it, or write it into the module repo.
