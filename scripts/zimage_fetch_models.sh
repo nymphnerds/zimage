@@ -28,10 +28,19 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       cat <<'EOF'
-Usage: zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32]
+Usage: zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256]
 
 Downloads the base Z-Image Turbo model files and the selected Nunchaku
-quantized weight. Use --precision auto for the runtime's recommended weight.
+quantized weight.
+
+Published Nunchaku Z-Image Turbo weights:
+  int4 r32
+  int4 r128
+  int4 r256
+  fp4  r32
+  fp4  r128
+
+Use --precision auto only with ranks that exist for both INT4 and FP4.
 EOF
       exit 0
       ;;
@@ -54,6 +63,23 @@ if [[ ! "${Z_IMAGE_NUNCHAKU_RANK}" =~ ^[0-9]+$ ]]; then
   echo "Unsupported rank: ${Z_IMAGE_NUNCHAKU_RANK}. Expected a numeric rank such as 32." >&2
   exit 2
 fi
+
+case "${Z_IMAGE_NUNCHAKU_PRECISION}:${Z_IMAGE_NUNCHAKU_RANK}" in
+  auto:32|auto:128|int4:32|int4:128|int4:256|fp4:32|fp4:128) ;;
+  auto:256)
+    echo "Unsupported weight: auto r256. The published r256 Nunchaku Z-Image Turbo weight is INT4 only." >&2
+    exit 2
+    ;;
+  fp4:256)
+    echo "Unsupported weight: fp4 r256. The published r256 Nunchaku Z-Image Turbo weight is INT4 only." >&2
+    exit 2
+    ;;
+  *)
+    echo "Unsupported weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}." >&2
+    echo "Expected one of: int4 r32, int4 r128, int4 r256, fp4 r32, fp4 r128, auto r32, auto r128." >&2
+    exit 2
+    ;;
+esac
 
 if [[ ! -x "$(zimage_python)" ]]; then
   echo "Z-Image Turbo runtime is missing. Run scripts/install_zimage.sh first." >&2

@@ -25,73 +25,73 @@
       background: var(--bg);
       color: var(--text);
       font-family: "Bahnschrift", "Segoe UI", sans-serif;
-      font-size: 15px;
+      font-size: 13.5px;
     }
 
     main {
-      padding: 22px;
-      max-width: 980px;
+      padding: 16px 18px;
+      max-width: 1040px;
     }
 
     h1 {
-      margin: 0 0 8px;
-      font-size: 34px;
+      margin: 0 0 6px;
+      font-size: 28px;
       line-height: 1;
     }
 
     h2 {
-      margin: 0 0 14px;
+      margin: 0 0 10px;
       color: var(--lime);
       font-family: "Cascadia Mono", Consolas, monospace;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
     }
 
     p {
-      margin: 0 0 16px;
+      margin: 0 0 12px;
       color: var(--muted);
-      line-height: 1.45;
+      line-height: 1.35;
     }
 
     .panel {
       border: 1px solid var(--edge);
       border-radius: 8px;
       background: var(--panel);
-      padding: 18px;
-      margin-top: 18px;
+      padding: 14px 16px;
+      margin-top: 14px;
     }
 
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
+      gap: 10px;
       align-items: end;
     }
 
     label {
       display: grid;
-      gap: 6px;
+      gap: 5px;
       color: var(--text);
       font-weight: 600;
-      min-width: 150px;
+      min-width: 136px;
     }
 
     select {
-      min-height: 34px;
+      min-height: 30px;
       background: #101d1f;
       color: var(--text);
       border: 1px solid var(--edge);
       border-radius: 4px;
-      padding: 6px 10px;
+      padding: 4px 9px;
     }
 
     button {
-      min-height: 34px;
+      min-height: 30px;
       background: #101d1f;
       color: var(--accent);
       border: 1px solid var(--edge);
       border-radius: 4px;
-      padding: 7px 13px;
+      padding: 5px 11px;
       font-family: "Cascadia Mono", Consolas, monospace;
       font-weight: 700;
       cursor: pointer;
@@ -103,9 +103,9 @@
 
     ul {
       margin: 8px 0 0;
-      padding-left: 20px;
+      padding-left: 18px;
       color: var(--muted);
-      line-height: 1.5;
+      line-height: 1.35;
     }
   </style>
 </head>
@@ -119,24 +119,21 @@
       <p>Fetch the base model and the selected Nunchaku quantized weight into the module cache.</p>
       <div class="controls">
         <label>
-          Precision
-          <select id="precision">
-            <option value="auto">Auto</option>
-            <option value="int4">INT4</option>
-            <option value="fp4">FP4</option>
-          </select>
-        </label>
-        <label>
-          Rank
-          <select id="rank">
-            <option value="32">r32</option>
+          Nunchaku Weight
+          <select id="weight">
+            <option value="int4:32">INT4 r32 - fast / lower VRAM</option>
+            <option value="int4:128">INT4 r128 - balanced</option>
+            <option value="int4:256">INT4 r256 - highest rank</option>
+            <option value="fp4:32">FP4 r32 - experimental compare</option>
+            <option value="fp4:128">FP4 r128 - experimental compare</option>
           </select>
         </label>
         <button type="button" onclick="fetchModels()"> // fetch_models </button>
         <button type="button" onclick="runAction('status')"> // verify_cache </button>
       </div>
       <ul>
-        <li>Use Auto for most GPUs.</li>
+        <li>These are Nunchaku generation weights for Z-Image Turbo, not LoRA training precision.</li>
+        <li>LoRA training uses BF16 separately.</li>
         <li>On 12-16 GB VRAM, INT4 r32 is the safer first choice.</li>
         <li>FP4 can be tested when the GPU/runtime supports it and output quality is worth comparing.</li>
       </ul>
@@ -174,9 +171,10 @@
     }
 
     function fetchModels() {
+      var selected = document.getElementById("weight").value.split(":");
       runAction("fetch_models", {
-        precision: document.getElementById("precision").value,
-        rank: document.getElementById("rank").value
+        precision: selected[0],
+        rank: selected[1]
       });
     }
   </script>
