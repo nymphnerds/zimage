@@ -13,6 +13,94 @@ has_apt_candidate() {
   [[ -n "${candidate}" && "${candidate}" != "(none)" ]]
 }
 
+refresh_cuda_env() {
+  if [[ -x /usr/local/cuda-13.0/bin/nvcc ]]; then
+    export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-13.0}"
+    export PATH="${CUDA_HOME}/bin:${PATH}"
+    export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
+    export CUDACXX="${CUDACXX:-${CUDA_HOME}/bin/nvcc}"
+    return 0
+  fi
+
+  if command -v nvcc >/dev/null 2>&1; then
+    local nvcc_path
+    local cuda_home
+    nvcc_path="$(command -v nvcc)"
+    cuda_home="$(cd "$(dirname "${nvcc_path}")/.." && pwd)"
+    export CUDA_HOME="${CUDA_HOME:-${cuda_home}}"
+    export CUDACXX="${CUDACXX:-${nvcc_path}}"
+    return 0
+  fi
+
+  return 1
+}
+
+download_cuda_keyring() {
+  local keyring_url="https://developer.download.nvidia.com/compute/cuda/repos/wsl-ubuntu/x86_64/cuda-keyring_1.1-1_all.deb"
+  local keyring_deb="${HOME}/cuda-keyring_1.1-1_all.deb"
+
+  if [[ -f "${keyring_deb}" ]]; then
+    printf '%s\n' "${keyring_deb}"
+    return 0
+  fi
+
+  if command -v wget >/dev/null 2>&1; then
+    wget -O "${keyring_deb}" "${keyring_url}"
+  elif command -v curl >/dev/null 2>&1; then
+    curl -L -o "${keyring_deb}" "${keyring_url}"
+  else
+    echo "Neither wget nor curl is available to download the NVIDIA CUDA keyring." >&2
+    return 1
+  fi
+
+  printf '%s\n' "${keyring_deb}"
+}
+
+ensure_cuda_toolkit() {
+  if refresh_cuda_env; then
+    echo "CUDA compiler detected:"
+    nvcc --version | sed -n '1,4p'
+    return 0
+  fi
+
+  echo "Nunchaku is being built from the Nymphs fork and needs the CUDA compiler (nvcc)."
+
+  if ! command -v sudo >/dev/null 2>&1 ||
+     ! command -v apt-cache >/dev/null 2>&1 ||
+     ! command -v dpkg >/dev/null 2>&1; then
+    echo "nvcc is missing and automatic CUDA toolkit installation is not available." >&2
+    echo "Install CUDA Toolkit 13.0 for WSL, then retry Z-Image Turbo installation." >&2
+    exit 1
+  fi
+
+  if ! has_apt_candidate cuda-toolkit-13-0; then
+    echo "Adding NVIDIA CUDA 13.0 apt repository for WSL..."
+    sudo apt update
+    local keyring_deb
+    keyring_deb="$(download_cuda_keyring)"
+    sudo dpkg -i "${keyring_deb}"
+    sudo apt update
+  fi
+
+  if ! has_apt_candidate cuda-toolkit-13-0; then
+    echo "cuda-toolkit-13-0 is still not available from apt after adding the NVIDIA repository." >&2
+    echo "Install CUDA Toolkit 13.0 for WSL, then retry Z-Image Turbo installation." >&2
+    exit 1
+  fi
+
+  echo "Installing CUDA Toolkit 13.0 so Nunchaku can compile native CUDA extensions..."
+  sudo apt install -y cuda-toolkit-13-0
+
+  if ! refresh_cuda_env; then
+    echo "CUDA Toolkit installation completed, but nvcc was not found." >&2
+    echo "Expected /usr/local/cuda-13.0/bin/nvcc. Check the CUDA toolkit install, then retry." >&2
+    exit 1
+  fi
+
+  echo "CUDA compiler ready:"
+  nvcc --version | sed -n '1,4p'
+}
+
 ensure_python311() {
   if command -v python3.11 >/dev/null 2>&1 &&
      python3.11 - <<'PY' >/dev/null 2>&1 &&
@@ -48,6 +136,7 @@ PY
 }
 
 ensure_python311
+ensure_cuda_toolkit
 
 module_version="$(python3.11 - "${MODULE_ROOT}/nymph.json" <<'PY'
 import json

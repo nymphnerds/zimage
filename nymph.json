@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "packaging": "repo",
@@ -81,7 +81,7 @@
   },
   "dependencies": {
     "python": "3.11",
-    "cuda": "13.0",
+    "cuda": "13.0 toolkit with nvcc",
     "torch": "2.11.0+cu130",
     "diffusers": "0.37.1",
     "nunchaku": {

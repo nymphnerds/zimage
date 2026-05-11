@@ -61,6 +61,11 @@ commit: a2a4f2444a092974ba53323ba0681a523ff98031
 
 That fork is not vendored into this repo. The installer pins it into `.venv-nunchaku`.
 
+The fork currently builds native CUDA extensions during install, so the installer
+also checks for `nvcc` and installs CUDA Toolkit 13.0 for WSL through apt when it
+is missing. If the NVIDIA apt repository cannot be added automatically, install
+CUDA Toolkit 13.0 manually and rerun the module install.
+
 ## Environment Variables
 
 Primary variables:
