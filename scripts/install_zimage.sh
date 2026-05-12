@@ -189,6 +189,7 @@ for script in \
   _zimage_common.sh \
   prefetch_model.py \
   run_nunchaku_zimage_test.py \
+  zimage_delete_models.sh \
   zimage_fetch_models.sh \
   zimage_logs.sh \
   zimage_open.sh \

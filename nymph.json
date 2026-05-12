@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "packaging": "repo",
@@ -46,6 +46,7 @@
     "stop": "scripts/zimage_stop.sh",
     "open": "scripts/zimage_open.sh",
     "logs": "scripts/zimage_logs.sh",
+    "delete_models": "scripts/zimage_delete_models.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
     "smoke_test": "scripts/zimage_smoke_test.sh",
     "uninstall": "scripts/zimage_uninstall.sh"

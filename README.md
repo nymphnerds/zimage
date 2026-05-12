@@ -38,6 +38,7 @@ scripts/zimage_stop.sh
 scripts/zimage_open.sh
 scripts/zimage_logs.sh
 scripts/zimage_fetch_models.sh
+scripts/zimage_delete_models.sh
 scripts/zimage_smoke_test.sh
 ```
 
@@ -72,6 +73,15 @@ NymphsCore Manager, that token is persisted in the Windows user profile under:
 
 The token is passed into model downloads as `NYMPHS3D_HF_TOKEN` and must not be
 printed to logs.
+
+If the runtime is installed but the selected model cache is missing, status stays
+`installed` and reports `models_ready=false` with a plain download message. That
+state should not be treated as a broken install.
+
+The Fetch Models UI can also delete local model cache files. `delete_weights`
+removes the Nunchaku quantized weight cache, while `delete_all_models` removes
+both the base Z-Image Turbo cache and the Nunchaku weight cache. Outputs, logs,
+LoRAs, and the runtime install are preserved.
 
 ## Important Dependency
 
@@ -133,6 +143,7 @@ scripts/zimage_start.sh
 scripts/zimage_status.sh
 scripts/zimage_logs.sh
 scripts/zimage_fetch_models.sh --precision auto --rank 32
+scripts/zimage_delete_models.sh --scope weights --yes
 ```
 
 For private or gated Hugging Face downloads:

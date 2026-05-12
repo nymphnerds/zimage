@@ -17,6 +17,8 @@ marker="${ZIMAGE_INSTALL_ROOT}/.nymph-module-version"
 last_log="${ZIMAGE_LOG_DIR}/zimage-server.log"
 gpu_vram_mb="$(zimage_detect_gpu_vram_mb)"
 recommended_precision="$(zimage_recommended_precision "${gpu_vram_mb}")"
+status_requested_precision="${Z_IMAGE_NUNCHAKU_PRECISION}"
+status_check_precision="${status_requested_precision}"
 detail="Not installed."
 
 if [[ -f "${marker}" ]]; then
@@ -37,6 +39,26 @@ fi
 if [[ "${installed}" == "true" && -x "$(zimage_python)" ]]; then
   env_ready=true
   detail="Runtime environment present."
+  if [[ "${status_check_precision}" == "auto" ]]; then
+    status_check_precision="$(
+      NYMPHS_ZIMAGE_RECOMMENDED_PRECISION="${recommended_precision}" "$(zimage_python)" - <<'PY' 2>/dev/null
+import os
+
+try:
+    from nunchaku.utils import get_precision
+
+    device = os.getenv("Z_IMAGE_DEVICE") or "cuda"
+    print(get_precision(precision="auto", device=device))
+except Exception:
+    print(os.getenv("NYMPHS_ZIMAGE_RECOMMENDED_PRECISION") or "int4")
+PY
+    )"
+    [[ -n "${status_check_precision}" ]] || status_check_precision="${recommended_precision}"
+  fi
+  case "${status_check_precision}" in
+    int4|fp4) ;;
+    *) status_check_precision="${recommended_precision}" ;;
+  esac
 fi
 
 if [[ "${installed}" == "true" ]] && zimage_is_running; then
@@ -51,6 +73,7 @@ fi
 if [[ "${env_ready}" == "true" ]]; then
   if (
     cd "${ZIMAGE_INSTALL_ROOT}"
+    export Z_IMAGE_NUNCHAKU_PRECISION="${status_check_precision}"
     "$(zimage_python)" -m py_compile api_server.py model_manager.py nunchaku_compat.py scripts/prefetch_model.py >/dev/null 2>&1
     "$(zimage_python)" scripts/prefetch_model.py --local-files-only >/dev/null 2>&1
   ); then
@@ -61,15 +84,13 @@ if [[ "${env_ready}" == "true" ]]; then
     detail="Runtime and cached model files are ready."
   else
     models_ready=false
-    health=degraded
-    detail="Runtime exists, but cached model files are incomplete."
+    health=model-download-needed
+    detail="Model files need downloading for ${status_check_precision} r${Z_IMAGE_NUNCHAKU_RANK}. Use Fetch Models to download the base Z-Image Turbo model and selected Nunchaku weight."
   fi
 fi
 
 if [[ "${installed}" == "true" && "${running}" == "true" ]]; then
   state=running
-elif [[ "${installed}" == "true" && "${health}" == "degraded" ]]; then
-  state=needs_attention
 elif [[ "${installed}" == "true" ]]; then
   state=installed
   if [[ "${env_ready}" != "true" ]]; then
@@ -100,6 +121,8 @@ model_id=${Z_IMAGE_MODEL_ID}
 nunchaku_weight_repo=${Z_IMAGE_NUNCHAKU_MODEL_REPO}
 nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}
 nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}
+status_requested_precision=${status_requested_precision}
+status_check_precision=${status_check_precision}
 recommended_precision=${recommended_precision}
 gpu_vram_mb=${gpu_vram_mb:-unknown}
 install_root=${ZIMAGE_INSTALL_ROOT}

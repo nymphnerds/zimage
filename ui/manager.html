@@ -111,6 +111,14 @@
       border-color: var(--accent);
     }
 
+    button.danger {
+      color: #ffb25f;
+    }
+
+    button.danger:hover {
+      border-color: #ffb25f;
+    }
+
     ul {
       margin: 8px 0 0;
       padding-left: 18px;
@@ -150,6 +158,8 @@
         </label>
         <button type="button" onclick="fetchModels()"> // fetch_models </button>
         <button type="button" onclick="runAction('status')"> // verify_cache </button>
+        <button class="danger" type="button" onclick="deleteModels('weights')"> // delete_weights </button>
+        <button class="danger" type="button" onclick="deleteModels('all')"> // delete_all_models </button>
       </div>
       <ul>
         <li>These are Nunchaku generation weights for Z-Image Turbo, not LoRA training precision.</li>
@@ -235,6 +245,17 @@
         precision: document.getElementById("precision").value,
         rank: document.getElementById("rank").value,
         hf_token: token
+      });
+    }
+
+    function deleteModels(scope) {
+      var label = scope === "all" ? "all Z-Image model cache files" : "all local Nunchaku weight cache files";
+      if (!window.confirm("Delete " + label + "?")) {
+        return;
+      }
+      runAction("delete_models", {
+        scope: scope,
+        yes: "1"
       });
     }
 
