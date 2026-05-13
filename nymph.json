@@ -64,11 +64,11 @@
         "description": "Downloads: base Z-Image Turbo + selected Nunchaku-compatible weight.\nRTX 20/30/40: choose int4_r128.\nRTX 50: choose fp4_r128.\nLow VRAM: choose r32.\nHighest quality: choose int4_r256.",
         "links": [
           {
-            "label": "Base",
+            "label": "Base model",
             "url": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo"
           },
           {
-            "label": "Weights",
+            "label": "Quantized weights",
             "url": "https://huggingface.co/nunchaku-ai/nunchaku-z-image-turbo"
           }
         ],
