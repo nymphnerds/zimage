@@ -52,10 +52,7 @@
     "uninstall": "scripts/zimage_uninstall.sh"
   },
   "ui": {
-    "page": "custom",
-    "page_kind": "zimage",
     "sort_order": 20,
-    "standard_lifecycle_rail": true,
     "manager_action_groups": [
       {
         "id": "model_fetch",
