@@ -61,7 +61,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Downloads: base Z-Image Turbo + selected Nunchaku-compatible weight.\nRTX 20/30/40: choose int4_r128.\nRTX 50: choose fp4_r128.\nLow VRAM: choose r32.\nHighest quality: choose int4_r256.",
+        "description": "Choose one Z-Image Turbo weight. The base model is downloaded automatically.\nRTX 20/30/40: int4_r128 is the normal pick.\nRTX 50: fp4_r128 is the normal pick.\nLow VRAM: choose an r32 weight.\nBest quality: int4_r256 is larger and slower.",
         "links": [
           {
             "label": "Base model",
