@@ -6,10 +6,23 @@ source "${SCRIPT_DIR}/_zimage_common.sh"
 
 requested_gpu_family=""
 requested_preset=""
+requested_weight=""
 selected_fetch_label=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --model|--weight)
+      if [[ $# -lt 2 ]]; then
+        echo "$1 requires a value." >&2
+        exit 2
+      fi
+      requested_weight="${2:-}"
+      shift 2
+      ;;
+    --model=*|--weight=*)
+      requested_weight="${1#*=}"
+      shift
+      ;;
     --gpu-family)
       if [[ $# -lt 2 ]]; then
         echo "--gpu-family requires a value." >&2
@@ -78,6 +91,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       cat <<'EOF'
 Usage:
+  zimage_fetch_models.sh --model svdq-int4_r128-z-image-turbo.safetensors
   zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
   zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
 
@@ -91,12 +105,12 @@ Friendly presets:
   RTX 50       + fast     -> fp4 r32
   RTX 50       + balanced -> fp4 r128
 
-Published Nunchaku Z-Image Turbo weights:
-  int4 r32
-  int4 r128
-  int4 r256
-  fp4  r32
-  fp4  r128
+Published Z-Image Turbo quantized weights for the Nunchaku runtime:
+  svdq-int4_r32-z-image-turbo.safetensors
+  svdq-int4_r128-z-image-turbo.safetensors
+  svdq-int4_r256-z-image-turbo.safetensors
+  svdq-fp4_r32-z-image-turbo.safetensors
+  svdq-fp4_r128-z-image-turbo.safetensors
 
 Use --precision auto only with ranks that exist for both INT4 and FP4.
 EOF
@@ -108,6 +122,49 @@ EOF
       ;;
   esac
 done
+
+if [[ -n "${requested_weight}" && ( -n "${requested_gpu_family}" || -n "${requested_preset}" ) ]]; then
+  echo "--model/--weight cannot be combined with --gpu-family/--preset." >&2
+  exit 2
+fi
+
+if [[ -n "${requested_weight}" ]]; then
+  case "${requested_weight}" in
+    svdq-int4_r32-z-image-turbo.safetensors|int4_r32|int4:32)
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="svdq-int4_r32-z-image-turbo.safetensors"
+      ;;
+    svdq-int4_r128-z-image-turbo.safetensors|int4_r128|int4:128)
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="128"
+      selected_fetch_label="svdq-int4_r128-z-image-turbo.safetensors"
+      ;;
+    svdq-int4_r256-z-image-turbo.safetensors|int4_r256|int4:256)
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="256"
+      selected_fetch_label="svdq-int4_r256-z-image-turbo.safetensors"
+      ;;
+    svdq-fp4_r32-z-image-turbo.safetensors|fp4_r32|fp4:32)
+      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="svdq-fp4_r32-z-image-turbo.safetensors"
+      ;;
+    svdq-fp4_r128-z-image-turbo.safetensors|fp4_r128|fp4:128)
+      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_RANK="128"
+      selected_fetch_label="svdq-fp4_r128-z-image-turbo.safetensors"
+      ;;
+    *)
+      echo "Unsupported Z-Image Turbo quantized weight: ${requested_weight}." >&2
+      echo "Expected one of the svdq-int4/fp4 Z-Image Turbo safetensors filenames listed in --help." >&2
+      exit 2
+      ;;
+  esac
+
+  export Z_IMAGE_NUNCHAKU_PRECISION
+  export Z_IMAGE_NUNCHAKU_RANK
+fi
 
 if [[ -n "${requested_gpu_family}" || -n "${requested_preset}" ]]; then
   if [[ -z "${requested_gpu_family}" || -z "${requested_preset}" ]]; then
@@ -142,7 +199,7 @@ if [[ -n "${requested_gpu_family}" || -n "${requested_preset}" ]]; then
       selected_fetch_label="RTX 50 Balanced"
       ;;
     rtx_50:highest)
-      echo "Unsupported preset: RTX 50 Highest would require fp4 r256, but the published r256 Z-Image Turbo Nunchaku weight is INT4 only." >&2
+      echo "Unsupported preset: RTX 50 Highest would require fp4 r256, but the published r256 Z-Image Turbo quantized weight is INT4 only." >&2
       exit 2
       ;;
     *)
@@ -172,11 +229,11 @@ fi
 case "${Z_IMAGE_NUNCHAKU_PRECISION}:${Z_IMAGE_NUNCHAKU_RANK}" in
   auto:32|auto:128|int4:32|int4:128|int4:256|fp4:32|fp4:128) ;;
   auto:256)
-    echo "Unsupported weight: auto r256. The published r256 Nunchaku Z-Image Turbo weight is INT4 only." >&2
+    echo "Unsupported weight: auto r256. The published r256 Z-Image Turbo quantized weight is INT4 only." >&2
     exit 2
     ;;
   fp4:256)
-    echo "Unsupported weight: fp4 r256. The published r256 Nunchaku Z-Image Turbo weight is INT4 only." >&2
+    echo "Unsupported weight: fp4 r256. The published r256 Z-Image Turbo quantized weight is INT4 only." >&2
     exit 2
     ;;
   *)
@@ -348,9 +405,9 @@ if precision == "auto":
         precision = "int4"
 
 filename = f"svdq-{precision}_r{rank}-z-image-turbo.safetensors"
-print(f"Z-Image Turbo Nunchaku weight prefetch: {repo_id}/{filename}", flush=True)
+print(f"Z-Image Turbo quantized weight prefetch: {repo_id}/{filename}", flush=True)
 path = hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=cache_dir, token=token)
-print(f"Z-Image Turbo Nunchaku weight ready: {path}", flush=True)
+print(f"Z-Image Turbo quantized weight ready: {path}", flush=True)
 PY
   )
 }
@@ -382,9 +439,9 @@ run_with_hf_download_progress \
   prefetch_zimage_base_model
 unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 
-export NYMPHS3D_PREFETCH_COMPONENT_HINT="Nunchaku rank weight for the selected Z-Image preset"
+export NYMPHS3D_PREFETCH_COMPONENT_HINT="Nunchaku-compatible quantized weight for the selected Z-Image Turbo runtime"
 run_with_hf_download_progress \
-  "Z-Image Turbo Nunchaku weight prefetch" \
+  "Z-Image Turbo quantized weight prefetch" \
   "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
   prefetch_zimage_nunchaku_weight
 unset NYMPHS3D_PREFETCH_COMPONENT_HINT

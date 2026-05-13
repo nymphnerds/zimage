@@ -50,18 +50,19 @@ Z-Image owns the fetch choices, source links, script arguments, validation, and
 runtime preset file. The Manager only renders the generic controls, stores the
 shared Hugging Face token, and routes the declared action.
 
-The native Fetch Models UI exposes the supported Nunchaku Z-Image Turbo
-generation presets:
+The native Fetch Models UI downloads the base Z-Image Turbo model plus one
+Nunchaku-compatible quantized `.safetensors` weight:
 
-- RTX 20/30/40 Fast -> INT4 r32
-- RTX 20/30/40 Balanced -> INT4 r128
-- RTX 20/30/40 Highest -> INT4 r256
-- RTX 50 Fast -> FP4 r32
-- RTX 50 Balanced -> FP4 r128
+- `svdq-int4_r32-z-image-turbo.safetensors`
+- `svdq-int4_r128-z-image-turbo.safetensors`
+- `svdq-int4_r256-z-image-turbo.safetensors`
+- `svdq-fp4_r32-z-image-turbo.safetensors`
+- `svdq-fp4_r128-z-image-turbo.safetensors`
 
-FP4 r256 is invalid because the published r256 weight is INT4-only. These
-choices are Nunchaku generation weights, not LoRA training precision. LoRA
-training BF16 is handled separately by the training stack.
+FP4 r256 is not listed because the published r256 weight is INT4-only. These
+choices are Z-Image Turbo inference weights for the Nunchaku runtime, not LoRA
+training precision. LoRA training BF16 is handled separately by the training
+stack.
 
 The Fetch Models UI also has an optional `HF Token` password field. In the
 NymphsCore Manager, that token is persisted in the Windows user profile under:
@@ -126,7 +127,7 @@ Default model:
 Tongyi-MAI/Z-Image-Turbo
 ```
 
-Default Nunchaku weights:
+Default Nunchaku-compatible Z-Image Turbo weights:
 
 ```text
 nunchaku-ai/nunchaku-z-image-turbo

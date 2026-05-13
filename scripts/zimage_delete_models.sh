@@ -41,7 +41,7 @@ Deletes local Hugging Face cache folders used by Z-Image Turbo.
 Scopes:
   base     Tongyi-MAI/Z-Image-Turbo cache
   weights  nunchaku-ai/nunchaku-z-image-turbo cache
-  all      both base and Nunchaku weight caches
+  all      both base and Nunchaku-compatible weight caches
 
 This does not delete the runtime install, generated outputs, logs, LoRAs, or
 other modules' model caches.
@@ -104,7 +104,7 @@ if [[ "${scope}" == "base" || "${scope}" == "all" ]]; then
 fi
 
 if [[ "${scope}" == "weights" || "${scope}" == "all" ]]; then
-  delete_repo_cache "Z-Image Turbo Nunchaku weights" "${Z_IMAGE_NUNCHAKU_MODEL_REPO}"
+  delete_repo_cache "Z-Image Turbo Nunchaku-compatible weights" "${Z_IMAGE_NUNCHAKU_MODEL_REPO}"
 fi
 
 echo "Z-Image Turbo model cache delete complete."

@@ -85,7 +85,7 @@ if [[ "${env_ready}" == "true" ]]; then
   else
     models_ready=false
     health=model-download-needed
-    detail="Model files need downloading for ${status_check_precision} r${Z_IMAGE_NUNCHAKU_RANK}. Use Fetch Models to download the base Z-Image Turbo model and selected Nunchaku weight."
+    detail="Model files need downloading for ${status_check_precision} r${Z_IMAGE_NUNCHAKU_RANK}. Use Fetch Models to download the base Z-Image Turbo model and selected Nunchaku-compatible quantized weight."
   fi
 fi
 

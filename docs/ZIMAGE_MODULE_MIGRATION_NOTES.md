@@ -87,16 +87,19 @@ ui.manager_action_groups[id=model_fetch]
 entrypoint = fetch_models
 ```
 
-The Fetch Models surface stays module-owned. It offers the supported generation
-presets:
+The Fetch Models surface stays module-owned. It downloads the base Z-Image Turbo
+model plus one Nunchaku-compatible quantized `.safetensors` weight:
 
 ```text
-RTX 20/30/40 Fast/Balanced/Highest -> INT4 r32/r128/r256
-RTX 50 Fast/Balanced -> FP4 r32/r128
+svdq-int4_r32-z-image-turbo.safetensors
+svdq-int4_r128-z-image-turbo.safetensors
+svdq-int4_r256-z-image-turbo.safetensors
+svdq-fp4_r32-z-image-turbo.safetensors
+svdq-fp4_r128-z-image-turbo.safetensors
 ```
 
-Those options are generation weights, not LoRA training precision. BF16 belongs
-to the LoRA/training path.
+Those options are Z-Image Turbo inference weights for the Nunchaku runtime, not
+LoRA training precision. BF16 belongs to the LoRA/training path.
 
 The Manager may hydrate the optional `HF Token` field from its shared local
 secrets file and passes it to downloads through `NYMPHS3D_HF_TOKEN`. Do not log
