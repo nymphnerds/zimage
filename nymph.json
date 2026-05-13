@@ -61,7 +61,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Downloads the shared Z-Image Turbo base model plus the Nunchaku-compatible weights used by Blender.\nChoose All weights if you want Blender's Model Choice menu to switch freely between r32, r128, and r256 later.\nr32 is the light/default Blender choice. r128 is balanced or portrait-friendly. r256 is highest quality and INT4-only.\nRTX 50 users should fetch fp4_r128 or All weights. You can fetch more later without reinstalling.",
+        "description": "Install sets up the backend only. Fetch Models downloads the actual AI model files.\nEvery fetch downloads the large required base model first: Tongyi-MAI/Z-Image-Turbo.\nThen it downloads your selected Nunchaku-compatible Blender weight. Choose All weights only if you want Blender to switch between every preset later.\nr32 is light/default. r128 is balanced or portrait-friendly. r256 is highest quality and INT4-only. RTX 50 users should fetch fp4_r128 or All weights.",
         "links": [
           {
             "label": "Base model",
@@ -78,7 +78,7 @@
             "type": "select",
             "label": "Download",
             "arg": "--model",
-            "default": "all",
+            "default": "svdq-int4_r32-z-image-turbo.safetensors",
             "options": [
               {
                 "label": "All weights",

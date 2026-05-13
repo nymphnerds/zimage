@@ -327,12 +327,12 @@ print_hf_download_progress() {
     cache_delta=0
   fi
 
-  echo "MODEL DOWNLOAD STATUS: phase=${label} repo=${repo_id} status=downloading"
+  echo "MODEL FETCH STATUS: step=${label} repo=${repo_id} status=downloading"
   if [[ -n "${NYMPHS3D_PREFETCH_COMPONENT_HINT:-}" ]]; then
-    echo "MODEL DOWNLOAD STATUS: waiting_on=${NYMPHS3D_PREFETCH_COMPONENT_HINT}"
+    echo "MODEL FETCH STATUS: downloading=${NYMPHS3D_PREFETCH_COMPONENT_HINT}"
   fi
-  echo "MODEL DOWNLOAD STATUS: cache_dir=${NYMPHS3D_HF_CACHE_DIR} shared_cache=$(format_bytes "${current_cache_bytes}") downloaded_this_step=$(format_bytes "${cache_delta}")"
-  echo "MODEL DOWNLOAD STATUS: repo_cache_blobs=$(format_bytes "${repo_bytes}") active_partial_files=${incomplete_count}"
+  echo "MODEL FETCH STATUS: huggingface_cache_total=$(format_bytes "${current_cache_bytes}") downloaded_this_step=$(format_bytes "${cache_delta}") cache_dir=${NYMPHS3D_HF_CACHE_DIR}"
+  echo "MODEL FETCH STATUS: this_repo_cache=$(format_bytes "${repo_bytes}") active_download_files=${incomplete_count}"
 }
 
 run_with_hf_download_progress() {
@@ -354,7 +354,7 @@ run_with_hf_download_progress() {
   marker="$(mktemp "${TMPDIR:-/tmp}/nymphs-zimage-prefetch.XXXXXX.status")"
   rm -f "${marker}"
 
-  echo "MODEL DOWNLOAD STARTED: phase=${label} repo=${repo_id} cache_dir=${NYMPHS3D_HF_CACHE_DIR} progress_interval=${interval}s"
+  echo "MODEL FETCH STARTED: step=${label} repo=${repo_id} cache_dir=${NYMPHS3D_HF_CACHE_DIR} progress_interval=${interval}s"
   (
     set +e
     "$@"
@@ -378,9 +378,9 @@ run_with_hf_download_progress() {
 
   if [[ "${status}" -eq 0 ]]; then
     print_hf_download_progress "${label}" "${repo_id}" "${start_cache_bytes}"
-    echo "MODEL DOWNLOAD COMPLETE: phase=${label} repo=${repo_id}"
+    echo "MODEL FETCH COMPLETE: step=${label} repo=${repo_id}"
   else
-    echo "MODEL DOWNLOAD FAILED: phase=${label} repo=${repo_id} exit_status=${status}"
+    echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} exit_status=${status}"
   fi
 
   return "${status}"
@@ -456,22 +456,24 @@ echo "nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}"
 echo "download_all_weights=${download_all_weights}"
 echo "hf_cache_dir=${NYMPHS3D_HF_CACHE_DIR}"
 
-export NYMPHS3D_PREFETCH_COMPONENT_HINT="base Z-Image files: scheduler, text encoder, tokenizer, transformer, and VAE"
+echo "model_fetch_plan=1 required base model (${Z_IMAGE_MODEL_ID}), then selected Blender/Nunchaku weight"
+
+export NYMPHS3D_PREFETCH_COMPONENT_HINT="required large base Z-Image Turbo model files"
 run_with_hf_download_progress \
-  "Z-Image Turbo model prefetch" \
+  "1/2 required base model" \
   "${Z_IMAGE_MODEL_ID}" \
   prefetch_zimage_base_model
 unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 
 if [[ "${download_all_weights}" == "true" ]]; then
   export ZIMAGE_FETCH_ALL_WEIGHTS=1
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published Nunchaku-compatible Z-Image Turbo weights for Blender Model Choice presets"
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published Nunchaku-compatible Blender weights"
 else
   unset ZIMAGE_FETCH_ALL_WEIGHTS
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="Nunchaku-compatible quantized weight for the selected Z-Image Turbo runtime"
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Nunchaku-compatible Blender weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}"
 fi
 run_with_hf_download_progress \
-  "Z-Image Turbo quantized weight prefetch" \
+  "2/2 selected Blender weight" \
   "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
   prefetch_zimage_nunchaku_weight
 unset NYMPHS3D_PREFETCH_COMPONENT_HINT
