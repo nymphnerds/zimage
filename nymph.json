@@ -64,7 +64,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "This downloads the base Z-Image Turbo model plus one Nunchaku-compatible quantized .safetensors weight. Start with svdq-int4_r128 on RTX 20/30/40 cards, svdq-fp4_r128 on RTX 50 cards, or use an r32 file if VRAM is tight. The r256 file is highest quality/slowest and only exists as INT4.",
+        "description": "Downloads: base Z-Image Turbo + selected Nunchaku-compatible weight.\nRTX 20/30/40: choose int4_r128.\nRTX 50: choose fp4_r128.\nLow VRAM: choose r32.\nHighest quality: choose int4_r256.",
         "links": [
           {
             "label": "Base",
@@ -84,27 +84,27 @@
             "default": "svdq-int4_r128-z-image-turbo.safetensors",
             "options": [
               {
-                "label": "INT4 r32 - low VRAM",
+                "label": "int4_r32",
                 "value": "svdq-int4_r32-z-image-turbo.safetensors",
                 "description": "INT4 r32 - fastest, lowest VRAM"
               },
               {
-                "label": "INT4 r128 - RTX 20/30/40",
+                "label": "int4_r128",
                 "value": "svdq-int4_r128-z-image-turbo.safetensors",
                 "description": "INT4 r128 - recommended RTX 20/30/40"
               },
               {
-                "label": "INT4 r256 - highest",
+                "label": "int4_r256",
                 "value": "svdq-int4_r256-z-image-turbo.safetensors",
                 "description": "INT4 r256 - highest quality, more VRAM"
               },
               {
-                "label": "FP4 r32 - RTX 50 low VRAM",
+                "label": "fp4_r32",
                 "value": "svdq-fp4_r32-z-image-turbo.safetensors",
                 "description": "FP4 r32 - fastest RTX 50 option"
               },
               {
-                "label": "FP4 r128 - RTX 50",
+                "label": "fp4_r128",
                 "value": "svdq-fp4_r128-z-image-turbo.safetensors",
                 "description": "FP4 r128 - recommended RTX 50"
               }
