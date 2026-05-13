@@ -7,6 +7,8 @@ MODULE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ZIMAGE_INSTALL_ROOT="${ZIMAGE_INSTALL_ROOT:-$HOME/Z-Image}"
 ZIMAGE_VENV_DIR="${ZIMAGE_VENV_DIR:-$ZIMAGE_INSTALL_ROOT/.venv-nunchaku}"
 NYMPHS_DATA_ROOT="${NYMPHS_DATA_ROOT:-$HOME/NymphsData}"
+ZIMAGE_CONFIG_DIR="${ZIMAGE_CONFIG_DIR:-$NYMPHS_DATA_ROOT/config/zimage}"
+ZIMAGE_PRESET_FILE="${ZIMAGE_PRESET_FILE:-$ZIMAGE_CONFIG_DIR/generation-preset.env}"
 ZIMAGE_OUTPUT_DIR="${ZIMAGE_OUTPUT_DIR:-$NYMPHS_DATA_ROOT/outputs/zimage}"
 ZIMAGE_LOG_DIR="${ZIMAGE_LOG_DIR:-$NYMPHS_DATA_ROOT/logs/zimage}"
 ZIMAGE_PID_FILE="${ZIMAGE_PID_FILE:-$ZIMAGE_LOG_DIR/zimage.pid}"
@@ -21,6 +23,25 @@ ZIMAGE_NUNCHAKU_SPEC="${ZIMAGE_NUNCHAKU_SPEC:-git+${ZIMAGE_NUNCHAKU_REPO}@${ZIMA
 ZIMAGE_DIFFUSERS_SPEC="${ZIMAGE_DIFFUSERS_SPEC:-diffusers==0.37.1}"
 ZIMAGE_TORCH_INDEX_URL="${ZIMAGE_TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}"
 
+preset_precision=""
+preset_rank=""
+if [[ -f "${ZIMAGE_PRESET_FILE}" ]]; then
+  while IFS='=' read -r key value; do
+    case "${key}" in
+      Z_IMAGE_NUNCHAKU_PRECISION)
+        case "${value}" in
+          int4|fp4|auto) preset_precision="${value}" ;;
+        esac
+        ;;
+      Z_IMAGE_NUNCHAKU_RANK)
+        case "${value}" in
+          32|128|256) preset_rank="${value}" ;;
+        esac
+        ;;
+    esac
+  done < "${ZIMAGE_PRESET_FILE}"
+fi
+
 export Z_IMAGE_RUNTIME="${Z_IMAGE_RUNTIME:-nunchaku}"
 export NYMPHS2D2_RUNTIME="${NYMPHS2D2_RUNTIME:-$Z_IMAGE_RUNTIME}"
 export Z_IMAGE_MODEL_ID
@@ -30,8 +51,8 @@ export NYMPHS2D2_PORT="${NYMPHS2D2_PORT:-$Z_IMAGE_PORT}"
 export Z_IMAGE_OUTPUT_DIR
 export NYMPHS2D2_OUTPUT_DIR="${NYMPHS2D2_OUTPUT_DIR:-$ZIMAGE_OUTPUT_DIR}"
 export Z_IMAGE_NUNCHAKU_MODEL_REPO="${Z_IMAGE_NUNCHAKU_MODEL_REPO:-nunchaku-ai/nunchaku-z-image-turbo}"
-export Z_IMAGE_NUNCHAKU_RANK="${Z_IMAGE_NUNCHAKU_RANK:-32}"
-export Z_IMAGE_NUNCHAKU_PRECISION="${Z_IMAGE_NUNCHAKU_PRECISION:-auto}"
+export Z_IMAGE_NUNCHAKU_RANK="${Z_IMAGE_NUNCHAKU_RANK:-${preset_rank:-32}}"
+export Z_IMAGE_NUNCHAKU_PRECISION="${Z_IMAGE_NUNCHAKU_PRECISION:-${preset_precision:-auto}}"
 export Z_IMAGE_NUNCHAKU_IMG2IMG="${Z_IMAGE_NUNCHAKU_IMG2IMG:-1}"
 export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 export NYMPHS3D_HF_CACHE_DIR="${NYMPHS3D_HF_CACHE_DIR:-$NYMPHS_DATA_ROOT/cache/huggingface}"

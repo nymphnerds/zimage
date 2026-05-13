@@ -4,8 +4,36 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_zimage_common.sh"
 
+requested_gpu_family=""
+requested_preset=""
+selected_fetch_label=""
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --gpu-family)
+      if [[ $# -lt 2 ]]; then
+        echo "--gpu-family requires a value." >&2
+        exit 2
+      fi
+      requested_gpu_family="${2:-}"
+      shift 2
+      ;;
+    --gpu-family=*)
+      requested_gpu_family="${1#*=}"
+      shift
+      ;;
+    --preset)
+      if [[ $# -lt 2 ]]; then
+        echo "--preset requires a value." >&2
+        exit 2
+      fi
+      requested_preset="${2:-}"
+      shift 2
+      ;;
+    --preset=*)
+      requested_preset="${1#*=}"
+      shift
+      ;;
     --precision)
       if [[ $# -lt 2 ]]; then
         echo "--precision requires a value." >&2
@@ -49,10 +77,19 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       cat <<'EOF'
-Usage: zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
+Usage:
+  zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
+  zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
 
 Downloads the base Z-Image Turbo model files and the selected Nunchaku
 quantized weight.
+
+Friendly presets:
+  RTX 20/30/40 + fast     -> int4 r32
+  RTX 20/30/40 + balanced -> int4 r128
+  RTX 20/30/40 + highest  -> int4 r256
+  RTX 50       + fast     -> fp4 r32
+  RTX 50       + balanced -> fp4 r128
 
 Published Nunchaku Z-Image Turbo weights:
   int4 r32
@@ -71,6 +108,53 @@ EOF
       ;;
   esac
 done
+
+if [[ -n "${requested_gpu_family}" || -n "${requested_preset}" ]]; then
+  if [[ -z "${requested_gpu_family}" || -z "${requested_preset}" ]]; then
+    echo "--gpu-family and --preset must be used together." >&2
+    exit 2
+  fi
+
+  case "${requested_gpu_family}:${requested_preset}" in
+    rtx_20_30_40:fast)
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="RTX 20/30/40 Fast"
+      ;;
+    rtx_20_30_40:balanced)
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="128"
+      selected_fetch_label="RTX 20/30/40 Balanced"
+      ;;
+    rtx_20_30_40:highest)
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="256"
+      selected_fetch_label="RTX 20/30/40 Highest"
+      ;;
+    rtx_50:fast)
+      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="RTX 50 Fast"
+      ;;
+    rtx_50:balanced)
+      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_RANK="128"
+      selected_fetch_label="RTX 50 Balanced"
+      ;;
+    rtx_50:highest)
+      echo "Unsupported preset: RTX 50 Highest would require fp4 r256, but the published r256 Z-Image Turbo Nunchaku weight is INT4 only." >&2
+      exit 2
+      ;;
+    *)
+      echo "Unsupported Z-Image fetch preset: gpu=${requested_gpu_family} preset=${requested_preset}." >&2
+      echo "Expected GPU rtx_20_30_40 or rtx_50, and preset fast, balanced, or highest." >&2
+      exit 2
+      ;;
+  esac
+
+  export Z_IMAGE_NUNCHAKU_PRECISION
+  export Z_IMAGE_NUNCHAKU_RANK
+fi
 
 case "${Z_IMAGE_NUNCHAKU_PRECISION}" in
   auto|int4|fp4) ;;
@@ -271,6 +355,17 @@ PY
   )
 }
 
+save_zimage_generation_preset() {
+  mkdir -p "${ZIMAGE_CONFIG_DIR}"
+  {
+    printf 'Z_IMAGE_NUNCHAKU_PRECISION=%s\n' "${Z_IMAGE_NUNCHAKU_PRECISION}"
+    printf 'Z_IMAGE_NUNCHAKU_RANK=%s\n' "${Z_IMAGE_NUNCHAKU_RANK}"
+    if [[ -n "${selected_fetch_label}" ]]; then
+      printf 'ZIMAGE_FETCH_LABEL=%s\n' "${selected_fetch_label}"
+    fi
+  } > "${ZIMAGE_PRESET_FILE}"
+}
+
 export HF_HUB_DISABLE_PROGRESS_BARS="${HF_HUB_DISABLE_PROGRESS_BARS:-1}"
 mkdir -p "${NYMPHS3D_HF_CACHE_DIR}"
 
@@ -293,3 +388,6 @@ run_with_hf_download_progress \
   "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
   prefetch_zimage_nunchaku_weight
 unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+
+save_zimage_generation_preset
+echo "Z-Image generation preset saved: precision=${Z_IMAGE_NUNCHAKU_PRECISION} rank=${Z_IMAGE_NUNCHAKU_RANK} file=${ZIMAGE_PRESET_FILE}"

@@ -43,26 +43,25 @@ scripts/zimage_smoke_test.sh
 ```
 
 The module page uses the standard NymphsCore install/detail shell before install.
-After install, the Manager can host the local module-owned UI declared in:
+After install, the Manager renders the compact native model fetch UI declared in
+`ui.manager_action_groups`.
 
-```text
-ui/manager.html
-```
+Z-Image owns the fetch choices, source links, script arguments, validation, and
+runtime preset file. The Manager only renders the generic controls, stores the
+shared Hugging Face token, and routes the declared action.
 
-That UI describes backend controls and quantized model fetching. The Manager should only act as a generic host for this local installed file; it should not hardcode Z-Image controls.
+The native Fetch Models UI exposes the supported Nunchaku Z-Image Turbo
+generation presets:
 
-The current Fetch Models UI exposes all published Nunchaku Z-Image Turbo
-generation weights:
+- RTX 20/30/40 Fast -> INT4 r32
+- RTX 20/30/40 Balanced -> INT4 r128
+- RTX 20/30/40 Highest -> INT4 r256
+- RTX 50 Fast -> FP4 r32
+- RTX 50 Balanced -> FP4 r128
 
-- INT4 r32
-- INT4 r128
-- INT4 r256
-- FP4 r32
-- FP4 r128
-
-`auto` is allowed for r32/r128 only, because r256 is INT4-only. These choices
-are Nunchaku generation weights, not LoRA training precision. LoRA training BF16
-is handled separately by the training stack.
+FP4 r256 is invalid because the published r256 weight is INT4-only. These
+choices are Nunchaku generation weights, not LoRA training precision. LoRA
+training BF16 is handled separately by the training stack.
 
 The Fetch Models UI also has an optional `HF Token` password field. In the
 NymphsCore Manager, that token is persisted in the Windows user profile under:
@@ -78,10 +77,8 @@ If the runtime is installed but the selected model cache is missing, status stay
 `installed` and reports `models_ready=false` with a plain download message. That
 state should not be treated as a broken install.
 
-The Fetch Models UI can also delete local model cache files. `delete_weights`
-removes the Nunchaku quantized weight cache, while `delete_all_models` removes
-both the base Z-Image Turbo cache and the Nunchaku weight cache. Outputs, logs,
-LoRAs, and the runtime install are preserved.
+The module still owns `scripts/zimage_delete_models.sh` for local model cache
+cleanup. Outputs, logs, LoRAs, and the runtime install are preserved.
 
 ## Important Dependency
 

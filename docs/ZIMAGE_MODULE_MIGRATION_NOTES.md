@@ -73,24 +73,26 @@ The module repo now owns equivalent scripts under `scripts/`.
 
 The manager should eventually stop special-casing `install_nymphs2d2.sh` and instead call the module contract from `nymph.json`.
 
-## Custom Page Rule
+## Native Model Fetch UI Rule
 
-The Z-Image Turbo manager page should be custom, not the generic fallback facts page. The manifest tells the manager how to discover/install/run the module; it does not replace the designed module page.
+The Z-Image Turbo model fetch controls should be native Manager controls
+declared by the module manifest, not a WebView2/local HTML page. The manifest
+tells the Manager how to discover/install/run the module and how to render the
+compact model fetch action group.
 
 Current module-owned UI expectations:
 
 ```text
-ui.manager_ui.type = local_html
-ui.manager_ui.entrypoint = ui/manager.html
+ui.manager_action_groups[id=model_fetch]
+entrypoint = fetch_models
 ```
 
-The Fetch Models surface should stay module-owned. It currently offers all
-published Nunchaku Z-Image Turbo weights:
+The Fetch Models surface stays module-owned. It offers the supported generation
+presets:
 
 ```text
-INT4 r32/r128/r256
-FP4 r32/r128
-Auto r32/r128 only
+RTX 20/30/40 Fast/Balanced/Highest -> INT4 r32/r128/r256
+RTX 50 Fast/Balanced -> FP4 r32/r128
 ```
 
 Those options are generation weights, not LoRA training precision. BF16 belongs
