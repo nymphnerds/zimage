@@ -7,6 +7,7 @@ source "${SCRIPT_DIR}/_zimage_common.sh"
 requested_gpu_family=""
 requested_preset=""
 requested_weight=""
+download_all_weights=false
 selected_fetch_label=""
 
 while [[ $# -gt 0 ]]; do
@@ -92,11 +93,13 @@ while [[ $# -gt 0 ]]; do
       cat <<'EOF'
 Usage:
   zimage_fetch_models.sh --model svdq-int4_r128-z-image-turbo.safetensors
+  zimage_fetch_models.sh --model all
   zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
   zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
 
 Downloads the base Z-Image Turbo model files and the selected Nunchaku
-quantized weight.
+quantized weight. Use --model all to download every published compatible
+weight so Blender can switch between its Model Choice presets later.
 
 Friendly presets:
   RTX 20/30/40 + fast     -> int4 r32
@@ -130,6 +133,10 @@ fi
 
 if [[ -n "${requested_weight}" ]]; then
   case "${requested_weight}" in
+    all|all_weights|all-weights)
+      download_all_weights=true
+      selected_fetch_label="all published Z-Image Turbo Nunchaku-compatible weights"
+      ;;
     svdq-int4_r32-z-image-turbo.safetensors|int4_r32|int4:32)
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
@@ -162,8 +169,10 @@ if [[ -n "${requested_weight}" ]]; then
       ;;
   esac
 
-  export Z_IMAGE_NUNCHAKU_PRECISION
-  export Z_IMAGE_NUNCHAKU_RANK
+  if [[ "${download_all_weights}" != "true" ]]; then
+    export Z_IMAGE_NUNCHAKU_PRECISION
+    export Z_IMAGE_NUNCHAKU_RANK
+  fi
 fi
 
 if [[ -n "${requested_gpu_family}" || -n "${requested_preset}" ]]; then
@@ -226,22 +235,24 @@ if [[ ! "${Z_IMAGE_NUNCHAKU_RANK}" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-case "${Z_IMAGE_NUNCHAKU_PRECISION}:${Z_IMAGE_NUNCHAKU_RANK}" in
-  auto:32|auto:128|int4:32|int4:128|int4:256|fp4:32|fp4:128) ;;
-  auto:256)
-    echo "Unsupported weight: auto r256. The published r256 Z-Image Turbo quantized weight is INT4 only." >&2
-    exit 2
-    ;;
-  fp4:256)
-    echo "Unsupported weight: fp4 r256. The published r256 Z-Image Turbo quantized weight is INT4 only." >&2
-    exit 2
-    ;;
-  *)
-    echo "Unsupported weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}." >&2
-    echo "Expected one of: int4 r32, int4 r128, int4 r256, fp4 r32, fp4 r128, auto r32, auto r128." >&2
-    exit 2
-    ;;
-esac
+if [[ "${download_all_weights}" != "true" ]]; then
+  case "${Z_IMAGE_NUNCHAKU_PRECISION}:${Z_IMAGE_NUNCHAKU_RANK}" in
+    auto:32|auto:128|int4:32|int4:128|int4:256|fp4:32|fp4:128) ;;
+    auto:256)
+      echo "Unsupported weight: auto r256. The published r256 Z-Image Turbo quantized weight is INT4 only." >&2
+      exit 2
+      ;;
+    fp4:256)
+      echo "Unsupported weight: fp4 r256. The published r256 Z-Image Turbo quantized weight is INT4 only." >&2
+      exit 2
+      ;;
+    *)
+      echo "Unsupported weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}." >&2
+      echo "Expected one of: int4 r32, int4 r128, int4 r256, fp4 r32, fp4 r128, auto r32, auto r128." >&2
+      exit 2
+      ;;
+  esac
+fi
 
 if [[ ! -x "$(zimage_python)" ]]; then
   echo "Z-Image Turbo runtime is missing. Run scripts/install_zimage.sh first." >&2
@@ -394,20 +405,32 @@ from huggingface_hub import hf_hub_download
 repo_id = os.getenv("Z_IMAGE_NUNCHAKU_MODEL_REPO") or "nunchaku-ai/nunchaku-z-image-turbo"
 rank = os.getenv("Z_IMAGE_NUNCHAKU_RANK") or "32"
 precision = (os.getenv("Z_IMAGE_NUNCHAKU_PRECISION") or "auto").strip().lower()
+download_all = (os.getenv("ZIMAGE_FETCH_ALL_WEIGHTS") or "").strip().lower() in {"1", "true", "yes", "on"}
 cache_dir = os.getenv("NYMPHS3D_HF_CACHE_DIR") or None
 token = os.getenv("NYMPHS3D_HF_TOKEN") or None
-if precision == "auto":
+if download_all:
+    filenames = [
+        "svdq-int4_r32-z-image-turbo.safetensors",
+        "svdq-int4_r128-z-image-turbo.safetensors",
+        "svdq-int4_r256-z-image-turbo.safetensors",
+        "svdq-fp4_r32-z-image-turbo.safetensors",
+        "svdq-fp4_r128-z-image-turbo.safetensors",
+    ]
+elif precision == "auto":
     try:
         from nunchaku.utils import get_precision
         device = os.getenv("Z_IMAGE_DEVICE") or "cuda"
         precision = get_precision(precision="auto", device=device)
     except Exception:
         precision = "int4"
+    filenames = [f"svdq-{precision}_r{rank}-z-image-turbo.safetensors"]
+else:
+    filenames = [f"svdq-{precision}_r{rank}-z-image-turbo.safetensors"]
 
-filename = f"svdq-{precision}_r{rank}-z-image-turbo.safetensors"
-print(f"Z-Image Turbo quantized weight prefetch: {repo_id}/{filename}", flush=True)
-path = hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=cache_dir, token=token)
-print(f"Z-Image Turbo quantized weight ready: {path}", flush=True)
+for filename in filenames:
+    print(f"Z-Image Turbo quantized weight prefetch: {repo_id}/{filename}", flush=True)
+    path = hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=cache_dir, token=token)
+    print(f"Z-Image Turbo quantized weight ready: {path}", flush=True)
 PY
   )
 }
@@ -430,6 +453,7 @@ echo "zimage_model=${Z_IMAGE_MODEL_ID}"
 echo "nunchaku_weight_repo=${Z_IMAGE_NUNCHAKU_MODEL_REPO}"
 echo "nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}"
 echo "nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}"
+echo "download_all_weights=${download_all_weights}"
 echo "hf_cache_dir=${NYMPHS3D_HF_CACHE_DIR}"
 
 export NYMPHS3D_PREFETCH_COMPONENT_HINT="base Z-Image files: scheduler, text encoder, tokenizer, transformer, and VAE"
@@ -439,7 +463,13 @@ run_with_hf_download_progress \
   prefetch_zimage_base_model
 unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 
-export NYMPHS3D_PREFETCH_COMPONENT_HINT="Nunchaku-compatible quantized weight for the selected Z-Image Turbo runtime"
+if [[ "${download_all_weights}" == "true" ]]; then
+  export ZIMAGE_FETCH_ALL_WEIGHTS=1
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published Nunchaku-compatible Z-Image Turbo weights for Blender Model Choice presets"
+else
+  unset ZIMAGE_FETCH_ALL_WEIGHTS
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="Nunchaku-compatible quantized weight for the selected Z-Image Turbo runtime"
+fi
 run_with_hf_download_progress \
   "Z-Image Turbo quantized weight prefetch" \
   "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
