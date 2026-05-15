@@ -5,20 +5,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_zimage_common.sh"
 
 PURGE=0
+DATA_ONLY=0
 DRY_RUN=0
 YES=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --purge) PURGE=1; shift ;;
+    --data-only) DATA_ONLY=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --yes) YES=1; shift ;;
     -h|--help)
       cat <<'EOF'
-Usage: zimage_uninstall.sh [--dry-run] [--yes] [--purge]
+Usage: zimage_uninstall.sh [--dry-run] [--yes] [--purge] [--data-only]
 
 Default uninstall removes the Z-Image runtime install but preserves outputs and logs.
 --purge removes the whole install root, including outputs and logs.
+--data-only deletes Z-Image outputs, logs, config, and legacy install-root data while keeping the runtime.
 EOF
       exit 0
       ;;
@@ -29,9 +32,22 @@ EOF
   esac
 done
 
+if [[ "${PURGE}" -eq 1 && "${DATA_ONLY}" -eq 1 ]]; then
+  echo "Choose only one of --purge or --data-only." >&2
+  exit 2
+fi
+
 echo "Z-Image Turbo uninstall plan"
 echo "install_root=${ZIMAGE_INSTALL_ROOT}"
-if [[ "${PURGE}" -eq 1 ]]; then
+if [[ "${DATA_ONLY}" -eq 1 ]]; then
+  echo "mode=data-only"
+  echo "delete=${ZIMAGE_OUTPUT_DIR}"
+  echo "delete=${ZIMAGE_LOG_DIR}"
+  echo "delete=${ZIMAGE_CONFIG_DIR}"
+  echo "delete=${ZIMAGE_INSTALL_ROOT}/outputs"
+  echo "delete=${ZIMAGE_INSTALL_ROOT}/logs"
+  echo "preserve=${ZIMAGE_INSTALL_ROOT}"
+elif [[ "${PURGE}" -eq 1 ]]; then
   echo "mode=purge"
   echo "delete=${ZIMAGE_INSTALL_ROOT}"
 else
@@ -55,11 +71,20 @@ fi
 "${SCRIPT_DIR}/zimage_stop.sh" || true
 
 if [[ ! -d "${ZIMAGE_INSTALL_ROOT}" ]]; then
-  echo "Z-Image Turbo is already uninstalled."
-  exit 0
+  if [[ "${DATA_ONLY}" -ne 1 ]]; then
+    echo "Z-Image Turbo is already uninstalled."
+    exit 0
+  fi
 fi
 
-if [[ "${PURGE}" -eq 1 ]]; then
+if [[ "${DATA_ONLY}" -eq 1 ]]; then
+  rm -rf \
+    "${ZIMAGE_OUTPUT_DIR}" \
+    "${ZIMAGE_LOG_DIR}" \
+    "${ZIMAGE_CONFIG_DIR}" \
+    "${ZIMAGE_INSTALL_ROOT}/outputs" \
+    "${ZIMAGE_INSTALL_ROOT}/logs"
+elif [[ "${PURGE}" -eq 1 ]]; then
   rm -rf "${ZIMAGE_INSTALL_ROOT}"
 else
   rm -f "${ZIMAGE_INSTALL_ROOT}/.nymph-module-version"
@@ -68,4 +93,8 @@ else
     -exec rm -rf {} +
 fi
 
-echo "Z-Image Turbo uninstalled."
+if [[ "${DATA_ONLY}" -eq 1 ]]; then
+  echo "Z-Image Turbo data deleted."
+else
+  echo "Z-Image Turbo uninstalled."
+fi
