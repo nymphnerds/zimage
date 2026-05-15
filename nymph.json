@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "packaging": "repo",
@@ -49,7 +49,9 @@
     "delete_models": "scripts/zimage_delete_models.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
     "smoke_test": "scripts/zimage_smoke_test.sh",
-    "uninstall": "scripts/zimage_uninstall.sh"
+    "uninstall": "scripts/zimage_uninstall.sh",
+    "open_weights": "scripts/zimage_open_weights.sh",
+    "open_outputs": "scripts/zimage_open_outputs.sh"
   },
   "ui": {
     "sort_order": 20,
@@ -132,6 +134,24 @@
         "label": "Smoke Test",
         "entrypoint": "smoke_test",
         "result": "show_output"
+      },
+      {
+        "id": "fetch_models",
+        "label": "Fetch Models",
+        "entrypoint": "fetch_models",
+        "result": "show_output"
+      },
+      {
+        "id": "open_weights",
+        "label": "Open Weights",
+        "entrypoint": "open_weights",
+        "result": "open_directory"
+      },
+      {
+        "id": "open_outputs",
+        "label": "Open Outputs",
+        "entrypoint": "open_outputs",
+        "result": "open_directory"
       },
       {
         "id": "start",
