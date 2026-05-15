@@ -193,6 +193,8 @@ for script in \
   zimage_fetch_models.sh \
   zimage_logs.sh \
   zimage_open.sh \
+  zimage_open_outputs.sh \
+  zimage_open_weights.sh \
   zimage_smoke_test.sh \
   zimage_start.sh \
   zimage_status.sh \
