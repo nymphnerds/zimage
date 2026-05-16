@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_zimage_common.sh"
 
+mkdir -p "${ZIMAGE_LOG_DIR}"
+touch "${ZIMAGE_LOG_DIR}/zimage-server.log"
 echo "logs_dir=${ZIMAGE_LOG_DIR}"
 echo "last_log=${ZIMAGE_LOG_DIR}/zimage-server.log"
 if [[ -f "${ZIMAGE_LOG_DIR}/zimage-server.log" ]]; then
