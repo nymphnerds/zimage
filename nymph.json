@@ -6,6 +6,7 @@
   "version": "0.1.9",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
+  "kind": "image",
   "packaging": "repo",
   "repo": {
     "url": "https://github.com/nymphnerds/zimage.git",
