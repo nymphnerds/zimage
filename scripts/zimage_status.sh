@@ -9,6 +9,10 @@ runtime_present=false
 data_present=false
 env_ready=false
 models_ready=unknown
+base_model_downloaded=unknown
+downloaded_models=none
+downloaded_weights=none
+missing_weights=none
 running=false
 version=not-installed
 health=unavailable
@@ -21,10 +25,113 @@ status_requested_precision="${Z_IMAGE_NUNCHAKU_PRECISION}"
 status_check_precision="${status_requested_precision}"
 detail="Not installed."
 
+read_zimage_model_cache_status() {
+  if [[ ! -x "$(zimage_python)" ]]; then
+    return 0
+  fi
+
+  ZIMAGE_STATUS_BASE_MODEL="${Z_IMAGE_MODEL_ID}" \
+  ZIMAGE_STATUS_WEIGHT_REPO="${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
+  ZIMAGE_STATUS_CACHE_DIR="${NYMPHS3D_HF_CACHE_DIR}" \
+  "$(zimage_python)" - <<'PY' 2>/dev/null || true
+import os
+
+base_model = os.getenv("ZIMAGE_STATUS_BASE_MODEL") or "Tongyi-MAI/Z-Image-Turbo"
+weight_repo = os.getenv("ZIMAGE_STATUS_WEIGHT_REPO") or "nunchaku-ai/nunchaku-z-image-turbo"
+cache_dir = os.getenv("ZIMAGE_STATUS_CACHE_DIR") or None
+weights = [
+    ("int4_r32", "svdq-int4_r32-z-image-turbo.safetensors"),
+    ("int4_r128", "svdq-int4_r128-z-image-turbo.safetensors"),
+    ("int4_r256", "svdq-int4_r256-z-image-turbo.safetensors"),
+    ("fp4_r32", "svdq-fp4_r32-z-image-turbo.safetensors"),
+    ("fp4_r128", "svdq-fp4_r128-z-image-turbo.safetensors"),
+]
+
+try:
+    from huggingface_hub import hf_hub_download, snapshot_download
+except Exception:
+    raise SystemExit(0)
+
+base_patterns = [
+    "model_index.json",
+    "scheduler/*",
+    "text_encoder/*",
+    "tokenizer/*",
+    "transformer/*",
+    "vae/*",
+]
+
+try:
+    snapshot_download(
+        repo_id=base_model,
+        cache_dir=cache_dir,
+        local_files_only=True,
+        allow_patterns=base_patterns,
+    )
+    base_downloaded = True
+except Exception:
+    base_downloaded = False
+
+downloaded = []
+missing = []
+for label, filename in weights:
+    try:
+        hf_hub_download(
+            repo_id=weight_repo,
+            filename=filename,
+            cache_dir=cache_dir,
+            local_files_only=True,
+        )
+        downloaded.append(label)
+    except Exception:
+        missing.append(label)
+
+downloaded_models = []
+if base_downloaded:
+    downloaded_models.append("Base")
+downloaded_models.extend(downloaded)
+
+print(f"base_model_downloaded={'true' if base_downloaded else 'false'}")
+print(f"downloaded_weights={','.join(downloaded) if downloaded else 'none'}")
+print(f"missing_weights={','.join(missing) if missing else 'none'}")
+print(f"downloaded_models={','.join(downloaded_models) if downloaded_models else 'none'}")
+PY
+}
+
+if [[ -d "${NYMPHS3D_HF_CACHE_DIR}" ]]; then
+  while IFS='=' read -r key value; do
+    case "${key}" in
+      base_model_downloaded) base_model_downloaded="${value}" ;;
+      downloaded_models) downloaded_models="${value}" ;;
+      downloaded_weights) downloaded_weights="${value}" ;;
+      missing_weights) missing_weights="${value}" ;;
+    esac
+  done < <(read_zimage_model_cache_status)
+fi
+
 if [[ -f "${marker}" ]]; then
   installed=true
   runtime_present=true
   version="$(head -n 1 "${marker}" 2>/dev/null || true)"
+  [[ -n "${version}" ]] || version=unknown
+  detail="Source installed."
+elif [[ -f "${ZIMAGE_INSTALL_ROOT}/api_server.py" && -f "${ZIMAGE_INSTALL_ROOT}/model_manager.py" ]]; then
+  installed=true
+  runtime_present=true
+  if [[ -f "${ZIMAGE_INSTALL_ROOT}/nymph.json" ]]; then
+    version="$(
+      ZIMAGE_STATUS_MANIFEST="${ZIMAGE_INSTALL_ROOT}/nymph.json" "$(zimage_python)" - <<'PY' 2>/dev/null || true
+import json
+import os
+
+try:
+    with open(os.environ["ZIMAGE_STATUS_MANIFEST"], "r", encoding="utf-8") as handle:
+        print(json.load(handle).get("version") or "unknown")
+except Exception:
+    print("unknown")
+PY
+    )"
+  fi
   [[ -n "${version}" ]] || version=unknown
   detail="Source installed."
 fi
@@ -71,7 +178,22 @@ if [[ "${installed}" == "true" ]] && zimage_is_running; then
   fi
 fi
 
-if [[ "${env_ready}" == "true" ]]; then
+if [[ "${env_ready}" == "true" &&
+      "${base_model_downloaded}" == "true" &&
+      "${downloaded_weights}" != "none" &&
+      -n "${downloaded_weights}" ]]; then
+  models_ready=true
+  if [[ "${running}" != "true" ]]; then
+    health=ok
+  fi
+  detail="Runtime and cached model files are ready."
+elif [[ "${env_ready}" == "true" &&
+        "${base_model_downloaded}" == "true" &&
+        ( "${downloaded_weights}" == "none" || -z "${downloaded_weights}" ) ]]; then
+  models_ready=false
+  health=model-download-needed
+  detail="Model files need downloading for ${status_check_precision} r${Z_IMAGE_NUNCHAKU_RANK}. Use Fetch Models to download the selected Nunchaku-compatible quantized weight."
+elif [[ "${env_ready}" == "true" ]]; then
   if (
     cd "${ZIMAGE_INSTALL_ROOT}"
     export Z_IMAGE_NUNCHAKU_PRECISION="${status_check_precision}"
@@ -98,6 +220,9 @@ elif [[ "${installed}" == "true" ]]; then
     state=needs_attention
     health=degraded
     detail="Z-Image runtime files are installed, but the Python runtime is missing."
+  elif [[ "${models_ready}" == "false" ]]; then
+    state=model_download_needed
+    health=model-download-needed
   fi
 elif [[ "${data_present}" == "true" ]]; then
   detail="Z-Image preserved data remains, but runtime files are not installed."
@@ -112,6 +237,10 @@ data_present=${data_present}
 version=${version}
 env_ready=${env_ready}
 models_ready=${models_ready}
+base_model_downloaded=${base_model_downloaded}
+downloaded_models=${downloaded_models}
+downloaded_weights=${downloaded_weights}
+missing_weights=${missing_weights}
 running=${running}
 state=${state}
 health=${health}
