@@ -19,83 +19,66 @@ health=unavailable
 state=available
 marker="${ZIMAGE_INSTALL_ROOT}/.nymph-module-version"
 last_log="${ZIMAGE_LOG_DIR}/zimage-server.log"
-gpu_vram_mb="$(zimage_detect_gpu_vram_mb)"
-recommended_precision="$(zimage_recommended_precision "${gpu_vram_mb}")"
+gpu_vram_mb="${ZIMAGE_STATUS_GPU_VRAM_MB:-unknown}"
+recommended_precision="${ZIMAGE_STATUS_RECOMMENDED_PRECISION:-int4}"
 status_requested_precision="${Z_IMAGE_NUNCHAKU_PRECISION}"
 status_check_precision="${status_requested_precision}"
 detail="Not installed."
 
 read_zimage_model_cache_status() {
-  if [[ ! -x "$(zimage_python)" ]]; then
-    return 0
+  local base_cache="${NYMPHS3D_HF_CACHE_DIR}/models--Tongyi-MAI--Z-Image-Turbo/snapshots"
+  local base_ref="${NYMPHS3D_HF_CACHE_DIR}/models--Tongyi-MAI--Z-Image-Turbo/refs/main"
+  local weight_cache="${NYMPHS3D_HF_CACHE_DIR}/models--nunchaku-ai--nunchaku-z-image-turbo/snapshots"
+  local base_downloaded=false
+  local downloaded=()
+  local missing=()
+
+  if [[ -f "${base_ref}" ]]; then
+    base_snapshot="$(cat "${base_ref}" 2>/dev/null || true)"
+    if [[ -n "${base_snapshot}" &&
+          -f "${base_cache}/${base_snapshot}/model_index.json" &&
+          -d "${base_cache}/${base_snapshot}/transformer" &&
+          -d "${base_cache}/${base_snapshot}/vae" ]]; then
+      base_downloaded=true
+    fi
   fi
 
-  ZIMAGE_STATUS_BASE_MODEL="${Z_IMAGE_MODEL_ID}" \
-  ZIMAGE_STATUS_WEIGHT_REPO="${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
-  ZIMAGE_STATUS_CACHE_DIR="${NYMPHS3D_HF_CACHE_DIR}" \
-  "$(zimage_python)" - <<'PY' 2>/dev/null || true
-import os
+  local labels=(
+    int4_r32
+    int4_r128
+    int4_r256
+    fp4_r32
+    fp4_r128
+  )
+  local files=(
+    svdq-int4_r32-z-image-turbo.safetensors
+    svdq-int4_r128-z-image-turbo.safetensors
+    svdq-int4_r256-z-image-turbo.safetensors
+    svdq-fp4_r32-z-image-turbo.safetensors
+    svdq-fp4_r128-z-image-turbo.safetensors
+  )
 
-base_model = os.getenv("ZIMAGE_STATUS_BASE_MODEL") or "Tongyi-MAI/Z-Image-Turbo"
-weight_repo = os.getenv("ZIMAGE_STATUS_WEIGHT_REPO") or "nunchaku-ai/nunchaku-z-image-turbo"
-cache_dir = os.getenv("ZIMAGE_STATUS_CACHE_DIR") or None
-weights = [
-    ("int4_r32", "svdq-int4_r32-z-image-turbo.safetensors"),
-    ("int4_r128", "svdq-int4_r128-z-image-turbo.safetensors"),
-    ("int4_r256", "svdq-int4_r256-z-image-turbo.safetensors"),
-    ("fp4_r32", "svdq-fp4_r32-z-image-turbo.safetensors"),
-    ("fp4_r128", "svdq-fp4_r128-z-image-turbo.safetensors"),
-]
+  local index
+  if [[ -d "${weight_cache}" ]]; then
+    for index in "${!labels[@]}"; do
+      if [[ -n "$(find "${weight_cache}" -mindepth 2 -maxdepth 2 -type f -name "${files[$index]}" -print -quit 2>/dev/null)" ]]; then
+        downloaded+=("${labels[$index]}")
+      else
+        missing+=("${labels[$index]}")
+      fi
+    done
+  else
+    missing=("${labels[@]}")
+  fi
 
-try:
-    from huggingface_hub import hf_hub_download, snapshot_download
-except Exception:
-    raise SystemExit(0)
+  local downloaded_models=()
+  [[ "${base_downloaded}" == "true" ]] && downloaded_models+=(Base)
+  downloaded_models+=("${downloaded[@]}")
 
-base_patterns = [
-    "model_index.json",
-    "scheduler/*",
-    "text_encoder/*",
-    "tokenizer/*",
-    "transformer/*",
-    "vae/*",
-]
-
-try:
-    snapshot_download(
-        repo_id=base_model,
-        cache_dir=cache_dir,
-        local_files_only=True,
-        allow_patterns=base_patterns,
-    )
-    base_downloaded = True
-except Exception:
-    base_downloaded = False
-
-downloaded = []
-missing = []
-for label, filename in weights:
-    try:
-        hf_hub_download(
-            repo_id=weight_repo,
-            filename=filename,
-            cache_dir=cache_dir,
-            local_files_only=True,
-        )
-        downloaded.append(label)
-    except Exception:
-        missing.append(label)
-
-downloaded_models = []
-if base_downloaded:
-    downloaded_models.append("Base")
-downloaded_models.extend(downloaded)
-
-print(f"base_model_downloaded={'true' if base_downloaded else 'false'}")
-print(f"downloaded_weights={','.join(downloaded) if downloaded else 'none'}")
-print(f"missing_weights={','.join(missing) if missing else 'none'}")
-print(f"downloaded_models={','.join(downloaded_models) if downloaded_models else 'none'}")
-PY
+  printf 'base_model_downloaded=%s\n' "${base_downloaded}"
+  printf 'downloaded_weights=%s\n' "$([[ ${#downloaded[@]} -gt 0 ]] && (IFS=,; printf '%s' "${downloaded[*]}") || printf 'none')"
+  printf 'missing_weights=%s\n' "$([[ ${#missing[@]} -gt 0 ]] && (IFS=,; printf '%s' "${missing[*]}") || printf 'none')"
+  printf 'downloaded_models=%s\n' "$([[ ${#downloaded_models[@]} -gt 0 ]] && (IFS=,; printf '%s' "${downloaded_models[*]}") || printf 'none')"
 }
 
 if [[ -d "${NYMPHS3D_HF_CACHE_DIR}" ]]; then
@@ -148,20 +131,7 @@ if [[ "${installed}" == "true" && -x "$(zimage_python)" ]]; then
   env_ready=true
   detail="Runtime environment present."
   if [[ "${status_check_precision}" == "auto" ]]; then
-    status_check_precision="$(
-      NYMPHS_ZIMAGE_RECOMMENDED_PRECISION="${recommended_precision}" "$(zimage_python)" - <<'PY' 2>/dev/null
-import os
-
-try:
-    from nunchaku.utils import get_precision
-
-    device = os.getenv("Z_IMAGE_DEVICE") or "cuda"
-    print(get_precision(precision="auto", device=device))
-except Exception:
-    print(os.getenv("NYMPHS_ZIMAGE_RECOMMENDED_PRECISION") or "int4")
-PY
-    )"
-    [[ -n "${status_check_precision}" ]] || status_check_precision="${recommended_precision}"
+    status_check_precision="${recommended_precision}"
   fi
   case "${status_check_precision}" in
     int4|fp4) ;;
@@ -254,7 +224,7 @@ nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}
 status_requested_precision=${status_requested_precision}
 status_check_precision=${status_check_precision}
 recommended_precision=${recommended_precision}
-gpu_vram_mb=${gpu_vram_mb:-unknown}
+gpu_vram_mb=${gpu_vram_mb}
 install_root=${ZIMAGE_INSTALL_ROOT}
 outputs_dir=${ZIMAGE_OUTPUT_DIR}
 hf_cache_dir=${NYMPHS3D_HF_CACHE_DIR}
