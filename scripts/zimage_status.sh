@@ -13,6 +13,11 @@ base_model_downloaded=unknown
 downloaded_models=none
 downloaded_weights=none
 missing_weights=none
+weight_profile_selected=unknown
+weight_profiles_available=int4_r32,int4_r128,int4_r256,fp4_r32,fp4_r128
+weight_profiles_downloaded=none
+weight_profiles_missing=none
+weight_profile_ready=false
 running=false
 version=not-installed
 health=unavailable
@@ -91,6 +96,9 @@ if [[ -d "${NYMPHS3D_HF_CACHE_DIR}" ]]; then
     esac
   done < <(read_zimage_model_cache_status)
 fi
+
+weight_profiles_downloaded="${downloaded_weights}"
+weight_profiles_missing="${missing_weights}"
 
 if [[ -f "${marker}" ]]; then
   installed=true
@@ -198,6 +206,13 @@ elif [[ "${data_present}" == "true" ]]; then
   detail="Z-Image preserved data remains, but runtime files are not installed."
 fi
 
+weight_profile_selected="${status_check_precision}_r${Z_IMAGE_NUNCHAKU_RANK}"
+if [[ ",${downloaded_weights}," == *",${weight_profile_selected},"* ]]; then
+  weight_profile_ready=true
+else
+  weight_profile_ready=false
+fi
+
 cat <<EOF
 id=zimage
 name=Z-Image Turbo
@@ -211,6 +226,11 @@ base_model_downloaded=${base_model_downloaded}
 downloaded_models=${downloaded_models}
 downloaded_weights=${downloaded_weights}
 missing_weights=${missing_weights}
+weight_profile_selected=${weight_profile_selected}
+weight_profiles_available=${weight_profiles_available}
+weight_profiles_downloaded=${weight_profiles_downloaded}
+weight_profiles_missing=${weight_profiles_missing}
+weight_profile_ready=${weight_profile_ready}
 running=${running}
 state=${state}
 health=${health}

@@ -357,8 +357,19 @@ run_with_hf_download_progress() {
   echo "MODEL FETCH STARTED: step=${label} repo=${repo_id} cache_dir=${NYMPHS3D_HF_CACHE_DIR} progress_interval=${interval}s"
   (
     set +e
-    "$@"
-    status=$?
+    local_attempt=1
+    max_attempts=3
+    while [[ "${local_attempt}" -le "${max_attempts}" ]]; do
+      "$@"
+      status=$?
+      if [[ "${status}" -eq 0 || "${local_attempt}" -ge "${max_attempts}" ]]; then
+        break
+      fi
+      next_attempt=$(( local_attempt + 1 ))
+      echo "MODEL FETCH STATUS: step ${label} ${repo_id} download was interrupted. Retrying attempt ${next_attempt}/${max_attempts} using the existing cache."
+      sleep $(( local_attempt * 5 ))
+      local_attempt="${next_attempt}"
+    done
     printf '%s\n' "${status}" > "${marker}"
     exit "${status}"
   ) &
