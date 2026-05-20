@@ -217,6 +217,11 @@ python3.11 -m venv "${STAGING_VENV_DIR}"
 VENV_PYTHON="${STAGING_VENV_DIR}/bin/python"
 FILTERED_LOCK_FILE="$(mktemp)"
 
+if [[ ! -x "${VENV_PYTHON}" ]] || ! "${VENV_PYTHON}" -m pip --version >/dev/null 2>&1; then
+  echo "Z-Image staged venv was created, but Python/pip is missing. Repair Python 3.11 venv tooling and retry." >&2
+  exit 1
+fi
+
 "${VENV_PYTHON}" -m pip install --upgrade pip "setuptools<82" wheel
 "${VENV_PYTHON}" -m pip install torch==2.11.0 torchvision torchaudio --index-url "${ZIMAGE_TORCH_INDEX_URL}"
 
