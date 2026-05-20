@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "kind": "image",
@@ -135,12 +135,6 @@
         "id": "smoke_test",
         "label": "Smoke Test",
         "entrypoint": "smoke_test",
-        "result": "show_output"
-      },
-      {
-        "id": "fetch_models",
-        "label": "Fetch Models",
-        "entrypoint": "fetch_models",
         "result": "show_output"
       },
       {
