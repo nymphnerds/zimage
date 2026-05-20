@@ -66,7 +66,7 @@ read_zimage_model_cache_status() {
   local index
   if [[ -d "${weight_cache}" ]]; then
     for index in "${!labels[@]}"; do
-      if [[ -n "$(find "${weight_cache}" -mindepth 2 -maxdepth 2 -type f -name "${files[$index]}" -print -quit 2>/dev/null)" ]]; then
+      if [[ -n "$(find -L "${weight_cache}" -mindepth 2 -maxdepth 2 -type f -name "${files[$index]}" -print -quit 2>/dev/null)" ]]; then
         downloaded+=("${labels[$index]}")
       else
         missing+=("${labels[$index]}")
