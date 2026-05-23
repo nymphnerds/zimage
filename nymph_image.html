@@ -143,6 +143,18 @@
       min-width: 0;
     }
 
+    #runtime-section { order: 10; }
+    #prompt-section { order: 20; }
+    #zimage-controls,
+    #gemini-controls { order: 30; }
+    #source-section { order: 40; }
+    #parts-section { order: 50; }
+
+    #source-section.promoted {
+      order: 15;
+      border-color: var(--line-strong);
+    }
+
     .section-title {
       display: flex;
       justify-content: space-between;
@@ -567,7 +579,7 @@
 <body>
   <main class="app">
     <aside class="sidebar">
-      <section class="section">
+      <section class="section" id="runtime-section">
         <div class="section-title"><span>Runtime</span><span id="mode-chip">Z-Image</span></div>
         <div class="segmented" role="tablist">
           <button class="segment active" id="mode-zimage" type="button">Z-Image</button>
@@ -580,7 +592,7 @@
         </div>
       </section>
 
-      <section class="section" id="source-section">
+      <section class="section" id="source-section" hidden>
         <div class="section-title"><span>Source</span><span id="source-name">none</span></div>
         <div class="drop" id="drop">
           <input id="source-file" type="file" accept="image/*" hidden>
@@ -671,7 +683,7 @@
         </div>
       </section>
 
-      <section class="section">
+      <section class="section" id="prompt-section">
         <div class="section-title"><span>Prompt</span><span id="prompt-kind">asset</span></div>
         <div class="prompt-tools">
           <div class="field">
@@ -708,7 +720,7 @@
       </section>
 
       <section class="section" id="parts-section">
-        <details>
+        <details id="parts-details">
           <summary>Image Part Extraction</summary>
           <div class="grid" style="margin-top:10px">
             <div class="field wide"><label for="parts-source-label">Source Image</label><input id="parts-source-label" type="text" readonly value="none"></div>
@@ -1119,13 +1131,23 @@
       $("plan-parts").disabled = mode !== "gemini" || state.busy;
       updateGenerateLabel();
       updatePartButton();
+      syncSourceVisibility();
     }
 
     function syncGuideRows() {
       for (const node of document.querySelectorAll(".z-guide-row")) node.hidden = !$("z-use-guide").checked;
       for (const node of document.querySelectorAll(".gemini-guide-row")) node.hidden = !$("gemini-use-guide").checked;
       $("z-strength-row").hidden = !$("z-use-guide").checked;
+      syncSourceVisibility();
       updateSourceLabels();
+    }
+
+    function syncSourceVisibility() {
+      const active =
+        (state.mode === "zimage" && $("z-use-guide").checked) ||
+        (state.mode === "gemini" && $("gemini-use-guide").checked);
+      $("source-section").hidden = !active;
+      $("source-section").classList.toggle("promoted", active);
     }
 
     function syncLoraRows() {
@@ -1808,6 +1830,7 @@
       $("extract-parts").onclick = extractParts;
       $("parts-use-selected-source").onclick = useSelectedAsSource;
       $("parts-clear-source").onclick = clearSource;
+      $("parts-details").addEventListener("toggle", syncSourceVisibility);
       $("base-face").onchange = syncFaceControls;
       $("edit-part-guidance").onclick = () => openTextModal("Extraction Prompt", $("part-guidance").value, (value) => { $("part-guidance").value = value; });
       $("preview-part-guidance").onclick = () => openTextModal("Extraction Preview", $("part-guidance").value, null, true);
