@@ -153,7 +153,7 @@
       height: 100vh;
       min-height: 560px;
       display: grid;
-      grid-template-columns: 360px minmax(400px, 1fr);
+      grid-template-columns: 420px minmax(360px, 1fr);
       min-width: 0;
       background: rgba(2, 8, 7, 0.72);
     }
@@ -182,11 +182,11 @@
     .section:first-child { padding-top: 0; border-top: 0; }
 
     #runtime-section { order: 10; }
+    #source-section { order: 15; }
+    #gemini-controls { order: 16; }
     #prompt-section { order: 20; }
-    #zimage-controls,
-    #gemini-controls { order: 30; }
-    #source-section { order: 40; }
-    #parts-section { order: 50; }
+    #zimage-controls { order: 30; }
+    #parts-section { order: 40; }
 
     #source-section.promoted {
       order: 15;
@@ -228,6 +228,8 @@
       border-color: var(--cyan);
       color: var(--green);
     }
+
+    .workflow-tabs { margin-top: 10px; }
 
     .grid {
       display: grid;
@@ -333,7 +335,7 @@
 
     .prompt-tools {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 10px;
       margin-bottom: 10px;
     }
@@ -387,7 +389,7 @@
       min-height: 0;
       height: 100vh;
       display: grid;
-      grid-template-rows: 46px minmax(0, 1fr) 190px;
+      grid-template-rows: minmax(0, 1fr) 190px;
       background: rgba(7, 16, 15, 0.88);
     }
 
@@ -478,6 +480,23 @@
       display: grid;
       gap: 7px;
       background: rgba(11, 23, 24, 0.92);
+    }
+
+    .status-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      overflow: hidden;
+    }
+
+    .status-line span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .progress-line {
@@ -637,19 +656,11 @@
       max-height: 62vh;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 760px) {
       body { overflow: auto; }
       .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
       .sidebar { height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
       .stage { height: 82vh; min-height: 620px; }
-      .image-shell { height: 100%; max-height: none; }
-    }
-
-    @media (max-width: 760px) {
-      body { overflow: auto; }
-      .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
-      .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
-      .stage { height: auto; min-height: 760px; grid-template-rows: auto minmax(360px, 1fr) 214px; }
       .image-shell { height: 100%; max-height: none; }
     }
   </style>
@@ -663,6 +674,11 @@
           <button class="segment active" id="mode-zimage" type="button">Z-Image</button>
           <button class="segment" id="mode-gemini" type="button">Gemini Flash</button>
         </div>
+        <div class="segmented workflow-tabs" id="z-workflow-tabs" role="tablist" aria-label="Z-Image workflow">
+          <button class="segment active" id="mode-text-image" type="button">Prompt</button>
+          <button class="segment" id="mode-image-to-image" type="button">Image to Image</button>
+          <input id="z-use-guide" type="checkbox" hidden>
+        </div>
         <div class="command-row three">
           <button id="open-outputs" type="button">Open Outputs</button>
           <button class="subtle" id="clear-outputs" type="button">Clear Outputs</button>
@@ -671,7 +687,7 @@
       </section>
 
       <section class="section" id="source-section" hidden>
-        <div class="section-title"><span>Source</span><span id="source-name">none</span></div>
+        <div class="section-title"><span>Image Source</span><span id="source-name">none</span></div>
         <div class="drop" id="drop">
           <input id="source-file" type="file" accept="image/*" hidden>
           <img id="source-preview" alt="Source preview">
@@ -684,6 +700,9 @@
           <button id="use-selected-source" type="button" disabled>Use Selected</button>
           <button id="clear-source" type="button" disabled>Clear</button>
           <button id="refresh-gallery" type="button">Refresh</button>
+        </div>
+        <div class="grid" id="z-strength-row" hidden>
+          <div class="field wide"><label for="strength">Image Strength</label><input id="strength" type="number" min="0.05" max="1" step="0.05" value="0.55"></div>
         </div>
       </section>
 
@@ -711,13 +730,6 @@
           <div class="field"><label for="seed">Seed</label><input id="seed" type="number" value="0"></div>
           <div class="field"><label for="variants">Variants</label><input id="variants" type="number" min="1" max="8" value="1"></div>
           <div class="field"><label for="seed-step">Seed Step</label><input id="seed-step" type="number" min="1" max="1000000" value="1"></div>
-          <div class="toggle-row wide"><span>Image to Image</span><input id="z-use-guide" type="checkbox"></div>
-          <div class="field wide z-guide-row" hidden><label for="z-guide-label">Guide Image</label><input id="z-guide-label" type="text" readonly value="none"></div>
-          <div class="command-row two wide z-guide-row no-top" hidden>
-            <button id="z-guide-use-selected" type="button">Use Selected</button>
-            <button class="subtle" id="z-guide-clear" type="button">Clear Guide</button>
-          </div>
-          <div class="field wide" id="z-strength-row" hidden><label for="strength">Strength</label><input id="strength" type="number" min="0.05" max="1" step="0.05" value="0.55"></div>
           <div class="toggle-row wide"><span>Use LoRA</span><input id="z-use-lora" type="checkbox"></div>
           <div class="field wide z-lora-row" hidden><label for="z-lora-run">LoRA Run</label><select id="z-lora-run"></select></div>
           <div class="field wide z-lora-row" hidden><label for="z-lora-checkpoint">LoRA Checkpoint</label><select id="z-lora-checkpoint"></select></div>
@@ -782,10 +794,9 @@
           </div>
         </div>
         <textarea id="prompt" spellcheck="false"></textarea>
-        <div class="command-row four">
+        <div class="command-row three">
           <button id="apply-prompt" type="button">Apply</button>
           <button id="edit-prompt" type="button">Editor</button>
-          <button id="quick-edit-prompt" type="button">Quick</button>
           <button id="preview-prompt" type="button">Preview</button>
         </div>
         <div class="command-row two">
@@ -836,13 +847,6 @@
     </aside>
 
     <section class="stage">
-      <header class="topbar">
-        <div class="title">
-          <h1>Nymphs Image</h1>
-          <span class="runtime" id="runtime-text">checking runtime</span>
-        </div>
-        <span class="runtime" id="output-label">No output</span>
-      </header>
       <section class="viewer">
         <div class="image-shell">
           <img id="result-image" alt="Generated image">
@@ -850,6 +854,10 @@
         </div>
       </section>
       <section class="progress">
+        <div class="status-line">
+          <span id="runtime-text">checking runtime</span>
+          <span id="output-label">No output</span>
+        </div>
         <div class="progress-line">
           <span class="progress-stage" id="progress-stage">Idle</span>
           <span id="progress-detail">Waiting for prompt.</span>
@@ -999,6 +1007,17 @@
       syncGuideRows();
       syncLoraRows();
       updateGenerateLabel();
+    }
+
+    function setImageWorkflow(useGuide) {
+      $("z-use-guide").checked = !!useGuide;
+      syncGuideRows();
+    }
+
+    function syncImageWorkflowButtons() {
+      const useGuide = $("z-use-guide").checked;
+      $("mode-text-image").classList.toggle("active", !useGuide);
+      $("mode-image-to-image").classList.toggle("active", useGuide);
     }
 
     function presetPrompt(kind, key) {
@@ -1204,18 +1223,20 @@
       $("mode-gemini").classList.toggle("active", mode === "gemini");
       $("zimage-controls").hidden = mode !== "zimage";
       $("gemini-controls").hidden = mode !== "gemini";
+      $("z-workflow-tabs").hidden = mode !== "zimage";
       $("mode-chip").textContent = mode === "zimage" ? "Z-Image" : "Gemini";
       $("prompt-kind").textContent = mode === "zimage" ? "local" : "cloud";
       $("plan-parts").disabled = mode !== "gemini" || state.busy;
       updateGenerateLabel();
       updatePartButton();
+      syncGuideRows();
       syncSourceVisibility();
     }
 
     function syncGuideRows() {
-      for (const node of document.querySelectorAll(".z-guide-row")) node.hidden = !$("z-use-guide").checked;
       for (const node of document.querySelectorAll(".gemini-guide-row")) node.hidden = !$("gemini-use-guide").checked;
       $("z-strength-row").hidden = !$("z-use-guide").checked;
+      syncImageWorkflowButtons();
       syncSourceVisibility();
       updateSourceLabels();
     }
@@ -1236,7 +1257,6 @@
 
     function updateSourceLabels() {
       const label = state.sourceName || "none";
-      $("z-guide-label").value = label;
       $("gemini-guide-label").value = label;
       $("parts-source-label").value = label;
     }
@@ -1869,9 +1889,9 @@
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;
       $("open-config").onclick = () => moduleAction("open_config");
-      $("z-use-guide").onchange = () => { $("z-strength-row").hidden = !$("z-use-guide").checked; syncGuideRows(); };
-      $("z-guide-use-selected").onclick = useSelectedAsSource;
-      $("z-guide-clear").onclick = clearSource;
+      $("mode-text-image").onclick = () => setImageWorkflow(false);
+      $("mode-image-to-image").onclick = () => setImageWorkflow(true);
+      $("z-use-guide").onchange = syncGuideRows;
       $("z-use-lora").onchange = syncLoraRows;
       $("z-lora-run").onchange = () => populateLoraCheckpoints($("z-lora-run").value);
       $("z-lora-checkpoint").onchange = () => setLoraPath($("z-lora-checkpoint").value);
@@ -1887,7 +1907,6 @@
       $("save-current-prompt").onclick = saveCurrentPrompt;
       $("apply-prompt").onclick = applyPromptPresets;
       $("edit-prompt").onclick = () => openTextModal("Prompt Editor", $("prompt").value, (value) => { $("prompt").value = value; });
-      $("quick-edit-prompt").onclick = () => openTextModal("Quick Edit", $("prompt").value, (value) => { $("prompt").value = value; });
       $("preview-prompt").onclick = () => openTextModal("Prompt Preview", finalPrompt(), null, true);
       $("open-prompt-folder").onclick = () => moduleAction("open_config");
       $("clear-prompt").onclick = () => { $("prompt").value = ""; };
