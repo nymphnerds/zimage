@@ -22,6 +22,12 @@ class GenerateRequest(BaseModel):
     model_id: str | None = None
     lora_path: str | None = None
     lora_scale: float | None = None
+    batch_id: str | None = None
+    batch_label: str | None = None
+    batch_type: str | None = None
+    item_label: str | None = None
+    item_index: int | None = None
+    item_total: int | None = None
 
 
 class GenerateResponse(BaseModel):
@@ -31,6 +37,13 @@ class GenerateResponse(BaseModel):
     model_id: str
     output_path: str
     metadata_path: str
+    url: str | None = None
+    batch_id: str | None = None
+    batch_label: str | None = None
+    batch_type: str | None = None
+    item_label: str | None = None
+    item_index: int | None = None
+    item_total: int | None = None
 
 
 class HealthResponse(BaseModel):

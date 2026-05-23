@@ -64,6 +64,11 @@ When launched from the Z-Image OpenRouter action, the module-owned wrapper saves
 that key to `~/NymphsData/config/zimage/openrouter.env` with `0600`
 permissions. The API also accepts a one-off key pasted into the UI.
 
+Generated Z-Image variants, Gemini variants, and extracted part images include
+lightweight batch metadata so the Nymphs Image UI can browse the current batch,
+all variants, all parts, or recent outputs from the strip beneath the main
+preview.
+
 The native Fetch Models UI downloads the base Z-Image Turbo model plus one
 Nunchaku-compatible quantized `.safetensors` weight:
 

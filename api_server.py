@@ -104,6 +104,27 @@ def _resolve_openrouter_api_key(payload: dict | None = None) -> str:
     )
 
 
+def _batch_metadata(payload: dict, *, default_type: str, default_label: str, default_item_label: str = "") -> dict:
+    batch_id = str(payload.get("batch_id") or "").strip()
+    if not batch_id:
+        return {}
+    metadata = {
+        "batch_id": batch_id,
+        "batch_label": str(payload.get("batch_label") or default_label).strip() or default_label,
+        "batch_type": str(payload.get("batch_type") or default_type).strip() or default_type,
+        "item_label": str(payload.get("item_label") or default_item_label).strip() or default_item_label,
+    }
+    for key in ("item_index", "item_total"):
+        value = payload.get(key)
+        if value is None:
+            continue
+        try:
+            metadata[key] = int(value)
+        except Exception:
+            pass
+    return metadata
+
+
 def _decode_data_url(raw: str) -> tuple[str, bytes]:
     value = (raw or "").strip()
     if not value:
@@ -189,6 +210,12 @@ def _recent_outputs(limit: int = 80) -> list[dict]:
                 "provider": metadata.get("provider") or metadata.get("backend") or "",
                 "mode": metadata.get("mode") or "",
                 "prompt": metadata.get("prompt") or "",
+                "batch_id": metadata.get("batch_id") or "",
+                "batch_label": metadata.get("batch_label") or "",
+                "batch_type": metadata.get("batch_type") or "",
+                "item_label": metadata.get("item_label") or "",
+                "item_index": metadata.get("item_index"),
+                "item_total": metadata.get("item_total"),
                 "created": path.stat().st_mtime,
                 "metadata": metadata,
             }
@@ -357,6 +384,7 @@ def _gemini_request_image(payload: dict, prompt: str, output_label: str) -> list
             "mime_type": mime_type,
             "text": [part for part in text_parts if part],
             "response": _safe_openrouter_response(detail),
+            **_batch_metadata(payload, default_type="gemini", default_label="Gemini Variants", default_item_label=label),
         }
         metadata_path = path.with_suffix(".json")
         metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -366,6 +394,12 @@ def _gemini_request_image(payload: dict, prompt: str, output_label: str) -> list
                 "path": str(path),
                 "url": _output_url(path),
                 "metadata_path": str(metadata_path),
+                "batch_id": metadata.get("batch_id", ""),
+                "batch_label": metadata.get("batch_label", ""),
+                "batch_type": metadata.get("batch_type", ""),
+                "item_label": metadata.get("item_label", ""),
+                "item_index": metadata.get("item_index"),
+                "item_total": metadata.get("item_total"),
                 "metadata": metadata,
             }
         )
@@ -514,6 +548,7 @@ def _gemini_generate_worker(payload: dict) -> dict:
 
     outputs = []
     total = len(prompts)
+    batch_id = str(payload.get("batch_id") or f"gemini-{uuid.uuid4().hex[:8]}").strip()
     for index, prompt in enumerate(prompts, start=1):
         progress_update(
             status="processing",
@@ -523,7 +558,16 @@ def _gemini_generate_worker(payload: dict) -> dict:
             progress_total=total,
             progress_percent=((index - 1) / total) * 100.0,
         )
-        outputs.extend(_gemini_request_image(payload, prompt, f"gemini-{index}"))
+        item_payload = {
+            **payload,
+            "batch_id": batch_id,
+            "batch_label": payload.get("batch_label") or "Gemini Variants",
+            "batch_type": payload.get("batch_type") or "gemini",
+            "item_label": payload.get("item_label") or f"G {index}",
+            "item_index": index,
+            "item_total": total,
+        }
+        outputs.extend(_gemini_request_image(item_payload, prompt, f"gemini-{index}"))
 
     progress_update(
         status="idle",
@@ -534,7 +578,7 @@ def _gemini_generate_worker(payload: dict) -> dict:
         progress_percent=100.0,
         last_output_path=outputs[-1]["path"] if outputs else None,
     )
-    return {"status": "ok", "outputs": outputs}
+    return {"status": "ok", "batch_id": batch_id, "outputs": outputs}
 
 
 def _part_plan_worker(payload: dict) -> dict:
@@ -581,6 +625,7 @@ def _part_extract_worker(payload: dict) -> dict:
     payload = {**payload, "guide_image": source_image}
     outputs = []
     total = len(parts)
+    batch_id = str(payload.get("batch_id") or f"parts-{uuid.uuid4().hex[:8]}").strip()
     for index, part in enumerate(parts, start=1):
         name = part.get("display_name") or part.get("id") or f"Part {index}"
         progress_update(
@@ -592,7 +637,16 @@ def _part_extract_worker(payload: dict) -> dict:
             progress_percent=((index - 1) / total) * 100.0,
         )
         label = f"part-{index:02d}-{_slugify(name, f'part-{index:02d}')}"
-        outputs.extend(_gemini_request_image(payload, _part_extraction_prompt(part, payload), label))
+        item_payload = {
+            **payload,
+            "batch_id": batch_id,
+            "batch_label": payload.get("batch_label") or "Image Parts",
+            "batch_type": payload.get("batch_type") or "parts",
+            "item_label": name,
+            "item_index": index,
+            "item_total": total,
+        }
+        outputs.extend(_gemini_request_image(item_payload, _part_extraction_prompt(part, payload), label))
     progress_update(
         status="idle",
         stage="complete",
@@ -602,7 +656,7 @@ def _part_extract_worker(payload: dict) -> dict:
         progress_percent=100.0,
         last_output_path=outputs[-1]["path"] if outputs else None,
     )
-    return {"status": "ok", "outputs": outputs}
+    return {"status": "ok", "batch_id": batch_id, "outputs": outputs}
 
 
 def _resize_init_image(image: Image.Image, width: int, height: int) -> Image.Image:
@@ -745,6 +799,12 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         "lora_path": payload.lora_path,
         "lora_scale": payload.lora_scale,
         "strength": payload.strength,
+        **_batch_metadata(
+            payload.model_dump() if hasattr(payload, "model_dump") else payload.dict(),
+            default_type="zimage",
+            default_label="Z-Image Variants",
+            default_item_label=payload.item_label or "Z-Image",
+        ),
     }
     _log_stage("save.begin", output_dir=SETTINGS.output_dir)
     output_path, metadata_path = save_image_and_metadata(
@@ -782,6 +842,13 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         model_id=model_id,
         output_path=str(output_path),
         metadata_path=str(metadata_path),
+        url=_output_url(output_path),
+        batch_id=metadata.get("batch_id"),
+        batch_label=metadata.get("batch_label"),
+        batch_type=metadata.get("batch_type"),
+        item_label=metadata.get("item_label"),
+        item_index=metadata.get("item_index"),
+        item_total=metadata.get("item_total"),
     )
 
 

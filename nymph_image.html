@@ -304,8 +304,10 @@
 
     .stage {
       min-width: 0;
+      min-height: 0;
+      height: 100vh;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr) 154px;
+      grid-template-rows: auto minmax(0, 1fr) 214px;
       background: rgba(4, 9, 9, 0.74);
     }
 
@@ -345,12 +347,14 @@
       place-items: center;
       padding: 14px;
       position: relative;
+      overflow: hidden;
     }
 
     .image-shell {
       width: min(100%, 980px);
-      height: min(100%, 78vh);
-      min-height: 420px;
+      height: min(100%, calc(100vh - 300px));
+      max-height: calc(100vh - 300px);
+      min-height: 0;
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 8px;
       background:
@@ -418,6 +422,51 @@
       transition: width 0.22s ease;
     }
 
+    .strip-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 8px;
+    }
+
+    .strip-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--muted);
+      font-family: Consolas, monospace;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .strip-title span:last-child {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: var(--cyan);
+    }
+
+    .strip-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .strip-controls button {
+      min-height: 28px;
+      padding: 0 9px;
+      font-size: 12px;
+    }
+
+    .strip-controls button.active {
+      border-color: var(--line-strong);
+      color: var(--green);
+    }
+
     .gallery {
       display: grid;
       grid-auto-flow: column;
@@ -442,6 +491,7 @@
     .thumb.selected { border-color: var(--green); }
     .thumb img { width: 100%; height: 72px; object-fit: cover; border-radius: 5px; background: #020403; }
     .thumb span { color: var(--muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .thumb.selected span { color: var(--green); }
 
     .toast {
       position: fixed;
@@ -466,7 +516,8 @@
       body { overflow: auto; }
       .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
       .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
-      .stage { min-height: 760px; grid-template-rows: auto 1fr 180px; }
+      .stage { height: auto; min-height: 760px; grid-template-rows: auto minmax(360px, 1fr) 214px; }
+      .image-shell { height: 100%; max-height: none; }
     }
   </style>
 </head>
@@ -520,8 +571,14 @@
           <div class="field"><label for="guidance">Guidance</label><input id="guidance" type="number" step="0.1" value="0"></div>
           <div class="field"><label for="seed">Seed</label><input id="seed" type="number" value="0"></div>
           <div class="field"><label for="variants">Variants</label><input id="variants" type="number" min="1" max="8" value="1"></div>
+          <div class="field"><label for="seed-step">Seed Step</label><input id="seed-step" type="number" min="1" max="1000000" value="1"></div>
           <div class="toggle-row wide"><span>Image to Image</span><input id="z-use-guide" type="checkbox"></div>
           <div class="field wide" id="z-strength-row" hidden><label for="strength">Strength</label><input id="strength" type="number" min="0.05" max="1" step="0.05" value="0.55"></div>
+          <div class="toggle-row wide"><span>Use LoRA</span><input id="z-use-lora" type="checkbox"></div>
+          <div class="field wide z-lora-row" hidden><label for="z-lora-path">LoRA Path</label><input id="z-lora-path" type="text" placeholder="/home/nymph/LoRA/loras/.../checkpoint.safetensors"></div>
+          <div class="field z-lora-row" hidden><label for="z-lora-strength">LoRA Strength</label><input id="z-lora-strength" type="number" min="0" max="2" step="0.05" value="1"></div>
+          <div class="toggle-row z-lora-row" hidden><span>Use Activation</span><input id="z-lora-auto-trigger" type="checkbox"></div>
+          <div class="field wide z-lora-row" hidden><label for="z-lora-trigger">Activation</label><input id="z-lora-trigger" type="text" placeholder="optional trigger text"></div>
         </div>
       </section>
 
@@ -541,7 +598,7 @@
               <option value="google/gemini-3-pro-image-preview">Gemini 3 Pro Image</option>
             </select>
           </div>
-          <div class="field"><label for="aspect">Aspect</label><select id="aspect"><option>1:1</option><option>2:3</option><option>3:2</option><option>3:4</option><option>4:3</option><option>9:16</option><option>16:9</option></select></div>
+          <div class="field"><label for="aspect">Aspect</label><select id="aspect"><option>1:1</option><option>2:3</option><option>3:2</option><option>3:4</option><option>4:3</option><option>4:5</option><option>5:4</option><option>9:16</option><option>16:9</option><option>21:9</option></select></div>
           <div class="field"><label for="image-size">Size</label><select id="image-size"><option value="">Auto</option><option>1K</option><option>2K</option><option>4K</option></select></div>
           <div class="field"><label for="gemini-variants">Variants</label><input id="gemini-variants" type="number" min="1" max="8" value="1"></div>
           <div class="toggle-row"><span>Guide Image</span><input id="gemini-use-guide" type="checkbox"></div>
@@ -592,6 +649,7 @@
             <button id="plan-parts" type="button">Plan</button>
             <button id="extract-parts" type="button" disabled>Extract Selected (0)</button>
           </div>
+          <button id="clear-parts" type="button">Clear Plan</button>
           <div class="parts-list" id="parts-list"></div>
         </details>
       </section>
@@ -618,6 +676,17 @@
           <span id="progress-percent">0%</span>
         </div>
         <div class="bar"><span id="progress-bar"></span></div>
+        <div class="strip-head">
+          <div class="strip-title"><span>Browse</span><span id="strip-label">Recent Outputs</span></div>
+          <div class="strip-controls">
+            <button id="strip-prev" type="button" title="Previous output">&lt;</button>
+            <button id="strip-next" type="button" title="Next output">&gt;</button>
+            <button class="active" id="strip-recent" type="button">Recent</button>
+            <button id="strip-current" type="button">Current</button>
+            <button id="strip-variants" type="button">Variants</button>
+            <button id="strip-parts" type="button">Parts</button>
+          </div>
+        </div>
         <div class="gallery" id="gallery"></div>
       </section>
     </section>
@@ -632,6 +701,9 @@
       sourceName: "",
       selectedOutput: null,
       outputs: [],
+      visibleOutputs: [],
+      galleryMode: "recent",
+      activeBatchId: "",
       parts: [],
       busy: false,
       openrouterConfigured: false,
@@ -714,7 +786,12 @@
     }
 
     function finalPrompt() {
-      return ($("prompt").value || "").trim();
+      const prompt = ($("prompt").value || "").trim();
+      const activation = ($("z-lora-trigger")?.value || "").trim();
+      if (state.mode === "zimage" && $("z-use-lora").checked && $("z-lora-auto-trigger").checked && activation) {
+        return [activation, prompt].filter(Boolean).join("\n\n");
+      }
+      return prompt;
     }
 
     function applyPromptPresets() {
@@ -802,12 +879,88 @@
       for (const node of document.querySelectorAll(".thumb")) {
         node.classList.toggle("selected", node.dataset.path === output.path);
       }
+      updateStripButtons();
+    }
+
+    function outputMetadata(output) {
+      return output?.metadata || {};
+    }
+
+    function outputBatchId(output) {
+      return output?.batch_id || outputMetadata(output).batch_id || "";
+    }
+
+    function outputBatchType(output) {
+      return output?.batch_type || outputMetadata(output).batch_type || "";
+    }
+
+    function outputBatchLabel(output) {
+      return output?.batch_label || outputMetadata(output).batch_label || "Current Batch";
+    }
+
+    function outputItemLabel(output) {
+      return output?.item_label || outputMetadata(output).item_label || output?.name || "Image";
+    }
+
+    function outputItemIndex(output) {
+      const value = output?.item_index ?? outputMetadata(output).item_index;
+      const parsed = parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : 9999;
+    }
+
+    function makeBatchId(prefix) {
+      return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
+    }
+
+    function stripOutputs() {
+      let outputs = [...state.outputs];
+      if (state.galleryMode === "current") {
+        outputs = state.activeBatchId ? outputs.filter((output) => outputBatchId(output) === state.activeBatchId) : [];
+      } else if (state.galleryMode === "variants") {
+        outputs = outputs.filter((output) => ["zimage", "gemini"].includes(outputBatchType(output)));
+      } else if (state.galleryMode === "parts") {
+        outputs = outputs.filter((output) => outputBatchType(output) === "parts");
+      }
+
+      if (state.galleryMode === "current") {
+        outputs.sort((a, b) => outputItemIndex(a) - outputItemIndex(b));
+      }
+      return outputs;
+    }
+
+    function setGalleryMode(mode) {
+      state.galleryMode = mode;
+      renderGallery();
+    }
+
+    function selectFromVisible(offset) {
+      if (!state.visibleOutputs.length) return;
+      const current = state.visibleOutputs.findIndex((output) => output.path === state.selectedOutput?.path);
+      const next = current < 0 ? 0 : (current + offset + state.visibleOutputs.length) % state.visibleOutputs.length;
+      showResult(state.visibleOutputs[next]);
+    }
+
+    function updateStripButtons() {
+      for (const [mode, id] of [["recent", "strip-recent"], ["current", "strip-current"], ["variants", "strip-variants"], ["parts", "strip-parts"]]) {
+        $(id).classList.toggle("active", state.galleryMode === mode);
+      }
+      $("strip-current").disabled = !state.activeBatchId;
+      $("strip-prev").disabled = state.visibleOutputs.length < 2;
+      $("strip-next").disabled = state.visibleOutputs.length < 2;
     }
 
     function renderGallery() {
       const gallery = $("gallery");
       gallery.innerHTML = "";
-      for (const output of state.outputs) {
+      state.visibleOutputs = stripOutputs();
+      const currentOutput = state.visibleOutputs[0] || null;
+      const label =
+        state.galleryMode === "current" && currentOutput ? outputBatchLabel(currentOutput) :
+        state.galleryMode === "variants" ? "Variants" :
+        state.galleryMode === "parts" ? "Parts" :
+        "Recent Outputs";
+      $("strip-label").textContent = state.visibleOutputs.length ? `${label} (${state.visibleOutputs.length})` : `${label} (0)`;
+      for (const output of state.visibleOutputs) {
         const node = document.createElement("div");
         node.className = "thumb";
         node.dataset.path = output.path;
@@ -815,11 +968,17 @@
         img.src = output.url;
         img.alt = output.name;
         const label = document.createElement("span");
-        label.textContent = output.name;
+        label.textContent = outputItemLabel(output);
         node.appendChild(img);
         node.appendChild(label);
         node.addEventListener("click", () => showResult(output));
         gallery.appendChild(node);
+      }
+      updateStripButtons();
+      if (state.selectedOutput) {
+        for (const node of document.querySelectorAll(".thumb")) {
+          node.classList.toggle("selected", node.dataset.path === state.selectedOutput.path);
+        }
       }
     }
 
@@ -838,7 +997,8 @@
     function activeSeed(index) {
       const seed = parseInt($("seed").value || "0", 10);
       if (!seed) return null;
-      return seed + index;
+      const seedStep = Math.max(1, parseInt($("seed-step").value || "1", 10));
+      return seed + (index * seedStep);
     }
 
     async function generateZImage() {
@@ -854,6 +1014,7 @@
       }
       const count = Math.max(1, Math.min(parseInt($("variants").value || "1", 10), 8));
       const outputs = [];
+      const batchId = makeBatchId("zimage");
       setBusy(true);
       startProgress();
       try {
@@ -868,7 +1029,18 @@
             seed: activeSeed(index),
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
+            batch_id: batchId,
+            batch_label: "Z-Image Variants",
+            batch_type: "zimage",
+            item_label: `Z ${index + 1}`,
+            item_index: index + 1,
+            item_total: count,
           };
+          if ($("z-use-lora").checked) {
+            payload.lora_path = $("z-lora-path").value.trim();
+            payload.lora_scale = parseFloat($("z-lora-strength").value || "1");
+            if (!payload.lora_path) throw new Error("Paste a Z-Image LoRA path first.");
+          }
           const response = await fetch("/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -880,7 +1052,11 @@
           }
           outputs.push(await response.json());
         }
-        await refreshOutputs(true);
+        await refreshOutputs(false);
+        state.activeBatchId = batchId;
+        setGalleryMode("current");
+        const batchOutputs = state.visibleOutputs;
+        if (batchOutputs[0]) showResult(batchOutputs[0]);
         stopProgress(true, count > 1 ? "Variants ready." : "Image ready.");
       } finally {
         setBusy(false);
@@ -900,6 +1076,8 @@
       setBusy(true);
       startProgress();
       try {
+        const variantCount = Math.max(1, Math.min(parseInt($("gemini-variants").value || "1", 10), 8));
+        const batchId = makeBatchId("gemini");
         const response = await fetch("/api/gemini/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -907,10 +1085,13 @@
             api_key: $("api-key").value.trim(),
             model_id: $("gemini-model").value,
             prompt,
-            variant_count: Math.max(1, Math.min(parseInt($("gemini-variants").value || "1", 10), 8)),
+            variant_count: variantCount,
             aspect_ratio: $("aspect").value,
             image_size: $("image-size").value,
             guide_image: $("gemini-use-guide").checked ? state.sourceDataUrl : "",
+            batch_id: batchId,
+            batch_label: "Gemini Variants",
+            batch_type: "gemini",
           }),
         });
         const body = await response.json().catch(() => ({}));
@@ -918,10 +1099,11 @@
         await refreshOutputs(false);
         if (body.outputs?.[0]) {
           state.outputs = [...body.outputs, ...state.outputs.filter((item) => !body.outputs.some((out) => out.path === item.path))];
-          renderGallery();
-          showResult(body.outputs[body.outputs.length - 1]);
+          state.activeBatchId = body.batch_id || batchId;
+          setGalleryMode("current");
+          showResult(state.visibleOutputs[0] || body.outputs[0]);
         }
-        stopProgress(true, "Gemini image ready.");
+        stopProgress(true, variantCount > 1 ? "Gemini variants ready." : "Gemini image ready.");
       } finally {
         setBusy(false);
       }
@@ -979,6 +1161,12 @@
       updatePartButton();
     }
 
+    function clearPartPlan() {
+      state.parts = [];
+      renderParts();
+      toast("Part plan cleared.");
+    }
+
     async function planParts() {
       if (!state.sourceDataUrl) {
         toast("Choose a source image first.");
@@ -1024,6 +1212,7 @@
       setBusy(true);
       startProgress();
       try {
+        const batchId = makeBatchId("parts");
         const response = await fetch("/api/parts/extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1038,6 +1227,9 @@
             guidance: $("part-guidance").value,
             style_lock: $("style-lock").checked,
             style_text: styles[$("style").value]?.[1] || "",
+            batch_id: batchId,
+            batch_label: "Image Parts",
+            batch_type: "parts",
           }),
         });
         const body = await response.json().catch(() => ({}));
@@ -1045,8 +1237,9 @@
         await refreshOutputs(false);
         if (body.outputs?.[0]) {
           state.outputs = [...body.outputs, ...state.outputs.filter((item) => !body.outputs.some((out) => out.path === item.path))];
-          renderGallery();
-          showResult(body.outputs[0]);
+          state.activeBatchId = body.batch_id || batchId;
+          setGalleryMode("current");
+          showResult(state.visibleOutputs[0] || body.outputs[0]);
         }
         stopProgress(true, "Parts extracted.");
       } catch (err) {
@@ -1122,6 +1315,9 @@
         $("guidance").value = profile.guidance;
       };
       $("z-use-guide").onchange = () => { $("z-strength-row").hidden = !$("z-use-guide").checked; };
+      $("z-use-lora").onchange = () => {
+        for (const node of document.querySelectorAll(".z-lora-row")) node.hidden = !$("z-use-lora").checked;
+      };
       $("apply-prompt").onclick = applyPromptPresets;
       $("clear-prompt").onclick = () => { $("prompt").value = ""; };
       $("generate").onclick = generate;
@@ -1130,8 +1326,15 @@
       $("refresh-gallery").onclick = () => refreshOutputs();
       $("open-outputs").onclick = () => moduleAction("open_outputs");
       $("stop-backend").onclick = () => moduleAction("stop");
+      $("strip-prev").onclick = () => selectFromVisible(-1);
+      $("strip-next").onclick = () => selectFromVisible(1);
+      $("strip-recent").onclick = () => setGalleryMode("recent");
+      $("strip-current").onclick = () => setGalleryMode("current");
+      $("strip-variants").onclick = () => setGalleryMode("variants");
+      $("strip-parts").onclick = () => setGalleryMode("parts");
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
+      $("clear-parts").onclick = clearPartPlan;
       setMode("zimage");
       refreshInfo();
       refreshOutputs(true);
