@@ -195,7 +195,9 @@ for script in \
   zimage_logs.sh \
   zimage_nymph_ui.sh \
   zimage_open.sh \
+  zimage_open_config.sh \
   zimage_open_outputs.sh \
+  zimage_open_lora.sh \
   zimage_open_weights.sh \
   zimage_smoke_test.sh \
   zimage_start.sh \

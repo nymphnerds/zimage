@@ -1,10 +1,10 @@
 {
   "manifest_version": 1,
   "id": "zimage",
-  "name": "Z-Image Turbo",
-  "short_name": "ZI",
-  "version": "0.1.15",
-  "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
+  "name": "Nymphs Image",
+  "short_name": "Image",
+  "version": "0.1.16",
+  "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
   "packaging": "repo",
@@ -49,11 +49,13 @@
     "stop": "scripts/zimage_stop.sh",
     "open": "scripts/zimage_open.sh",
     "open_nymph_ui": "scripts/zimage_nymph_ui.sh",
+    "open_config": "scripts/zimage_open_config.sh",
     "logs": "scripts/zimage_logs.sh",
     "delete_models": "scripts/zimage_delete_models.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
     "smoke_test": "scripts/zimage_smoke_test.sh",
     "uninstall": "scripts/zimage_uninstall.sh",
+    "open_lora": "scripts/zimage_open_lora.sh",
     "open_weights": "scripts/zimage_open_weights.sh",
     "open_outputs": "scripts/zimage_open_outputs.sh"
   },
@@ -186,6 +188,18 @@
         "id": "open_outputs",
         "label": "Open Outputs",
         "entrypoint": "open_outputs",
+        "result": "open_directory"
+      },
+      {
+        "id": "open_config",
+        "label": "Open Presets",
+        "entrypoint": "open_config",
+        "result": "open_directory"
+      },
+      {
+        "id": "open_lora",
+        "label": "Open LoRA",
+        "entrypoint": "open_lora",
         "result": "open_directory"
       },
       {

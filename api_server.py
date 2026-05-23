@@ -43,6 +43,7 @@ MODEL_MANAGER = ModelManager(SETTINGS)
 NYMPH_UI_PATH = Path(__file__).resolve().parent / "nymph_image.html"
 OPENROUTER_API_ROOT = "https://openrouter.ai/api/v1"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+PRESET_KINDS = {"subject", "style", "saved", "settings"}
 
 app = FastAPI(
     title="Nymphs2D2 API",
@@ -79,6 +80,53 @@ def _openrouter_env_file() -> Path:
     if configured:
         return Path(configured).expanduser()
     return Path.home() / "NymphsData" / "config" / "zimage" / "openrouter.env"
+
+
+def _config_dir() -> Path:
+    configured = os.getenv("ZIMAGE_CONFIG_DIR")
+    if configured:
+        return Path(configured).expanduser()
+    return Path.home() / "NymphsData" / "config" / "zimage"
+
+
+def _preset_dir(kind: str) -> Path:
+    normalized = (kind or "").strip().lower()
+    if normalized not in PRESET_KINDS:
+        raise HTTPException(status_code=400, detail="Unsupported preset kind.")
+    path = _config_dir() / "presets" / normalized
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _safe_slug(value: str, fallback: str = "preset") -> str:
+    return _slugify(value, fallback).replace("-", "_")
+
+
+def _safe_preset_path(kind: str, preset_id: str) -> Path:
+    return _preset_dir(kind) / f"{_safe_slug(preset_id, 'preset')}.json"
+
+
+def _load_user_presets(kind: str) -> list[dict]:
+    presets = []
+    for path in sorted(_preset_dir(kind).glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        preset_id = path.stem
+        presets.append(
+            {
+                "id": preset_id,
+                "name": str(data.get("name") or data.get("label") or preset_id.replace("_", " ").title()).strip(),
+                "kind": kind,
+                "prompt": str(data.get("prompt") or data.get("style") or "").strip(),
+                "values": data.get("values") if isinstance(data.get("values"), dict) else {},
+                "description": str(data.get("description") or "").strip(),
+            }
+        )
+    return presets
 
 
 def _read_openrouter_api_key_file() -> str:
@@ -190,6 +238,27 @@ def _metadata_for(path: Path) -> dict:
         return {}
 
 
+def _output_record(path: Path) -> dict:
+    metadata = _metadata_for(path)
+    return {
+        "name": path.name,
+        "path": str(path),
+        "url": _output_url(path),
+        "metadata_path": str(path.with_suffix(".json")) if path.with_suffix(".json").is_file() else "",
+        "provider": metadata.get("provider") or metadata.get("backend") or "",
+        "mode": metadata.get("mode") or "",
+        "prompt": metadata.get("prompt") or "",
+        "batch_id": metadata.get("batch_id") or "",
+        "batch_label": metadata.get("batch_label") or "",
+        "batch_type": metadata.get("batch_type") or "",
+        "item_label": metadata.get("item_label") or "",
+        "item_index": metadata.get("item_index"),
+        "item_total": metadata.get("item_total"),
+        "created": path.stat().st_mtime,
+        "metadata": metadata,
+    }
+
+
 def _recent_outputs(limit: int = 80) -> list[dict]:
     SETTINGS.output_dir.mkdir(parents=True, exist_ok=True)
     files = [
@@ -200,27 +269,76 @@ def _recent_outputs(limit: int = 80) -> list[dict]:
     files.sort(key=lambda path: path.stat().st_mtime, reverse=True)
     outputs = []
     for path in files[: max(1, min(limit, 200))]:
-        metadata = _metadata_for(path)
-        outputs.append(
+        outputs.append(_output_record(path))
+    return outputs
+
+
+def _iter_lora_runs() -> list[dict]:
+    root = Path(os.getenv("ZIMAGE_LORA_ROOT") or Path.home() / "LoRA" / "loras").expanduser()
+    if not root.exists():
+        return []
+    runs = []
+    seen = set()
+    top_level = sorted(root.iterdir(), key=lambda item: item.name.lower())
+    for path in top_level:
+        if path.is_file() and path.suffix.lower() == ".safetensors":
+            resolved = str(path)
+            runs.append(
+                {
+                    "id": resolved,
+                    "name": path.name,
+                    "latest_file": resolved,
+                    "latest_mtime": path.stat().st_mtime,
+                    "is_file": True,
+                }
+            )
+            seen.add(resolved)
+    for child in top_level:
+        if not child.is_dir():
+            continue
+        latest_file = None
+        latest_mtime = -1.0
+        for path in child.rglob("*.safetensors"):
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            if mtime >= latest_mtime:
+                latest_file = path
+                latest_mtime = mtime
+        if latest_file is None:
+            continue
+        resolved = str(child)
+        if resolved in seen:
+            continue
+        runs.append(
             {
-                "name": path.name,
-                "path": str(path),
-                "url": _output_url(path),
-                "metadata_path": str(path.with_suffix(".json")) if path.with_suffix(".json").is_file() else "",
-                "provider": metadata.get("provider") or metadata.get("backend") or "",
-                "mode": metadata.get("mode") or "",
-                "prompt": metadata.get("prompt") or "",
-                "batch_id": metadata.get("batch_id") or "",
-                "batch_label": metadata.get("batch_label") or "",
-                "batch_type": metadata.get("batch_type") or "",
-                "item_label": metadata.get("item_label") or "",
-                "item_index": metadata.get("item_index"),
-                "item_total": metadata.get("item_total"),
-                "created": path.stat().st_mtime,
-                "metadata": metadata,
+                "id": resolved,
+                "name": child.name,
+                "latest_file": str(latest_file),
+                "latest_mtime": latest_mtime,
+                "is_file": False,
             }
         )
-    return outputs
+    runs.sort(key=lambda item: (item.get("latest_mtime", -1), item.get("name", "").lower()), reverse=True)
+    return runs
+
+
+def _iter_lora_checkpoints(run_id: str) -> list[dict]:
+    path = Path(run_id or "").expanduser()
+    if path.is_file() and path.suffix.lower() == ".safetensors":
+        return [{"id": str(path), "name": path.name, "mtime": path.stat().st_mtime}]
+    if not path.is_dir():
+        return []
+    checkpoints = []
+    for checkpoint in path.rglob("*.safetensors"):
+        try:
+            mtime = checkpoint.stat().st_mtime
+        except OSError:
+            continue
+        checkpoints.append({"id": str(checkpoint), "name": checkpoint.name, "mtime": mtime})
+    checkpoints.sort(key=lambda item: (item.get("mtime", -1), item.get("name", "").lower()), reverse=True)
+    return checkpoints
 
 
 def _http_json(method: str, url: str, *, payload: dict, headers: dict | None = None, timeout: int = 1800) -> dict:
@@ -908,6 +1026,69 @@ async def output_file(relative_path: str):
 @app.get("/api/outputs", tags=["ui"])
 async def recent_outputs(limit: int = 80):
     return JSONResponse({"outputs": _recent_outputs(limit)})
+
+
+@app.post("/api/outputs/clear", tags=["ui"])
+async def clear_outputs():
+    SETTINGS.output_dir.mkdir(parents=True, exist_ok=True)
+    removed = 0
+    for path in SETTINGS.output_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in IMAGE_SUFFIXES and path.suffix.lower() != ".json":
+            continue
+        try:
+            path.unlink()
+            removed += 1
+        except Exception:
+            pass
+    return JSONResponse({"status": "ok", "removed": removed, "outputs": []})
+
+
+@app.get("/api/presets", tags=["ui"])
+async def presets():
+    return JSONResponse({kind: _load_user_presets(kind) for kind in sorted(PRESET_KINDS)})
+
+
+@app.post("/api/presets/{kind}", tags=["ui"])
+async def save_preset(kind: str, request: FastAPIRequest):
+    payload = await request.json()
+    name = str(payload.get("name") or payload.get("label") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Preset name is required.")
+    preset_id = _safe_slug(str(payload.get("id") or name), "preset")
+    data = {
+        "name": name,
+        "kind": kind,
+        "description": str(payload.get("description") or "").strip(),
+    }
+    if kind == "settings":
+        values = payload.get("values")
+        if not isinstance(values, dict):
+            raise HTTPException(status_code=400, detail="Settings preset values are required.")
+        data["values"] = values
+    else:
+        data["prompt"] = str(payload.get("prompt") or "").strip()
+        if not data["prompt"]:
+            raise HTTPException(status_code=400, detail="Preset prompt is required.")
+    path = _safe_preset_path(kind, preset_id)
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return JSONResponse({"status": "ok", "preset": {"id": path.stem, **data}})
+
+
+@app.delete("/api/presets/{kind}/{preset_id}", tags=["ui"])
+async def delete_preset(kind: str, preset_id: str):
+    path = _safe_preset_path(kind, preset_id)
+    if path.is_file():
+        path.unlink()
+    return JSONResponse({"status": "ok"})
+
+
+@app.get("/api/loras", tags=["ui"])
+async def list_loras():
+    runs = _iter_lora_runs()
+    checkpoints = {run["id"]: _iter_lora_checkpoints(run["id"]) for run in runs[:80]}
+    return JSONResponse({"runs": runs, "checkpoints": checkpoints})
 
 
 @app.get("/api/openrouter/status", tags=["ui"])

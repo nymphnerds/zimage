@@ -1,6 +1,6 @@
-# Z-Image Turbo
+# Nymphs Image
 
-Z-Image Turbo is the NymphsCore 2D image generation backend packaged as an installable Nymph module.
+Nymphs Image is the NymphsCore 2D image generation frontend and backend packaged as an installable Nymph module.
 
 It provides a local FastAPI service for:
 
@@ -8,6 +8,8 @@ It provides a local FastAPI service for:
 - `img2img`
 - local output files
 - Z-Image Turbo through the Nunchaku runtime
+- Gemini Flash/Pro image generation through OpenRouter
+- image part planning and extraction
 - LoRA-compatible runtime hooks used by NymphsCore
 
 This repo replaces the older internal `Nymphs2D2` module shape. The compatibility environment variables are still supported so the current manager and Blender-side tools can migrate without a hard cutover.
@@ -37,6 +39,8 @@ scripts/zimage_start.sh
 scripts/zimage_stop.sh
 scripts/zimage_open.sh
 scripts/zimage_nymph_ui.sh
+scripts/zimage_open_config.sh
+scripts/zimage_open_lora.sh
 scripts/zimage_logs.sh
 scripts/zimage_fetch_models.sh
 scripts/zimage_delete_models.sh

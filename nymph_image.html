@@ -25,6 +25,7 @@
     }
 
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
     body {
       margin: 0;
@@ -256,6 +257,13 @@
 
     .two { grid-template-columns: 1fr 1fr; }
     .three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .no-top { margin-top: 0; }
+
+    button.subtle {
+      color: var(--muted);
+      background: #101817;
+    }
 
     .prompt-tools {
       display: grid;
@@ -512,6 +520,41 @@
 
     .toast.show { opacity: 1; }
 
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.58);
+    }
+
+    .modal.open { display: grid; }
+
+    .modal-panel {
+      width: min(760px, calc(100vw - 36px));
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: #0b1211;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.42);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .modal-title {
+      color: var(--cyan);
+      font-family: Consolas, monospace;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .modal textarea {
+      min-height: 320px;
+      max-height: 62vh;
+    }
+
     @media (max-width: 900px) {
       body { overflow: auto; }
       .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
@@ -530,8 +573,9 @@
           <button class="segment active" id="mode-zimage" type="button">Z-Image</button>
           <button class="segment" id="mode-gemini" type="button">Gemini Flash</button>
         </div>
-        <div class="command-row two">
+        <div class="command-row three">
           <button id="open-outputs" type="button">Open Outputs</button>
+          <button class="subtle" id="clear-outputs" type="button">Clear Outputs</button>
           <button class="danger" id="stop-backend" type="button">Stop</button>
         </div>
       </section>
@@ -565,6 +609,11 @@
               <option value="quality">Quality 1536</option>
             </select>
           </div>
+          <div class="command-row three wide no-top">
+            <button id="save-profile" type="button">Save Profile</button>
+            <button class="subtle" id="delete-profile" type="button">Delete</button>
+            <button class="subtle" id="open-config" type="button">Open Presets</button>
+          </div>
           <div class="field"><label for="width">Width</label><input id="width" type="number" min="64" max="1536" step="8" value="1024"></div>
           <div class="field"><label for="height">Height</label><input id="height" type="number" min="64" max="1536" step="8" value="1024"></div>
           <div class="field"><label for="steps">Steps</label><input id="steps" type="number" min="1" max="80" value="9"></div>
@@ -573,8 +622,20 @@
           <div class="field"><label for="variants">Variants</label><input id="variants" type="number" min="1" max="8" value="1"></div>
           <div class="field"><label for="seed-step">Seed Step</label><input id="seed-step" type="number" min="1" max="1000000" value="1"></div>
           <div class="toggle-row wide"><span>Image to Image</span><input id="z-use-guide" type="checkbox"></div>
+          <div class="field wide z-guide-row" hidden><label for="z-guide-label">Guide Image</label><input id="z-guide-label" type="text" readonly value="none"></div>
+          <div class="command-row two wide z-guide-row no-top" hidden>
+            <button id="z-guide-use-selected" type="button">Use Selected</button>
+            <button class="subtle" id="z-guide-clear" type="button">Clear Guide</button>
+          </div>
           <div class="field wide" id="z-strength-row" hidden><label for="strength">Strength</label><input id="strength" type="number" min="0.05" max="1" step="0.05" value="0.55"></div>
           <div class="toggle-row wide"><span>Use LoRA</span><input id="z-use-lora" type="checkbox"></div>
+          <div class="field wide z-lora-row" hidden><label for="z-lora-run">LoRA Run</label><select id="z-lora-run"></select></div>
+          <div class="field wide z-lora-row" hidden><label for="z-lora-checkpoint">LoRA Checkpoint</label><select id="z-lora-checkpoint"></select></div>
+          <div class="command-row three wide z-lora-row no-top" hidden>
+            <button id="z-lora-open" type="button">Open LoRA</button>
+            <button id="z-lora-latest" type="button">Use Latest</button>
+            <button class="subtle" id="z-lora-clear" type="button">Clear</button>
+          </div>
           <div class="field wide z-lora-row" hidden><label for="z-lora-path">LoRA Path</label><input id="z-lora-path" type="text" placeholder="/home/nymph/LoRA/loras/.../checkpoint.safetensors"></div>
           <div class="field z-lora-row" hidden><label for="z-lora-strength">LoRA Strength</label><input id="z-lora-strength" type="number" min="0" max="2" step="0.05" value="1"></div>
           <div class="toggle-row z-lora-row" hidden><span>Use Activation</span><input id="z-lora-auto-trigger" type="checkbox"></div>
@@ -602,6 +663,11 @@
           <div class="field"><label for="image-size">Size</label><select id="image-size"><option value="">Auto</option><option>1K</option><option>2K</option><option>4K</option></select></div>
           <div class="field"><label for="gemini-variants">Variants</label><input id="gemini-variants" type="number" min="1" max="8" value="1"></div>
           <div class="toggle-row"><span>Guide Image</span><input id="gemini-use-guide" type="checkbox"></div>
+          <div class="field wide gemini-guide-row" hidden><label for="gemini-guide-label">Guide Image</label><input id="gemini-guide-label" type="text" readonly value="none"></div>
+          <div class="command-row two wide gemini-guide-row no-top" hidden>
+            <button id="gemini-guide-use-selected" type="button">Use Selected</button>
+            <button class="subtle" id="gemini-guide-clear" type="button">Clear Guide</button>
+          </div>
         </div>
       </section>
 
@@ -616,10 +682,24 @@
             <label for="style">Style</label>
             <select id="style"></select>
           </div>
+          <div class="field">
+            <label for="saved-prompt">Saved Prompt</label>
+            <select id="saved-prompt"></select>
+          </div>
+          <div class="field">
+            <label for="save-current-prompt">Prompt Tools</label>
+            <button id="save-current-prompt" type="button">Save Current</button>
+          </div>
         </div>
         <textarea id="prompt" spellcheck="false"></textarea>
-        <div class="command-row two">
+        <div class="command-row four">
           <button id="apply-prompt" type="button">Apply Presets</button>
+          <button id="edit-prompt" type="button">Editor</button>
+          <button id="quick-edit-prompt" type="button">Quick Edit</button>
+          <button id="preview-prompt" type="button">Preview</button>
+        </div>
+        <div class="command-row two">
+          <button class="subtle" id="open-prompt-folder" type="button">Open Presets</button>
           <button id="clear-prompt" type="button">Clear</button>
         </div>
         <div class="command-row">
@@ -631,6 +711,11 @@
         <details>
           <summary>Image Part Extraction</summary>
           <div class="grid" style="margin-top:10px">
+            <div class="field wide"><label for="parts-source-label">Source Image</label><input id="parts-source-label" type="text" readonly value="none"></div>
+            <div class="command-row two wide no-top">
+              <button id="parts-use-selected-source" type="button">Use Selected</button>
+              <button class="subtle" id="parts-clear-source" type="button">Clear Source</button>
+            </div>
             <div class="field wide">
               <label for="planner-model">Planner</label>
               <select id="planner-model">
@@ -644,6 +729,11 @@
             <div class="toggle-row"><span>Eyes In Base</span><input id="base-eyes" type="checkbox"></div>
             <div class="toggle-row wide"><span>Add Eyeball Part</span><input id="eye-part" type="checkbox"></div>
             <div class="field wide"><label for="part-guidance">Extraction Prompt</label><textarea id="part-guidance" spellcheck="false">Preserve the master image design, media style, silhouette, material details, and scale relationship. Output clean isolated references for 3D asset creation.</textarea></div>
+            <div class="command-row three wide no-top">
+              <button id="edit-part-guidance" type="button">Editor</button>
+              <button id="preview-part-guidance" type="button">Preview</button>
+              <button class="subtle" id="clear-part-guidance" type="button">Clear</button>
+            </div>
           </div>
           <div class="command-row two">
             <button id="plan-parts" type="button">Plan</button>
@@ -691,6 +781,16 @@
       </section>
     </section>
   </main>
+  <div class="modal" id="text-modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-title" id="text-modal-title">Editor</div>
+      <textarea id="text-modal-value" spellcheck="false"></textarea>
+      <div class="command-row two">
+        <button class="primary" id="text-modal-apply" type="button">Apply</button>
+        <button class="subtle" id="text-modal-close" type="button">Close</button>
+      </div>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
 
   <script>
@@ -708,6 +808,10 @@
       busy: false,
       openrouterConfigured: false,
       progressTimer: null,
+      userPresets: { subject: [], style: [], saved: [], settings: [] },
+      loraRuns: [],
+      loraCheckpoints: {},
+      modalApply: null,
     };
 
     const subjects = {
@@ -731,11 +835,97 @@
     };
 
     const profiles = {
-      default: { width: 1024, height: 1024, steps: 9, guidance: 0 },
-      balanced: { width: 1024, height: 1024, steps: 16, guidance: 0 },
-      portrait: { width: 1024, height: 1536, steps: 16, guidance: 0 },
-      quality: { width: 1536, height: 1536, steps: 20, guidance: 0 },
+      default: { label: "Turbo Default", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      balanced: { label: "Balanced 1024", width: 1024, height: 1024, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
+      portrait: { label: "Portrait 1024x1536", width: 1024, height: 1536, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
+      quality: { label: "Quality 1536", width: 1536, height: 1536, steps: 20, guidance: 0, variants: 1, seedStep: 1 },
     };
+
+    function numberValue(id, fallback) {
+      const value = parseFloat($(id).value);
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function intValue(id, fallback) {
+      const value = parseInt($(id).value, 10);
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function option(label, value) {
+      const node = document.createElement("option");
+      node.value = value;
+      node.textContent = label;
+      return node;
+    }
+
+    function profileValues() {
+      return {
+        width: intValue("width", 1024),
+        height: intValue("height", 1024),
+        steps: intValue("steps", 9),
+        guidance: numberValue("guidance", 0),
+        seed: intValue("seed", 0),
+        variants: intValue("variants", 1),
+        seedStep: intValue("seed-step", 1),
+        useGuide: $("z-use-guide").checked,
+        strength: numberValue("strength", 0.55),
+        useLora: $("z-use-lora").checked,
+        loraPath: $("z-lora-path").value.trim(),
+        loraStrength: numberValue("z-lora-strength", 1),
+        loraAutoTrigger: $("z-lora-auto-trigger").checked,
+        loraTrigger: $("z-lora-trigger").value.trim(),
+        geminiModel: $("gemini-model").value,
+        aspect: $("aspect").value,
+        imageSize: $("image-size").value,
+        geminiVariants: intValue("gemini-variants", 1),
+      };
+    }
+
+    function applyProfileValues(values) {
+      if (!values || typeof values !== "object") return;
+      const assignments = [
+        ["width", values.width],
+        ["height", values.height],
+        ["steps", values.steps],
+        ["guidance", values.guidance],
+        ["seed", values.seed],
+        ["variants", values.variants],
+        ["seed-step", values.seedStep],
+        ["strength", values.strength],
+        ["z-lora-path", values.loraPath],
+        ["z-lora-strength", values.loraStrength],
+        ["z-lora-trigger", values.loraTrigger],
+        ["gemini-model", values.geminiModel],
+        ["aspect", values.aspect],
+        ["image-size", values.imageSize],
+        ["gemini-variants", values.geminiVariants],
+      ];
+      for (const [id, value] of assignments) {
+        if (value !== undefined && $(id)) $(id).value = value;
+      }
+      if (values.useGuide !== undefined) $("z-use-guide").checked = !!values.useGuide;
+      if (values.useLora !== undefined) $("z-use-lora").checked = !!values.useLora;
+      if (values.loraAutoTrigger !== undefined) $("z-lora-auto-trigger").checked = !!values.loraAutoTrigger;
+      syncGuideRows();
+      syncLoraRows();
+      updateGenerateLabel();
+    }
+
+    function presetPrompt(kind, key) {
+      if (!key) return "";
+      if (!key.startsWith("user:")) {
+        const source = kind === "style" ? styles : subjects;
+        return source[key]?.[1] || "";
+      }
+      const id = key.slice(5);
+      const preset = (state.userPresets[kind] || []).find((item) => item.id === id);
+      return preset?.prompt || "";
+    }
+
+    function loraActivationFromPath(path) {
+      const name = String(path || "").split(/[\\/]/).pop() || "";
+      return name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+    }
 
     function toast(message) {
       $("toast").textContent = message;
@@ -795,22 +985,127 @@
     }
 
     function applyPromptPresets() {
-      const subject = subjects[$("subject").value]?.[1] || "";
-      const style = styles[$("style").value]?.[1] || "";
+      const subject = presetPrompt("subject", $("subject").value);
+      const style = presetPrompt("style", $("style").value);
       const manual = ($("prompt").value || "").trim();
       const blocks = [subject, style, manual].filter(Boolean);
       $("prompt").value = [...new Set(blocks)].join("\n\n");
     }
 
-    function populateSelect(selectId, items) {
+    function populatePromptSelect(selectId, kind, items) {
       const select = $(selectId);
+      const previous = select.value;
       select.innerHTML = "";
       for (const [key, value] of Object.entries(items)) {
-        const option = document.createElement("option");
-        option.value = key;
-        option.textContent = value[0];
-        select.appendChild(option);
+        select.appendChild(option(value[0], key));
       }
+      for (const preset of state.userPresets[kind] || []) {
+        select.appendChild(option(preset.name || preset.id, `user:${preset.id}`));
+      }
+      if ([...select.options].some((node) => node.value === previous)) select.value = previous;
+    }
+
+    function populateProfileSelect() {
+      const select = $("z-profile");
+      const previous = select.value || "default";
+      select.innerHTML = "";
+      for (const [key, value] of Object.entries(profiles)) {
+        select.appendChild(option(value.label || key, key));
+      }
+      for (const preset of state.userPresets.settings || []) {
+        select.appendChild(option(preset.name || preset.id, `user:${preset.id}`));
+      }
+      select.value = [...select.options].some((node) => node.value === previous) ? previous : "default";
+    }
+
+    function populateSavedPromptSelect() {
+      const select = $("saved-prompt");
+      const previous = select.value;
+      select.innerHTML = "";
+      select.appendChild(option("Current Draft", ""));
+      for (const preset of state.userPresets.saved || []) {
+        select.appendChild(option(preset.name || preset.id, preset.id));
+      }
+      if ([...select.options].some((node) => node.value === previous)) select.value = previous;
+    }
+
+    async function loadPresets() {
+      try {
+        const response = await fetch("/api/presets", { cache: "no-store" });
+        if (!response.ok) throw new Error();
+        const body = await response.json();
+        state.userPresets = {
+          subject: body.subject || [],
+          style: body.style || [],
+          saved: body.saved || [],
+          settings: body.settings || [],
+        };
+      } catch {
+        state.userPresets = { subject: [], style: [], saved: [], settings: [] };
+      }
+      populatePromptSelect("subject", "subject", subjects);
+      populatePromptSelect("style", "style", styles);
+      populateProfileSelect();
+      populateSavedPromptSelect();
+    }
+
+    async function saveSettingsPreset() {
+      const name = window.prompt("Profile name");
+      if (!name) return;
+      const response = await fetch("/api/presets/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, values: profileValues() }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        toast(body.detail || "Could not save profile.");
+        return;
+      }
+      await loadPresets();
+      const body = await response.json().catch(() => ({}));
+      if (body.preset?.id) $("z-profile").value = `user:${body.preset.id}`;
+      toast("Profile saved.");
+    }
+
+    async function deleteSettingsPreset() {
+      const value = $("z-profile").value;
+      if (!value.startsWith("user:")) {
+        toast("Built-in profiles stay available.");
+        return;
+      }
+      await fetch(`/api/presets/settings/${encodeURIComponent(value.slice(5))}`, { method: "DELETE" });
+      await loadPresets();
+      toast("Profile deleted.");
+    }
+
+    async function saveCurrentPrompt() {
+      const prompt = ($("prompt").value || "").trim();
+      if (!prompt) {
+        toast("Enter a prompt first.");
+        return;
+      }
+      const name = window.prompt("Saved prompt name");
+      if (!name) return;
+      const response = await fetch("/api/presets/saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, prompt }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        toast(body.detail || "Could not save prompt.");
+        return;
+      }
+      await loadPresets();
+      toast("Prompt saved.");
+    }
+
+    function loadSavedPrompt() {
+      const id = $("saved-prompt").value;
+      if (!id) return;
+      const preset = (state.userPresets.saved || []).find((item) => item.id === id);
+      if (preset?.prompt) $("prompt").value = preset.prompt;
     }
 
     function setMode(mode) {
@@ -822,6 +1117,159 @@
       $("mode-chip").textContent = mode === "zimage" ? "Z-Image" : "Gemini";
       $("prompt-kind").textContent = mode === "zimage" ? "local" : "cloud";
       $("plan-parts").disabled = mode !== "gemini" || state.busy;
+      updateGenerateLabel();
+      updatePartButton();
+    }
+
+    function syncGuideRows() {
+      for (const node of document.querySelectorAll(".z-guide-row")) node.hidden = !$("z-use-guide").checked;
+      for (const node of document.querySelectorAll(".gemini-guide-row")) node.hidden = !$("gemini-use-guide").checked;
+      $("z-strength-row").hidden = !$("z-use-guide").checked;
+      updateSourceLabels();
+    }
+
+    function syncLoraRows() {
+      const enabled = $("z-use-lora").checked;
+      for (const node of document.querySelectorAll(".z-lora-row")) node.hidden = !enabled;
+      if (enabled && !state.loraRuns.length) loadLoras();
+    }
+
+    function updateSourceLabels() {
+      const label = state.sourceName || "none";
+      $("z-guide-label").value = label;
+      $("gemini-guide-label").value = label;
+      $("parts-source-label").value = label;
+    }
+
+    function updateGenerateLabel() {
+      if (state.mode === "gemini") {
+        const count = intValue("gemini-variants", 1);
+        $("generate").textContent = count > 1 ? "Generate Variants" : "Generate Image";
+      } else {
+        const count = intValue("variants", 1);
+        $("generate").textContent = count > 1 ? "Generate Variants" : "Generate Image";
+      }
+    }
+
+    function syncFaceControls() {
+      const enabled = $("base-face").checked;
+      $("base-eyes").disabled = !enabled;
+      if (!enabled) $("base-eyes").checked = false;
+    }
+
+    function openTextModal(title, value, onApply, readOnly = false) {
+      state.modalApply = onApply;
+      $("text-modal-title").textContent = title;
+      $("text-modal-value").value = value || "";
+      $("text-modal-value").readOnly = readOnly;
+      $("text-modal-apply").hidden = readOnly;
+      $("text-modal").classList.add("open");
+      $("text-modal").setAttribute("aria-hidden", "false");
+      $("text-modal-value").focus();
+    }
+
+    function closeTextModal() {
+      $("text-modal").classList.remove("open");
+      $("text-modal").setAttribute("aria-hidden", "true");
+      state.modalApply = null;
+    }
+
+    function applyTextModal() {
+      if (state.modalApply) state.modalApply($("text-modal-value").value);
+      closeTextModal();
+    }
+
+    function setLoraPath(path, updateTrigger = true) {
+      $("z-lora-path").value = path || "";
+      if (updateTrigger && path && !$("z-lora-trigger").value.trim()) {
+        $("z-lora-trigger").value = loraActivationFromPath(path);
+      }
+    }
+
+    function populateLoraCheckpoints(runId) {
+      const select = $("z-lora-checkpoint");
+      select.innerHTML = "";
+      const checkpoints = state.loraCheckpoints[runId] || [];
+      if (!checkpoints.length) {
+        select.appendChild(option("No checkpoints found", ""));
+        return;
+      }
+      for (const checkpoint of checkpoints) {
+        select.appendChild(option(checkpoint.name || checkpoint.id, checkpoint.id));
+      }
+      select.value = checkpoints[0].id;
+      setLoraPath(checkpoints[0].id);
+    }
+
+    function populateLoras() {
+      const select = $("z-lora-run");
+      const previous = select.value;
+      select.innerHTML = "";
+      if (!state.loraRuns.length) {
+        select.appendChild(option("No LoRA runs found", ""));
+        $("z-lora-checkpoint").innerHTML = "";
+        $("z-lora-checkpoint").appendChild(option("No checkpoints found", ""));
+        return;
+      }
+      for (const run of state.loraRuns) {
+        select.appendChild(option(run.name || run.id, run.id));
+      }
+      select.value = state.loraRuns.some((run) => run.id === previous) ? previous : state.loraRuns[0].id;
+      populateLoraCheckpoints(select.value);
+    }
+
+    async function loadLoras() {
+      try {
+        const response = await fetch("/api/loras", { cache: "no-store" });
+        if (!response.ok) throw new Error();
+        const body = await response.json();
+        state.loraRuns = body.runs || [];
+        state.loraCheckpoints = body.checkpoints || {};
+      } catch {
+        state.loraRuns = [];
+        state.loraCheckpoints = {};
+      }
+      populateLoras();
+    }
+
+    function useLatestLora() {
+      if (!state.loraRuns.length) {
+        loadLoras();
+        toast("Scanning LoRA folder.");
+        return;
+      }
+      $("z-lora-run").value = state.loraRuns[0].id;
+      populateLoraCheckpoints(state.loraRuns[0].id);
+      toast("Latest LoRA selected.");
+    }
+
+    function clearLora() {
+      $("z-lora-run").value = "";
+      $("z-lora-checkpoint").value = "";
+      $("z-lora-path").value = "";
+      $("z-lora-trigger").value = "";
+      $("z-lora-auto-trigger").checked = false;
+    }
+
+    async function clearOutputs() {
+      if (!window.confirm("Clear generated images and metadata from the output folder?")) return;
+      const response = await fetch("/api/outputs/clear", { method: "POST" });
+      if (!response.ok) {
+        toast("Could not clear outputs.");
+        return;
+      }
+      state.outputs = [];
+      state.visibleOutputs = [];
+      state.selectedOutput = null;
+      state.activeBatchId = "";
+      $("result-image").removeAttribute("src");
+      $("result-image").style.display = "none";
+      $("empty").style.display = "grid";
+      $("output-label").textContent = "No output";
+      $("use-selected-source").disabled = true;
+      renderGallery();
+      const body = await response.json().catch(() => ({}));
+      toast(`Cleared ${body.removed || 0} files.`);
     }
 
     function readFileDataUrl(file) {
@@ -842,6 +1290,7 @@
       $("drop-hint").style.display = "none";
       $("source-name").textContent = file.name.slice(0, 22);
       $("clear-source").disabled = false;
+      updateSourceLabels();
       state.parts = [];
       renderParts();
     }
@@ -855,6 +1304,7 @@
       $("source-name").textContent = "none";
       $("source-file").value = "";
       $("clear-source").disabled = true;
+      updateSourceLabels();
       state.parts = [];
       renderParts();
     }
@@ -1226,7 +1676,7 @@
             parts,
             guidance: $("part-guidance").value,
             style_lock: $("style-lock").checked,
-            style_text: styles[$("style").value]?.[1] || "",
+            style_text: presetPrompt("style", $("style").value),
             batch_id: batchId,
             batch_label: "Image Parts",
             batch_type: "parts",
@@ -1299,8 +1749,10 @@
     }
 
     function init() {
-      populateSelect("subject", subjects);
-      populateSelect("style", styles);
+      populatePromptSelect("subject", "subject", subjects);
+      populatePromptSelect("style", "style", styles);
+      populateProfileSelect();
+      populateSavedPromptSelect();
       $("subject").value = "clean_asset";
       $("style").value = "clean_game";
       applyPromptPresets();
@@ -1308,23 +1760,43 @@
       $("mode-zimage").onclick = () => setMode("zimage");
       $("mode-gemini").onclick = () => setMode("gemini");
       $("z-profile").onchange = () => {
-        const profile = profiles[$("z-profile").value] || profiles.default;
-        $("width").value = profile.width;
-        $("height").value = profile.height;
-        $("steps").value = profile.steps;
-        $("guidance").value = profile.guidance;
+        const value = $("z-profile").value;
+        const profile = value.startsWith("user:")
+          ? (state.userPresets.settings || []).find((item) => item.id === value.slice(5))?.values
+          : profiles[value];
+        applyProfileValues(profile || profiles.default);
       };
-      $("z-use-guide").onchange = () => { $("z-strength-row").hidden = !$("z-use-guide").checked; };
-      $("z-use-lora").onchange = () => {
-        for (const node of document.querySelectorAll(".z-lora-row")) node.hidden = !$("z-use-lora").checked;
-      };
+      $("save-profile").onclick = saveSettingsPreset;
+      $("delete-profile").onclick = deleteSettingsPreset;
+      $("open-config").onclick = () => moduleAction("open_config");
+      $("z-use-guide").onchange = () => { $("z-strength-row").hidden = !$("z-use-guide").checked; syncGuideRows(); };
+      $("z-guide-use-selected").onclick = useSelectedAsSource;
+      $("z-guide-clear").onclick = clearSource;
+      $("z-use-lora").onchange = syncLoraRows;
+      $("z-lora-run").onchange = () => populateLoraCheckpoints($("z-lora-run").value);
+      $("z-lora-checkpoint").onchange = () => setLoraPath($("z-lora-checkpoint").value);
+      $("z-lora-open").onclick = () => moduleAction("open_lora");
+      $("z-lora-latest").onclick = useLatestLora;
+      $("z-lora-clear").onclick = clearLora;
+      $("variants").oninput = updateGenerateLabel;
+      $("gemini-variants").oninput = updateGenerateLabel;
+      $("gemini-use-guide").onchange = syncGuideRows;
+      $("gemini-guide-use-selected").onclick = useSelectedAsSource;
+      $("gemini-guide-clear").onclick = clearSource;
+      $("saved-prompt").onchange = loadSavedPrompt;
+      $("save-current-prompt").onclick = saveCurrentPrompt;
       $("apply-prompt").onclick = applyPromptPresets;
+      $("edit-prompt").onclick = () => openTextModal("Prompt Editor", $("prompt").value, (value) => { $("prompt").value = value; });
+      $("quick-edit-prompt").onclick = () => openTextModal("Quick Edit", $("prompt").value, (value) => { $("prompt").value = value; });
+      $("preview-prompt").onclick = () => openTextModal("Prompt Preview", finalPrompt(), null, true);
+      $("open-prompt-folder").onclick = () => moduleAction("open_config");
       $("clear-prompt").onclick = () => { $("prompt").value = ""; };
       $("generate").onclick = generate;
       $("clear-source").onclick = clearSource;
       $("use-selected-source").onclick = useSelectedAsSource;
       $("refresh-gallery").onclick = () => refreshOutputs();
       $("open-outputs").onclick = () => moduleAction("open_outputs");
+      $("clear-outputs").onclick = clearOutputs;
       $("stop-backend").onclick = () => moduleAction("stop");
       $("strip-prev").onclick = () => selectFromVisible(-1);
       $("strip-next").onclick = () => selectFromVisible(1);
@@ -1334,8 +1806,22 @@
       $("strip-parts").onclick = () => setGalleryMode("parts");
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
+      $("parts-use-selected-source").onclick = useSelectedAsSource;
+      $("parts-clear-source").onclick = clearSource;
+      $("base-face").onchange = syncFaceControls;
+      $("edit-part-guidance").onclick = () => openTextModal("Extraction Prompt", $("part-guidance").value, (value) => { $("part-guidance").value = value; });
+      $("preview-part-guidance").onclick = () => openTextModal("Extraction Preview", $("part-guidance").value, null, true);
+      $("clear-part-guidance").onclick = () => { $("part-guidance").value = ""; };
       $("clear-parts").onclick = clearPartPlan;
+      $("text-modal-apply").onclick = applyTextModal;
+      $("text-modal-close").onclick = closeTextModal;
+      $("text-modal").addEventListener("click", (event) => { if (event.target === $("text-modal")) closeTextModal(); });
+      document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeTextModal(); });
       setMode("zimage");
+      syncGuideRows();
+      syncLoraRows();
+      syncFaceControls();
+      loadPresets();
       refreshInfo();
       refreshOutputs(true);
       setInterval(refreshInfo, 10000);
