@@ -822,8 +822,9 @@
           <summary>Image Part Extraction</summary>
           <div class="grid" style="margin-top:10px">
             <div class="field wide"><label for="parts-source-label">Source Image</label><input id="parts-source-label" type="text" readonly value="none"></div>
-            <div class="command-row two wide no-top">
+            <div class="command-row three wide no-top">
               <button id="parts-use-selected-source" type="button">Use Selected</button>
+              <button id="parts-open-images" type="button">Open Images</button>
               <button class="subtle" id="parts-clear-source" type="button">Clear Source</button>
             </div>
             <div class="field wide">
@@ -874,7 +875,7 @@
         </div>
         <div class="bar"><span id="progress-bar"></span></div>
         <div class="strip-head">
-          <div class="strip-title"><span>Browse</span><span id="strip-label">Recent Outputs</span></div>
+          <div class="strip-title"><span>Browse</span><span id="strip-label">Recent</span></div>
           <div class="strip-controls">
             <button id="strip-prev" type="button" title="Previous output">&lt;</button>
             <button id="strip-next" type="button" title="Next output">&gt;</button>
@@ -1588,7 +1589,7 @@
         state.galleryMode === "current" && currentOutput ? outputBatchLabel(currentOutput) :
         state.galleryMode === "variants" ? "Variants" :
         state.galleryMode === "parts" ? "Parts" :
-        "Recent Outputs";
+        "Recent";
       $("strip-label").textContent = state.visibleOutputs.length ? `${label} (${state.visibleOutputs.length})` : `${label} (0)`;
       for (const output of state.visibleOutputs) {
         const node = document.createElement("div");
@@ -1993,6 +1994,7 @@
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
       $("parts-use-selected-source").onclick = useSelectedAsSource;
+      $("parts-open-images").onclick = openImagesFolder;
       $("parts-clear-source").onclick = clearSource;
       $("parts-details").addEventListener("toggle", syncSourceVisibility);
       $("base-face").onchange = syncFaceControls;

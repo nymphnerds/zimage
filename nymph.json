@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "Image",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -164,7 +164,7 @@
       },
       {
         "id": "open_outputs",
-        "label": "Open Outputs",
+        "label": "Open",
         "entrypoint": "open_outputs",
         "result": "open_directory"
       },
