@@ -177,6 +177,7 @@ install -m 644 "${MODULE_ROOT}/.gitignore" "${STAGING_ROOT}/.gitignore"
 install -m 644 "${MODULE_ROOT}/README.md" "${STAGING_ROOT}/README.md"
 install -m 644 "${MODULE_ROOT}/nymph.json" "${STAGING_ROOT}/nymph.json"
 install -m 644 "${MODULE_ROOT}/api_server.py" "${STAGING_ROOT}/api_server.py"
+install -m 644 "${MODULE_ROOT}/nymph_image.html" "${STAGING_ROOT}/nymph_image.html"
 install -m 644 "${MODULE_ROOT}/config.py" "${STAGING_ROOT}/config.py"
 install -m 644 "${MODULE_ROOT}/image_store.py" "${STAGING_ROOT}/image_store.py"
 install -m 644 "${MODULE_ROOT}/model_manager.py" "${STAGING_ROOT}/model_manager.py"
@@ -192,6 +193,7 @@ for script in \
   zimage_delete_models.sh \
   zimage_fetch_models.sh \
   zimage_logs.sh \
+  zimage_nymph_ui.sh \
   zimage_open.sh \
   zimage_open_outputs.sh \
   zimage_open_weights.sh \

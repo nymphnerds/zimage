@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Z-Image Turbo",
   "short_name": "ZI",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Local Z-Image Turbo image generation backend using the pinned Nunchaku runtime.",
   "category": "image",
   "kind": "image",
@@ -29,7 +29,8 @@
     "host": "127.0.0.1",
     "port": 8090,
     "health_url": "http://127.0.0.1:8090/health",
-    "server_info_url": "http://127.0.0.1:8090/server_info"
+    "server_info_url": "http://127.0.0.1:8090/server_info",
+    "frontend_url": "http://127.0.0.1:8090/nymph"
   },
   "artifacts": {
     "models_root": "$HOME/NymphsData/models",
@@ -47,6 +48,7 @@
     "start": "scripts/zimage_start.sh",
     "stop": "scripts/zimage_stop.sh",
     "open": "scripts/zimage_open.sh",
+    "open_nymph_ui": "scripts/zimage_nymph_ui.sh",
     "logs": "scripts/zimage_logs.sh",
     "delete_models": "scripts/zimage_delete_models.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
@@ -57,7 +59,38 @@
   },
   "ui": {
     "sort_order": 20,
+    "standard_lifecycle_rail": true,
+    "manager_ui": {
+      "type": "local_url",
+      "title": "Nymphs Image",
+      "url": "http://127.0.0.1:8090/nymph",
+      "requires_running": true,
+      "start_action": "open_nymph_ui",
+      "stop_action": "stop"
+    },
     "manager_action_groups": [
+      {
+        "id": "openrouter_key",
+        "title": "OpenRouter",
+        "layout": "compact",
+        "entrypoint": "open_nymph_ui",
+        "result": "open_in_manager",
+        "visibility": "installed",
+        "description": "Optional. Saves the shared OpenRouter key for Gemini Flash image generation and part extraction.",
+        "fields": [
+          {
+            "name": "openrouter_api_key",
+            "type": "secret",
+            "label": "OpenRouter key",
+            "secret_id": "openrouter.api_key",
+            "env": "OPENROUTER_API_KEY",
+            "optional": true
+          }
+        ],
+        "submit": {
+          "label": "Open Nymphs Image"
+        }
+      },
       {
         "id": "model_fetch",
         "title": "Model Fetch",
@@ -131,6 +164,12 @@
       }
     ],
     "manager_actions": [
+      {
+        "id": "open_nymph_ui",
+        "label": "Nymphs Image",
+        "entrypoint": "open_nymph_ui",
+        "result": "open_in_manager"
+      },
       {
         "id": "smoke_test",
         "label": "Smoke Test",

@@ -36,6 +36,7 @@ scripts/zimage_status.sh
 scripts/zimage_start.sh
 scripts/zimage_stop.sh
 scripts/zimage_open.sh
+scripts/zimage_nymph_ui.sh
 scripts/zimage_logs.sh
 scripts/zimage_fetch_models.sh
 scripts/zimage_delete_models.sh
@@ -43,12 +44,25 @@ scripts/zimage_smoke_test.sh
 ```
 
 The module page uses the standard NymphsCore install/detail shell before install.
-After install, the Manager renders the compact native model fetch UI declared in
+After install, the Manager can open the module-owned Nymphs Image UI declared in
+`ui.manager_ui`, and renders the compact native model fetch UI declared in
 `ui.manager_action_groups`.
 
 Z-Image owns the fetch choices, source links, script arguments, validation, and
-runtime preset file. The Manager only renders the generic controls, stores the
-shared Hugging Face token, and routes the declared action.
+runtime preset file. The Manager only renders the generic controls, stores shared
+secrets, and routes the declared action.
+
+The Nymphs Image UI reuses the same Manager OpenRouter secret as the Brain
+module:
+
+```text
+secret_id: openrouter.api_key
+env: OPENROUTER_API_KEY
+```
+
+When launched from the Z-Image OpenRouter action, the module-owned wrapper saves
+that key to `~/NymphsData/config/zimage/openrouter.env` with `0600`
+permissions. The API also accepts a one-off key pasted into the UI.
 
 The native Fetch Models UI downloads the base Z-Image Turbo model plus one
 Nunchaku-compatible quantized `.safetensors` weight:
@@ -138,6 +152,7 @@ svdq-*_r32-z-image-turbo.safetensors
 
 ```bash
 scripts/zimage_start.sh
+scripts/zimage_nymph_ui.sh
 scripts/zimage_status.sh
 scripts/zimage_logs.sh
 scripts/zimage_fetch_models.sh --precision auto --rank 32
@@ -154,14 +169,21 @@ The default local URL is:
 
 ```text
 http://127.0.0.1:8090
+http://127.0.0.1:8090/nymph
 ```
 
 ## Endpoints
 
 - `GET /health`
+- `GET /nymph`
 - `GET /server_info`
 - `GET /active_task`
+- `GET /api/outputs`
+- `GET /api/openrouter/status`
 - `POST /generate`
+- `POST /api/gemini/generate`
+- `POST /api/parts/plan`
+- `POST /api/parts/extract`
 
 `POST /generate` supports:
 
