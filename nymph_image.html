@@ -704,8 +704,8 @@
           </div>
         </div>
         <div class="command-row two">
-          <button id="use-selected-source" type="button" disabled>Use Selected</button>
-          <button id="open-source-images" type="button">Open Images</button>
+          <button id="use-selected-source" type="button" disabled>Use</button>
+          <button id="open-source-images" type="button">Open</button>
         </div>
         <div class="command-row two no-top">
           <button id="clear-source" type="button" disabled>Clear</button>
@@ -729,9 +729,9 @@
             </select>
           </div>
           <div class="command-row three wide no-top">
-            <button id="save-profile" type="button">Save Profile</button>
+            <button id="save-profile" type="button">Save</button>
             <button class="subtle" id="delete-profile" type="button">Delete</button>
-            <button class="subtle" id="open-config" type="button">Open Presets</button>
+            <button class="subtle" id="open-config" type="button">Open</button>
           </div>
           <div class="field"><label for="width">Width</label><input id="width" type="number" min="64" max="1536" step="8" value="1024"></div>
           <div class="field"><label for="height">Height</label><input id="height" type="number" min="64" max="1536" step="8" value="1024"></div>
@@ -761,8 +761,8 @@
           <div class="toggle-row wide"><span>Guide Image</span><input id="gemini-use-guide" type="checkbox"></div>
           <div class="field wide gemini-guide-row" hidden><label for="gemini-guide-label">Guide Image</label><input id="gemini-guide-label" type="text" readonly value="none"></div>
           <div class="command-row three wide gemini-guide-row no-top" hidden>
-            <button id="gemini-guide-use-selected" type="button">Use Selected</button>
-            <button id="gemini-guide-open-images" type="button">Open Images</button>
+            <button id="gemini-guide-use-selected" type="button">Use</button>
+            <button id="gemini-guide-open-images" type="button">Open</button>
             <button class="subtle" id="gemini-guide-clear" type="button">Clear</button>
           </div>
           <div class="field wide">
@@ -805,7 +805,7 @@
           </div>
           <div class="field">
             <label for="save-current-prompt">Prompt Tools</label>
-            <button id="save-current-prompt" type="button">Save Current</button>
+            <button id="save-current-prompt" type="button">Save</button>
           </div>
         </div>
         <textarea id="prompt" spellcheck="false"></textarea>
@@ -814,11 +814,11 @@
           <button id="apply-prompt" type="button">Apply</button>
         </div>
         <div class="command-row two">
-          <button class="subtle" id="open-prompt-folder" type="button">Open Presets</button>
+          <button class="subtle" id="open-prompt-folder" type="button">Open</button>
           <button id="clear-prompt" type="button">Clear</button>
         </div>
         <div class="command-row">
-          <button class="primary" id="generate" type="button">Generate Image</button>
+          <button class="primary" id="generate" type="button">Generate</button>
         </div>
       </section>
 
@@ -828,9 +828,9 @@
           <div class="grid" style="margin-top:10px">
             <div class="field wide"><label for="parts-source-label">Source Image</label><input id="parts-source-label" type="text" readonly value="none"></div>
             <div class="command-row three wide no-top">
-              <button id="parts-use-selected-source" type="button">Use Selected</button>
-              <button id="parts-open-images" type="button">Open Images</button>
-              <button class="subtle" id="parts-clear-source" type="button">Clear Source</button>
+              <button id="parts-use-selected-source" type="button">Use</button>
+              <button id="parts-open-images" type="button">Open</button>
+              <button class="subtle" id="parts-clear-source" type="button">Clear</button>
             </div>
             <div class="field wide">
               <label for="planner-model">Planner</label>
@@ -847,15 +847,15 @@
             <div class="field wide"><label for="part-guidance">Extraction Prompt</label><textarea id="part-guidance" spellcheck="false">Preserve the master image design, media style, silhouette, material details, and scale relationship. Output clean isolated references for 3D asset creation.</textarea></div>
             <div class="command-row three wide no-top">
               <button id="edit-part-guidance" type="button">Editor</button>
-              <button id="preview-part-guidance" type="button">Preview</button>
+              <button id="preview-part-guidance" type="button">View</button>
               <button class="subtle" id="clear-part-guidance" type="button">Clear</button>
             </div>
           </div>
           <div class="command-row two">
             <button id="plan-parts" type="button">Plan</button>
-            <button id="extract-parts" type="button" disabled>Extract Selected (0)</button>
+            <button id="extract-parts" type="button" disabled>Extract (0)</button>
           </div>
-          <button id="clear-parts" type="button">Clear Plan</button>
+          <button id="clear-parts" type="button">Clear</button>
           <div class="parts-list" id="parts-list"></div>
         </details>
       </section>
@@ -870,7 +870,7 @@
       </section>
       <section class="progress">
         <div class="status-line">
-          <span id="runtime-text">checking runtime</span>
+          <span id="runtime-text">No model loaded</span>
           <span id="output-label">No output</span>
         </div>
         <div class="progress-line">
@@ -1330,10 +1330,10 @@
     function updateGenerateLabel() {
       if (state.mode === "gemini") {
         const count = intValue("gemini-variants", 1);
-        $("generate").textContent = count > 1 ? "Generate Variants" : "Generate Image";
+        $("generate").textContent = count > 1 ? "Variants" : "Generate";
       } else {
         const count = intValue("variants", 1);
-        $("generate").textContent = count > 1 ? "Generate Variants" : "Generate Image";
+        $("generate").textContent = count > 1 ? "Variants" : "Generate";
       }
     }
 
@@ -1763,7 +1763,7 @@
 
     function updatePartButton() {
       const count = selectedParts().length;
-      $("extract-parts").textContent = `Extract Selected (${count})`;
+      $("extract-parts").textContent = `Extract (${count})`;
       $("extract-parts").disabled = state.busy || state.mode !== "gemini" || !count;
     }
 
@@ -1891,10 +1891,15 @@
         const response = await fetch("/server_info", { cache: "no-store" });
         const info = await response.json();
         const extra = info.extra || {};
-        $("runtime-text").textContent = `${info.backend || "Z-Image"} / ${extra.runtime || extra.configured_runtime || "runtime"} / r${extra.nunchaku_rank || "?"}`;
+        const runtime = extra.runtime || extra.configured_runtime || "";
+        const rank = extra.nunchaku_rank ? `r${extra.nunchaku_rank}` : "";
+        const precision = extra.nunchaku_precision || "";
+        $("runtime-text").textContent = info.loaded_model_id
+          ? `Loaded ${[runtime, precision, rank].filter(Boolean).join(" / ")}`
+          : "No model loaded";
         $("zimage-ready").textContent = (info.supported_modes || []).join("+") || "ready";
       } catch {
-        $("runtime-text").textContent = "runtime unreachable";
+        $("runtime-text").textContent = "Runtime unreachable";
         $("zimage-ready").textContent = "offline";
       }
       try {
