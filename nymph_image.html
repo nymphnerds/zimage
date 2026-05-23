@@ -293,6 +293,7 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
+      object-position: center center;
       display: none;
       background: transparent;
     }
@@ -457,6 +458,7 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
+      object-position: center center;
       display: none;
     }
 
@@ -598,7 +600,7 @@
     }
 
     .thumb.selected { border-color: var(--green); }
-    .thumb img { width: 100%; height: 72px; object-fit: cover; border-radius: 5px; background: #020403; }
+    .thumb img { width: 100%; height: 72px; object-fit: contain; object-position: center center; border-radius: 5px; background: #020403; }
     .thumb span { color: var(--muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .thumb.selected span { color: var(--green); }
 
