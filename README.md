@@ -49,24 +49,24 @@ scripts/zimage_smoke_test.sh
 
 The module page uses the standard NymphsCore install/detail shell before install.
 After install, the Manager can open the module-owned Nymphs Image UI declared in
-`ui.manager_ui`, and renders the compact native model fetch UI declared in
+`ui.manager_ui`, exposes an Open UI button in `ui.manager_actions`, and renders the compact native model fetch UI declared in
 `ui.manager_action_groups`.
 
 Z-Image owns the fetch choices, source links, script arguments, validation, and
 runtime preset file. The Manager only renders the generic controls, stores shared
 secrets, and routes the declared action.
 
-The Nymphs Image UI reuses the same Manager OpenRouter secret as the Brain
-module:
+The Nymphs Image UI can reuse the same Manager OpenRouter secret as the Brain
+module, and also accepts a one-off key pasted into the Gemini section:
 
 ```text
 secret_id: openrouter.api_key
 env: OPENROUTER_API_KEY
 ```
 
-When launched from the Z-Image OpenRouter action, the module-owned wrapper saves
-that key to `~/NymphsData/config/zimage/openrouter.env` with `0600`
-permissions. The API also accepts a one-off key pasted into the UI.
+If a key has already been saved by another module, the API reads it from
+`~/NymphsData/config/zimage/openrouter.env` or the shared environment. Nymphs
+Image does not render an OpenRouter key field on the Manager details page.
 
 Generated Z-Image variants, Gemini variants, and extracted part images include
 lightweight batch metadata so the Nymphs Image UI can browse the current batch,

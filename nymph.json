@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "Image",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -71,28 +71,6 @@
       "stop_action": "stop"
     },
     "manager_action_groups": [
-      {
-        "id": "openrouter_key",
-        "title": "OpenRouter",
-        "layout": "compact",
-        "entrypoint": "open_nymph_ui",
-        "result": "open_in_manager",
-        "visibility": "installed",
-        "description": "Optional. Saves the shared OpenRouter key for Gemini Flash image generation and part extraction.",
-        "fields": [
-          {
-            "name": "openrouter_api_key",
-            "type": "secret",
-            "label": "OpenRouter key",
-            "secret_id": "openrouter.api_key",
-            "env": "OPENROUTER_API_KEY",
-            "optional": true
-          }
-        ],
-        "submit": {
-          "label": "Open Nymphs Image"
-        }
-      },
       {
         "id": "model_fetch",
         "title": "Model Fetch",
@@ -168,7 +146,7 @@
     "manager_actions": [
       {
         "id": "open_nymph_ui",
-        "label": "Nymphs Image",
+        "label": "Open UI",
         "entrypoint": "open_nymph_ui",
         "result": "open_in_manager"
       },
