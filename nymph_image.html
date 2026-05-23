@@ -696,8 +696,11 @@
             <span>or click to choose</span>
           </div>
         </div>
-        <div class="command-row three">
+        <div class="command-row two">
           <button id="use-selected-source" type="button" disabled>Use Selected</button>
+          <button id="open-source-images" type="button">Open Images</button>
+        </div>
+        <div class="command-row two no-top">
           <button id="clear-source" type="button" disabled>Clear</button>
           <button id="refresh-gallery" type="button">Refresh</button>
         </div>
@@ -748,6 +751,13 @@
       <section class="section" id="gemini-controls" hidden>
         <div class="section-title"><span>Gemini Flash</span><span>OpenRouter</span></div>
         <div class="grid">
+          <div class="toggle-row wide"><span>Guide Image</span><input id="gemini-use-guide" type="checkbox"></div>
+          <div class="field wide gemini-guide-row" hidden><label for="gemini-guide-label">Guide Image</label><input id="gemini-guide-label" type="text" readonly value="none"></div>
+          <div class="command-row three wide gemini-guide-row no-top" hidden>
+            <button id="gemini-guide-use-selected" type="button">Use Selected</button>
+            <button id="gemini-guide-open-images" type="button">Open Images</button>
+            <button class="subtle" id="gemini-guide-clear" type="button">Clear</button>
+          </div>
           <div class="field wide">
             <label for="api-key">API Key</label>
             <input id="api-key" type="password" autocomplete="off" placeholder="Optional if saved in Manager">
@@ -764,12 +774,6 @@
           <div class="field"><label for="aspect">Aspect</label><select id="aspect"><option>1:1</option><option>2:3</option><option>3:2</option><option>3:4</option><option>4:3</option><option>4:5</option><option>5:4</option><option>9:16</option><option>16:9</option><option>21:9</option></select></div>
           <div class="field"><label for="image-size">Size</label><select id="image-size"><option value="">Auto</option><option>1K</option><option>2K</option><option>4K</option></select></div>
           <div class="field"><label for="gemini-variants">Variants</label><input id="gemini-variants" type="number" min="1" max="8" value="1"></div>
-          <div class="toggle-row"><span>Guide Image</span><input id="gemini-use-guide" type="checkbox"></div>
-          <div class="field wide gemini-guide-row" hidden><label for="gemini-guide-label">Guide Image</label><input id="gemini-guide-label" type="text" readonly value="none"></div>
-          <div class="command-row two wide gemini-guide-row no-top" hidden>
-            <button id="gemini-guide-use-selected" type="button">Use Selected</button>
-            <button class="subtle" id="gemini-guide-clear" type="button">Clear Guide</button>
-          </div>
         </div>
       </section>
 
@@ -1045,6 +1049,10 @@
 
     function moduleAction(action) {
       window.location.href = `nymphs-module-action://${action}`;
+    }
+
+    function openImagesFolder() {
+      moduleAction("open_outputs");
     }
 
     function setBusy(value) {
@@ -1902,6 +1910,8 @@
       $("gemini-variants").oninput = updateGenerateLabel;
       $("gemini-use-guide").onchange = syncGuideRows;
       $("gemini-guide-use-selected").onclick = useSelectedAsSource;
+      $("gemini-guide-open-images").onclick = openImagesFolder;
+      $("gemini-guide-label").onclick = openImagesFolder;
       $("gemini-guide-clear").onclick = clearSource;
       $("saved-prompt").onchange = loadSavedPrompt;
       $("save-current-prompt").onclick = saveCurrentPrompt;
@@ -1913,8 +1923,9 @@
       $("generate").onclick = generate;
       $("clear-source").onclick = clearSource;
       $("use-selected-source").onclick = useSelectedAsSource;
+      $("open-source-images").onclick = openImagesFolder;
       $("refresh-gallery").onclick = () => refreshOutputs();
-      $("open-outputs").onclick = () => moduleAction("open_outputs");
+      $("open-outputs").onclick = openImagesFolder;
       $("clear-outputs").onclick = clearOutputs;
       $("stop-backend").onclick = () => moduleAction("stop");
       $("strip-prev").onclick = () => selectFromVisible(-1);
