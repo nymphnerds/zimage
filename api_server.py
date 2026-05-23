@@ -46,6 +46,7 @@ NYMPH_UI_ASSET_PATH = Path(__file__).resolve().parent / "ui"
 OPENROUTER_API_ROOT = "https://openrouter.ai/api/v1"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 PRESET_KINDS = {"subject", "style", "saved", "settings"}
+PROMPT_PRESET_KINDS = {"subject", "style", "saved"}
 
 app = FastAPI(
     title="Nymphs2D2 API",
@@ -92,10 +93,35 @@ def _config_dir() -> Path:
     return Path.home() / "NymphsData" / "config" / "zimage"
 
 
+def _nymphs_config_root() -> Path:
+    configured = os.getenv("NYMPHS_DATA_ROOT")
+    if configured:
+        return Path(configured).expanduser() / "config"
+    return Path.home() / "NymphsData" / "config"
+
+
+def _image_prompt_preset_dir() -> Path:
+    configured = os.getenv("NYMPHS_IMAGE_PRESET_DIR") or os.getenv("NYMPHS_IMAGE_PRESETS_DIR")
+    path = Path(configured).expanduser() if configured else _nymphs_config_root() / "image_presets"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _image_settings_preset_dir() -> Path:
+    configured = os.getenv("NYMPHS_IMAGE_SETTINGS_PRESET_DIR") or os.getenv("NYMPHS_IMAGE_SETTINGS_PRESETS_DIR")
+    path = Path(configured).expanduser() if configured else _nymphs_config_root() / "image_settings_presets"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _preset_dir(kind: str) -> Path:
     normalized = (kind or "").strip().lower()
     if normalized not in PRESET_KINDS:
         raise HTTPException(status_code=400, detail="Unsupported preset kind.")
+    if normalized in PROMPT_PRESET_KINDS:
+        return _image_prompt_preset_dir()
+    if normalized == "settings":
+        return _image_settings_preset_dir()
     path = _config_dir() / "presets" / normalized
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -105,25 +131,58 @@ def _safe_slug(value: str, fallback: str = "preset") -> str:
     return _slugify(value, fallback).replace("-", "_")
 
 
+def _strip_preset_kind_prefix(kind: str, preset_id: str) -> str:
+    value = _safe_slug(preset_id, "preset")
+    prefix = f"{kind}__"
+    return value[len(prefix):] if value.startswith(prefix) else value
+
+
 def _safe_preset_path(kind: str, preset_id: str) -> Path:
-    return _preset_dir(kind) / f"{_safe_slug(preset_id, 'preset')}.json"
+    normalized = (kind or "").strip().lower()
+    if normalized in PROMPT_PRESET_KINDS:
+        preset_key = _strip_preset_kind_prefix(normalized, preset_id)
+        return _image_prompt_preset_dir() / f"{normalized}__{preset_key}.json"
+    return _preset_dir(normalized) / f"{_safe_slug(preset_id, 'preset')}.json"
 
 
 def _load_user_presets(kind: str) -> list[dict]:
+    normalized = (kind or "").strip().lower()
+    if normalized not in PRESET_KINDS:
+        raise HTTPException(status_code=400, detail="Unsupported preset kind.")
+    if normalized in PROMPT_PRESET_KINDS:
+        files = list(_image_prompt_preset_dir().glob(f"{normalized}__*.json"))
+    elif normalized == "settings":
+        files = list(_image_settings_preset_dir().glob("*.json"))
+    else:
+        files = list(_preset_dir(normalized).glob("*.json"))
+
     presets = []
-    for path in sorted(_preset_dir(kind).glob("*.json")):
+    seen: set[str] = set()
+    for path in sorted(set(files), key=lambda item: str(item)):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             continue
         if not isinstance(data, dict):
             continue
-        preset_id = path.stem
+        raw_kind = str(data.get("kind") or data.get("type") or "").strip().lower()
+        if normalized in PROMPT_PRESET_KINDS:
+            inferred_kind = path.stem.split("__", 1)[0] if "__" in path.stem else normalized
+            if raw_kind and raw_kind != normalized:
+                continue
+            if inferred_kind in PROMPT_PRESET_KINDS and inferred_kind != normalized:
+                continue
+            preset_id = path.stem.split("__", 1)[1] if "__" in path.stem else path.stem
+        else:
+            preset_id = path.stem
+        if preset_id in seen:
+            continue
+        seen.add(preset_id)
         presets.append(
             {
                 "id": preset_id,
                 "name": str(data.get("name") or data.get("label") or preset_id.replace("_", " ").title()).strip(),
-                "kind": kind,
+                "kind": normalized,
                 "prompt": str(data.get("prompt") or data.get("style") or "").strip(),
                 "values": data.get("values") if isinstance(data.get("values"), dict) else {},
                 "description": str(data.get("description") or "").strip(),
@@ -1055,6 +1114,9 @@ async def presets():
 
 @app.post("/api/presets/{kind}", tags=["ui"])
 async def save_preset(kind: str, request: FastAPIRequest):
+    kind = (kind or "").strip().lower()
+    if kind not in PRESET_KINDS:
+        raise HTTPException(status_code=400, detail="Unsupported preset kind.")
     payload = await request.json()
     name = str(payload.get("name") or payload.get("label") or "").strip()
     if not name:
@@ -1071,12 +1133,17 @@ async def save_preset(kind: str, request: FastAPIRequest):
             raise HTTPException(status_code=400, detail="Settings preset values are required.")
         data["values"] = values
     else:
-        data["prompt"] = str(payload.get("prompt") or "").strip()
-        if not data["prompt"]:
+        prompt_text = str(payload.get("prompt") or payload.get("style") or "").strip()
+        if not prompt_text:
             raise HTTPException(status_code=400, detail="Preset prompt is required.")
+        if kind == "style":
+            data["style"] = prompt_text
+        else:
+            data["prompt"] = prompt_text
     path = _safe_preset_path(kind, preset_id)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return JSONResponse({"status": "ok", "preset": {"id": path.stem, **data}})
+    returned_id = path.stem.split("__", 1)[1] if "__" in path.stem else path.stem
+    return JSONResponse({"status": "ok", "preset": {"id": returned_id, **data}})
 
 
 @app.delete("/api/presets/{kind}/{preset_id}", tags=["ui"])

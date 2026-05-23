@@ -328,6 +328,7 @@
     .three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .no-top { margin-top: 0; }
+    .part-clear-row { margin-top: 10px; }
 
     button.subtle {
       color: var(--muted);
@@ -788,24 +789,22 @@
         <div class="section-title"><span>Prompt</span><span id="prompt-kind">asset</span></div>
         <div class="prompt-tools">
           <div class="field">
-            <label for="prompt-preset">Prompt Preset</label>
-            <select id="prompt-preset"></select>
-          </div>
-          <div class="field">
             <label for="subject">Subject</label>
             <select id="subject"></select>
+          </div>
+          <div class="command-row three no-top">
+            <button class="subtle" id="open-subject-presets" type="button">Open</button>
+            <button id="save-subject-preset" type="button">Save</button>
+            <button class="subtle" id="delete-subject-preset" type="button">Delete</button>
           </div>
           <div class="field">
             <label for="style">Style</label>
             <select id="style"></select>
           </div>
-          <div class="field">
-            <label for="saved-prompt">Saved Prompt</label>
-            <select id="saved-prompt"></select>
-          </div>
-          <div class="field">
-            <label for="save-current-prompt">Prompt Tools</label>
-            <button id="save-current-prompt" type="button">Save</button>
+          <div class="command-row three no-top">
+            <button class="subtle" id="open-style-presets" type="button">Open</button>
+            <button id="save-style-preset" type="button">Save</button>
+            <button class="subtle" id="delete-style-preset" type="button">Delete</button>
           </div>
         </div>
         <textarea id="prompt" spellcheck="false"></textarea>
@@ -813,9 +812,21 @@
           <button id="edit-prompt" type="button">Editor</button>
           <button id="apply-prompt" type="button">Apply</button>
         </div>
-        <div class="command-row two">
-          <button class="subtle" id="open-prompt-folder" type="button">Open</button>
+        <div class="command-row">
           <button id="clear-prompt" type="button">Clear</button>
+        </div>
+        <div class="prompt-tools saved-prompt-tools">
+          <div class="field">
+            <label for="saved-prompt">Saved Prompt</label>
+            <select id="saved-prompt"></select>
+          </div>
+          <div class="field">
+            <label for="save-current-prompt">Prompt Tools</label>
+            <div class="command-row two no-top">
+              <button id="save-current-prompt" type="button">Save</button>
+              <button class="subtle" id="delete-saved-prompt" type="button">Delete</button>
+            </div>
+          </div>
         </div>
         <div class="command-row">
           <button class="primary" id="generate" type="button">Generate</button>
@@ -845,9 +856,8 @@
             <div class="toggle-row"><span>Eyes In Base</span><input id="base-eyes" type="checkbox"></div>
             <div class="toggle-row wide"><span>Add Eyeball Part</span><input id="eye-part" type="checkbox"></div>
             <div class="field wide"><label for="part-guidance">Extraction Prompt</label><textarea id="part-guidance" spellcheck="false">Preserve the master image design, media style, silhouette, material details, and scale relationship. Output clean isolated references for 3D asset creation.</textarea></div>
-            <div class="command-row three wide no-top">
+            <div class="command-row two wide no-top">
               <button id="edit-part-guidance" type="button">Editor</button>
-              <button id="preview-part-guidance" type="button">View</button>
               <button class="subtle" id="clear-part-guidance" type="button">Clear</button>
             </div>
           </div>
@@ -855,7 +865,9 @@
             <button id="plan-parts" type="button">Plan</button>
             <button id="extract-parts" type="button" disabled>Extract (0)</button>
           </div>
-          <button id="clear-parts" type="button">Clear</button>
+          <div class="command-row part-clear-row">
+            <button id="clear-parts" type="button">Clear</button>
+          </div>
           <div class="parts-list" id="parts-list"></div>
         </details>
       </section>
@@ -928,37 +940,33 @@
     };
 
     const subjects = {
-      clean_asset: ["Clean Asset Reference", "single game asset reference, exactly one centered subject, whole subject visible, orthographic front-readable presentation, clean readable silhouette, clear material zones, pure white empty background, soft even neutral lighting, minimal contact shadow only if needed, designed for 3D modeling reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no decorative frame, no text, no labels, no extra objects."],
-      prop: ["Prop Asset", "single game prop asset, exactly one centered object, complete object visible, clear front-facing design, clean silhouette, readable materials, simple appealing shapes, pure white empty background, soft even neutral lighting. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no decorative frame, no text, no labels, no extra objects."],
-      character: ["Character Asset", "single original character asset reference, full body, centered, head to toe visible, front-facing symmetrical neutral A-pose or relaxed T-pose, arms slightly away from torso, straight readable legs, feet visible, clean silhouette, clear limb separation, readable costume design, pure white empty background, soft even neutral lighting, designed for 3D modeling reference. No action pose, no perspective drama, no cropped limbs, no scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no props crossing the body."],
-      master: ["Character Master Reference", "Create one complete master character reference image from the character description below. Show exactly one full character as one cohesive design, centered, head to toe visible, front-facing, symmetrical, in a neutral A-pose or relaxed T-pose with arms slightly away from the torso. Include the complete outfit, hair, facial hair, weapons, accessories, and carried props, but keep every item readable and avoid crossing or hiding the body silhouette. Use a pure white empty background, soft even neutral lighting, readable silhouette, clear materials, and enough margin around the character. This image will be used as the canonical source for guided part extraction, so keep the design consistent, complete, and uncluttered. Character description:"],
-      creature: ["Creature Asset", "single creature asset reference, exactly one whole creature visible, centered, front-readable neutral pose, clean readable silhouette, clear anatomy, distinctive shape language, pure white empty background, soft even neutral lighting, minimal contact shadow only if needed, designed as a 3D creature reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no extra objects."],
+      none: ["None", ""],
       building: ["Building Asset", "single building or modular environment asset, exactly one structure centered, full structure visible, orthographic front-readable asset presentation, clean silhouette, readable roof and wall shapes, clear material zones, pure white empty background, soft even neutral lighting, designed for 3D modeling reference. No surrounding scene, no landscape, no street, no sky, no floor plane, no horizon line, no gradient backdrop, no text, no labels."],
+      character: ["Character Asset", "single original character asset reference, full body, centered, head to toe visible, front-facing symmetrical neutral A-pose or relaxed T-pose, arms slightly away from torso, straight readable legs, feet visible, clean silhouette, clear limb separation, readable costume design, pure white empty background, soft even neutral lighting, designed for 3D modeling reference. No action pose, no perspective drama, no cropped limbs, no scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no props crossing the body."],
+      master: ["Character Master Reference", "Create one complete master character reference image from the character description below. Show exactly one full character as one cohesive design, centered, head to toe visible, front-facing, symmetrical, in a neutral A-pose or relaxed T-pose with arms slightly away from the torso. Include the complete outfit, hair, facial hair, weapons, accessories, and carried props, but keep every item readable and avoid crossing or hiding the body silhouette. Use a pure white empty background, soft even neutral lighting, readable silhouette, clear materials, and enough margin around the character. This image will be used as the canonical source for guided part extraction, so keep the design consistent, complete, and uncluttered. Critical exclusions: do not make a parts sheet, grid, collage, lineup, turnaround, catalog page, or separate item layout. Do not split the clothing, hair, weapons, or props into separate images. Do not use an action pose or dramatic perspective. Do not add labels, text, scenery, rooms, floor planes, horizon lines, gradient backdrops, extra characters, duplicate versions, or floating items. Character description:"],
+      character_sheet: ["Character Sheet", "Create a clean character model sheet from the character description below. Show the same character in three aligned orthographic views: front view, side view, and back view. Use a neutral A-pose or relaxed T-pose in every view, symmetrical stance, arms slightly away from the torso, straight readable legs, feet visible, and consistent proportions across all views. Keep the sheet minimal and functional for 3D modeling reference, with clear costume shapes, hair silhouette, accessories, and material zones. Use a pure white empty background, soft even neutral lighting, and simple evenly spaced columns. Critical exclusions: no scenery, no room, no floor plane, no horizon line, no gradient backdrop, no decorative frame, no action pose, no perspective view, no duplicate poses beyond the three views, no separate item callouts, no text labels unless absolutely necessary. Character description:"],
+      clean_asset: ["Clean Asset Reference", "single game asset reference, exactly one centered subject, whole subject visible, orthographic front-readable presentation, clean readable silhouette, clear material zones, pure white empty background, soft even neutral lighting, minimal contact shadow only if needed, designed for 3D modeling reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no decorative frame, no text, no labels, no extra objects."],
+      creature: ["Creature Asset", "single creature asset reference, exactly one whole creature visible, centered, front-readable neutral pose, clean readable silhouette, clear anatomy, distinctive shape language, pure white empty background, soft even neutral lighting, minimal contact shadow only if needed, designed as a 3D creature reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no extra objects."],
       hard_surface: ["Hard Surface Asset", "single hard-surface asset reference, exactly one vehicle, machine, robot, or sci-fi object centered, whole object visible, orthographic front-readable asset presentation, clean silhouette, readable mechanical forms, consistent proportions, clear panel lines and material breaks, pure white empty background, soft even neutral lighting, designed for 3D modeling reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no extra objects."],
+      prop: ["Prop Asset", "single game prop asset, exactly one centered object, complete object visible, clear front-facing design, clean silhouette, readable materials, simple appealing shapes, pure white empty background, soft even neutral lighting. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no decorative frame, no text, no labels, no extra objects."],
     };
 
     const styles = {
       none: ["No Style", ""],
-      clean_game: ["Clean Game Concept", "clean game asset concept style, production-reference rendering, controlled shape language, readable material zones, clear silhouette, polished but not cinematic, isolated subject only, no environment, no floor plane, no text labels"],
+      anime_model_sheet: ["Anime Model Sheet", "anime production model sheet style, crisp contours, flat cel colors, subtle shadow bands, clean costume shapes, consistent proportions, isolated reference presentation, no action effects, no scenic background, no text labels"],
+      chibi_game_asset: ["Chibi Game Asset", "cute chibi game asset reference, compact appealing proportions, oversized head if character, simple readable shapes, clean cel-painted materials, isolated subject only, no scenery, no floor plane, no decorative background"],
+      clay_sculpt_preview: ["Clay Sculpt Preview", "neutral clay sculpt preview, matte warm gray material, form-focused lighting, readable planes and volumes, no texture details except sculpted forms, isolated subject only, no environment, no floor plane, no dramatic shadows"],
       clean_anime: ["Clean Anime", "clean anime model reference, crisp linework, cel-shaded rendering, controlled highlights, appealing stylized proportions, clear silhouette, isolated subject only, no background scene, no speed lines, no dramatic action effects"],
-      handpainted: ["Handpainted Game Asset", "stylized hand-painted game asset reference, broad readable color shapes, painted edge highlights, clear material separation, slightly exaggerated forms, isolated subject only, no environment, no floor plane, no decorative background"],
-      painterly: ["Painterly Fantasy", "painterly fantasy asset reference, elegant linework, soft watercolor shading, readable silhouette, ornate costume detail, handcrafted illustration finish, isolated subject only, no environment, no cinematic background, no floor plane"],
-      inkwash: ["Storybook Inkwash", "strong storybook ink-and-wash asset reference, visible black ink contour lines, loose brush ink details, transparent watercolor washes, flat paper-white negative space, gentle muted fantasy palette, hand-painted traditional media finish, isolated subject only, no landscape, no room, not 3D render, not plastic, not glossy, not photorealistic"],
-      lowpoly: ["Low Poly Reference", "low-poly game asset reference, simplified geometric planes, clear silhouette, readable color blocks, clean material zones, efficient stylized forms, isolated subject only, no environment, no floor plane, no text"],
-    };
-
-    const promptPresets = {
-      clean_asset: { label: "Clean Asset Reference", subject: "clean_asset", style: "clean_game" },
-      prop: { label: "Prop Asset", subject: "prop", style: "clean_game" },
-      character: { label: "Character Asset", subject: "character", style: "clean_game" },
-      master: { label: "Character Master", subject: "master", style: "clean_game" },
-      creature: { label: "Creature Asset", subject: "creature", style: "clean_game" },
-      building: { label: "Building Asset", subject: "building", style: "clean_game" },
-      hard_surface: { label: "Hard Surface Asset", subject: "hard_surface", style: "clean_game" },
-      lowpoly_prop: { label: "Low Poly Prop", subject: "prop", style: "lowpoly" },
-      painterly_character: { label: "Painterly Character", subject: "character", style: "painterly" },
-      inkwash_character: { label: "Inkwash Character", subject: "character", style: "inkwash" },
-      custom: { label: "Custom", subject: "", style: "" },
+      clean_game: ["Clean Game Concept", "clean game asset concept style, production-reference rendering, controlled shape language, readable material zones, clear silhouette, polished but not cinematic, isolated subject only, no environment, no floor plane, no text labels"],
+      grimdark_realism: ["Grimdark Realism", "grimdark fantasy asset reference, grounded material rendering, worn surfaces, dark natural palette, readable silhouette, isolated subject only, no cinematic scene, no smoke, no battlefield, no environment"],
+      handpainted_game_asset: ["Handpainted Game Asset", "stylized hand-painted game asset reference, broad readable color shapes, painted edge highlights, clear material separation, slightly exaggerated forms, isolated subject only, no environment, no floor plane, no decorative background"],
+      hard_surface_blueprint: ["Hard Surface Blueprint", "hard-surface blueprint concept reference, precise mechanical forms, crisp panel breaks, clean orthographic feel, controlled neutral colors, readable construction details, isolated object only, no workshop, no hangar, no grid floor, no text labels"],
+      ink_line_reference: ["Ink Line Reference", "clean ink line reference, crisp contour lines, minimal flat colors, clear silhouette, readable construction shapes, asset sheet clarity, isolated subject only, white background, no scenery, no decorative effects"],
+      japanese_watercolor_woodblock: ["Japanese Watercolor Woodblock", "Japanese watercolor woodblock asset reference, ukiyo-e inspired carved ink outlines, flat layered color washes, subtle washi paper texture, restrained natural palette, decorative but readable silhouette, traditional printmaking feel, isolated subject only on flat paper-white negative space, no landscape, no room, no decorative border, not 3D render, not glossy, not photorealistic"],
+      low_poly_reference: ["Low Poly Reference", "low-poly game asset reference, simplified geometric planes, clear silhouette, readable color blocks, clean material zones, efficient stylized forms, isolated subject only, no environment, no floor plane, no text"],
+      minimalist_chinese_watercolor: ["Minimalist Chinese Watercolor", "minimalist Chinese watercolor and ink-wash asset reference, sparse expressive brushwork, soft mineral watercolor washes, generous flat paper-white negative space, delicate ink contours, calm restrained palette, xieyi-inspired simplicity, subtle rice paper texture, isolated subject only, no landscape, no room, no mountains, no calligraphy, not 3D render, not glossy, not photorealistic"],
+      painterly_fantasy: ["Painterly Fantasy", "painterly fantasy asset reference, elegant linework, soft watercolor shading, readable silhouette, ornate costume detail, handcrafted illustration finish, isolated subject only, no environment, no cinematic background, no floor plane"],
+      storybook_inkwash: ["Storybook Inkwash", "strong storybook ink-and-wash asset reference, visible black ink contour lines, loose brush ink details, transparent watercolor washes, flat paper-white negative space, gentle muted fantasy palette, hand-painted traditional media finish, isolated subject only, no landscape, no room, not 3D render, not plastic, not glossy, not photorealistic"],
     };
 
     const profiles = {
@@ -1060,6 +1068,16 @@
       return preset?.prompt || "";
     }
 
+    function presetLabel(kind, key) {
+      if (!key) return "";
+      if (!key.startsWith("user:")) {
+        const source = kind === "style" ? styles : subjects;
+        return source[key]?.[0] || "";
+      }
+      const preset = (state.userPresets[kind] || []).find((item) => item.id === key.slice(5));
+      return preset?.name || "";
+    }
+
     function loraActivationFromPath(path) {
       const name = String(path || "").split(/[\\/]/).pop() || "";
       return name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
@@ -1118,12 +1136,8 @@
     }
 
     function finalPrompt() {
-      const prompt = ($("prompt").value || "").trim();
-      const activation = ($("z-lora-trigger")?.value || "").trim();
-      if (state.mode === "zimage" && $("z-use-lora").checked && $("z-lora-auto-trigger").checked && activation) {
-        return [activation, prompt].filter(Boolean).join("\n\n");
-      }
-      return prompt;
+      syncManagedPromptBlocks();
+      return unwrapManagedPromptMarkers($("prompt").value);
     }
 
     function buildPresetPromptText() {
@@ -1132,28 +1146,59 @@
       return [subject, style].filter(Boolean).join("\n\n");
     }
 
-    function applyPromptPresets() {
+    function managedPromptBlock(kind, prompt) {
+      const labels = { subject: "Auto Subject", style: "Auto Style", lora: "Auto LoRA" };
+      const label = labels[kind];
+      const value = (prompt || "").trim();
+      if (!label || !value) return "";
+      return `[${label}]\n${value}\n[/${label}]`;
+    }
+
+    function removeManagedPromptBlock(text, kind) {
+      const labels = { subject: "Auto Subject", style: "Auto Style", lora: "Auto LoRA" };
+      const label = labels[kind];
+      if (!label) return (text || "").trim();
+      const pattern = new RegExp(`\\n?\\[${label}\\]\\n[\\s\\S]*?\\n\\[\\/${label}\\]\\n?`, "g");
+      return (text || "").replace(pattern, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    }
+
+    function managedPromptBlockContent(text, kind) {
+      const labels = { subject: "Auto Subject", style: "Auto Style", lora: "Auto LoRA" };
+      const label = labels[kind];
+      if (!label) return "";
+      const pattern = new RegExp(`\\[${label}\\]\\n([\\s\\S]*?)\\n\\[\\/${label}\\]`);
+      const match = pattern.exec(text || "");
+      return (match?.[1] || "").trim();
+    }
+
+    function removeAllManagedPromptBlocks(text) {
+      return ["subject", "style", "lora"].reduce((value, kind) => removeManagedPromptBlock(value, kind), text || "");
+    }
+
+    function unwrapManagedPromptMarkers(text) {
+      return (text || "")
+        .replace(/\n?\[Auto (?:Subject|Style|LoRA)\]\n?/g, "\n")
+        .replace(/\n?\[\/Auto (?:Subject|Style|LoRA)\]\n?/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
+
+    function syncManagedPromptBlocks() {
       const subject = presetPrompt("subject", $("subject").value);
       const style = presetPrompt("style", $("style").value);
-      const manual = ($("prompt").value || "").trim();
-      const blocks = [subject, style, manual].filter(Boolean);
+      const activation = ($("z-lora-trigger")?.value || "").trim();
+      const useLora = state.mode === "zimage" && $("z-use-lora").checked && $("z-lora-auto-trigger").checked && activation;
+      const body = removeAllManagedPromptBlocks($("prompt").value);
+      const blocks = [
+        managedPromptBlock("subject", subject),
+        managedPromptBlock("style", style),
+        managedPromptBlock("lora", useLora ? activation : ""),
+        body,
+      ].filter(Boolean);
       $("prompt").value = [...new Set(blocks)].join("\n\n");
     }
 
-    function applyPromptPreset() {
-      const preset = promptPresets[$("prompt-preset").value] || promptPresets.clean_asset;
-      if (preset.subject) $("subject").value = preset.subject;
-      if (preset.style) $("style").value = preset.style;
-      $("prompt").value = buildPresetPromptText();
-    }
-
-    function syncPromptPresetFromParts() {
-      const subject = $("subject").value;
-      const style = $("style").value;
-      const match = Object.entries(promptPresets).find(([, preset]) =>
-        preset.subject === subject && preset.style === style);
-      $("prompt-preset").value = match?.[0] || "custom";
-    }
+    const applyPromptPresets = syncManagedPromptBlocks;
 
     function populatePromptSelect(selectId, kind, items) {
       const select = $(selectId);
@@ -1166,16 +1211,6 @@
         select.appendChild(option(preset.name || preset.id, `user:${preset.id}`));
       }
       if ([...select.options].some((node) => node.value === previous)) select.value = previous;
-    }
-
-    function populatePromptPresetSelect() {
-      const select = $("prompt-preset");
-      const previous = select.value || "clean_asset";
-      select.innerHTML = "";
-      for (const [key, preset] of Object.entries(promptPresets)) {
-        select.appendChild(option(preset.label, key));
-      }
-      select.value = [...select.options].some((node) => node.value === previous) ? previous : "clean_asset";
     }
 
     function populateProfileSelect() {
@@ -1218,10 +1253,8 @@
       }
       populatePromptSelect("subject", "subject", subjects);
       populatePromptSelect("style", "style", styles);
-      populatePromptPresetSelect();
       populateProfileSelect();
       populateSavedPromptSelect();
-      syncPromptPresetFromParts();
     }
 
     async function saveSettingsPreset() {
@@ -1254,8 +1287,51 @@
       toast("Profile deleted.");
     }
 
+    async function saveManagedPromptPreset(kind, selectId) {
+      syncManagedPromptBlocks();
+      const select = $(selectId);
+      const currentName = presetLabel(kind, select.value);
+      const name = window.prompt(`${kind === "style" ? "Style" : "Subject"} preset name`, currentName || "");
+      if (!name) return;
+      const prompt = managedPromptBlockContent($("prompt").value, kind) || presetPrompt(kind, select.value);
+      if (!prompt) {
+        toast(`Choose or write a ${kind} prompt first.`);
+        return;
+      }
+      const response = await fetch(`/api/presets/${kind}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, prompt }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        toast(body.detail || `Could not save ${kind} preset.`);
+        return;
+      }
+      const body = await response.json().catch(() => ({}));
+      await loadPresets();
+      if (body.preset?.id) select.value = `user:${body.preset.id}`;
+      syncManagedPromptBlocks();
+      toast(`${kind === "style" ? "Style" : "Subject"} saved.`);
+    }
+
+    async function deleteManagedPromptPreset(kind, selectId, fallbackValue) {
+      const select = $(selectId);
+      const value = select.value;
+      if (!value.startsWith("user:")) {
+        toast("Built-in presets stay available.");
+        return;
+      }
+      await fetch(`/api/presets/${kind}/${encodeURIComponent(value.slice(5))}`, { method: "DELETE" });
+      await loadPresets();
+      select.value = fallbackValue;
+      syncManagedPromptBlocks();
+      toast(`${kind === "style" ? "Style" : "Subject"} deleted.`);
+    }
+
     async function saveCurrentPrompt() {
-      const prompt = ($("prompt").value || "").trim();
+      syncManagedPromptBlocks();
+      const prompt = unwrapManagedPromptMarkers($("prompt").value);
       if (!prompt) {
         toast("Enter a prompt first.");
         return;
@@ -1272,15 +1348,33 @@
         toast(body.detail || "Could not save prompt.");
         return;
       }
+      const body = await response.json().catch(() => ({}));
       await loadPresets();
+      if (body.preset?.id) $("saved-prompt").value = body.preset.id;
       toast("Prompt saved.");
+    }
+
+    async function deleteSavedPrompt() {
+      const value = $("saved-prompt").value;
+      if (!value) {
+        toast("Choose a saved prompt first.");
+        return;
+      }
+      await fetch(`/api/presets/saved/${encodeURIComponent(value)}`, { method: "DELETE" });
+      await loadPresets();
+      $("saved-prompt").value = "";
+      toast("Saved prompt deleted.");
     }
 
     function loadSavedPrompt() {
       const id = $("saved-prompt").value;
       if (!id) return;
       const preset = (state.userPresets.saved || []).find((item) => item.id === id);
-      if (preset?.prompt) $("prompt").value = preset.prompt;
+      if (preset?.prompt) {
+        $("subject").value = "none";
+        $("style").value = "none";
+        $("prompt").value = preset.prompt;
+      }
     }
 
     function setMode(mode) {
@@ -1426,6 +1520,7 @@
       }
       $("z-lora-run").value = state.loraRuns[0].id;
       populateLoraCheckpoints(state.loraRuns[0].id);
+      syncManagedPromptBlocks();
       toast("Latest LoRA selected.");
     }
 
@@ -1435,6 +1530,7 @@
       $("z-lora-path").value = "";
       $("z-lora-trigger").value = "";
       $("z-lora-auto-trigger").checked = false;
+      syncManagedPromptBlocks();
     }
 
     async function clearOutputs() {
@@ -1942,13 +2038,11 @@
     function init() {
       populatePromptSelect("subject", "subject", subjects);
       populatePromptSelect("style", "style", styles);
-      populatePromptPresetSelect();
       populateProfileSelect();
       populateSavedPromptSelect();
-      $("prompt-preset").value = "clean_asset";
       $("subject").value = "clean_asset";
       $("style").value = "clean_game";
-      applyPromptPreset();
+      applyPromptPresets();
       bindDrop();
       $("mode-zimage").onclick = () => setMode("zimage");
       $("mode-gemini").onclick = () => setMode("gemini");
@@ -1962,12 +2056,20 @@
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;
       $("open-config").onclick = () => moduleAction("open_config");
+      $("open-subject-presets").onclick = () => moduleAction("open_config");
+      $("save-subject-preset").onclick = () => saveManagedPromptPreset("subject", "subject");
+      $("delete-subject-preset").onclick = () => deleteManagedPromptPreset("subject", "subject", "clean_asset");
+      $("open-style-presets").onclick = () => moduleAction("open_config");
+      $("save-style-preset").onclick = () => saveManagedPromptPreset("style", "style");
+      $("delete-style-preset").onclick = () => deleteManagedPromptPreset("style", "style", "none");
       $("mode-text-image").onclick = () => setImageWorkflow(false);
       $("mode-image-to-image").onclick = () => setImageWorkflow(true);
       $("z-use-guide").onchange = syncGuideRows;
-      $("z-use-lora").onchange = syncLoraRows;
+      $("z-use-lora").onchange = () => { syncLoraRows(); syncManagedPromptBlocks(); };
       $("z-lora-run").onchange = () => populateLoraCheckpoints($("z-lora-run").value);
-      $("z-lora-checkpoint").onchange = () => setLoraPath($("z-lora-checkpoint").value);
+      $("z-lora-checkpoint").onchange = () => { setLoraPath($("z-lora-checkpoint").value); syncManagedPromptBlocks(); };
+      $("z-lora-auto-trigger").onchange = syncManagedPromptBlocks;
+      $("z-lora-trigger").oninput = syncManagedPromptBlocks;
       $("z-lora-open").onclick = () => moduleAction("open_lora");
       $("z-lora-latest").onclick = useLatestLora;
       $("z-lora-clear").onclick = clearLora;
@@ -1978,14 +2080,13 @@
       $("gemini-guide-open-images").onclick = openImagesFolder;
       $("gemini-guide-label").onclick = openImagesFolder;
       $("gemini-guide-clear").onclick = clearSource;
-      $("prompt-preset").onchange = applyPromptPreset;
-      $("subject").onchange = () => { syncPromptPresetFromParts(); };
-      $("style").onchange = () => { syncPromptPresetFromParts(); };
+      $("subject").onchange = applyPromptPresets;
+      $("style").onchange = applyPromptPresets;
       $("saved-prompt").onchange = loadSavedPrompt;
       $("save-current-prompt").onclick = saveCurrentPrompt;
+      $("delete-saved-prompt").onclick = deleteSavedPrompt;
       $("apply-prompt").onclick = applyPromptPresets;
       $("edit-prompt").onclick = () => openTextModal("Prompt Editor", $("prompt").value, (value) => { $("prompt").value = value; });
-      $("open-prompt-folder").onclick = () => moduleAction("open_config");
       $("clear-prompt").onclick = () => { $("prompt").value = ""; };
       $("generate").onclick = generate;
       $("clear-source").onclick = clearSource;
@@ -2009,7 +2110,6 @@
       $("parts-details").addEventListener("toggle", syncSourceVisibility);
       $("base-face").onchange = syncFaceControls;
       $("edit-part-guidance").onclick = () => openTextModal("Extraction Prompt", $("part-guidance").value, (value) => { $("part-guidance").value = value; });
-      $("preview-part-guidance").onclick = () => openTextModal("Extraction Preview", $("part-guidance").value, null, true);
       $("clear-part-guidance").onclick = () => { $("part-guidance").value = ""; };
       $("clear-parts").onclick = clearPartPlan;
       $("text-modal-apply").onclick = applyTextModal;
