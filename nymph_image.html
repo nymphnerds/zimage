@@ -483,6 +483,7 @@
       padding: 9px 24px 10px;
       display: grid;
       gap: 6px;
+      align-content: end;
       background: rgba(11, 23, 24, 0.92);
     }
 
@@ -586,8 +587,10 @@
       grid-auto-columns: 116px;
       gap: 8px;
       overflow-x: auto;
-      min-height: 84px;
+      min-height: 0;
     }
+
+    .gallery:empty { display: none; }
 
     .thumb {
       border: 1px solid rgba(255,255,255,0.09);
