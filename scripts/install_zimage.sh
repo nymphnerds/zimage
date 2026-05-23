@@ -196,6 +196,8 @@ for script in \
   zimage_nymph_ui.sh \
   zimage_open.sh \
   zimage_open_config.sh \
+  zimage_open_image_presets.sh \
+  zimage_open_image_settings_presets.sh \
   zimage_open_outputs.sh \
   zimage_open_lora.sh \
   zimage_open_weights.sh \

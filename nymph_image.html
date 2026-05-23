@@ -827,6 +827,9 @@
               <button class="subtle" id="delete-saved-prompt" type="button">Delete</button>
             </div>
           </div>
+          <div class="command-row no-top">
+            <button class="subtle" id="open-saved-presets" type="button">Open</button>
+          </div>
         </div>
         <div class="command-row">
           <button class="primary" id="generate" type="button">Generate</button>
@@ -2055,11 +2058,11 @@
       };
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;
-      $("open-config").onclick = () => moduleAction("open_config");
-      $("open-subject-presets").onclick = () => moduleAction("open_config");
+      $("open-config").onclick = () => moduleAction("open_image_settings_presets");
+      $("open-subject-presets").onclick = () => moduleAction("open_image_presets");
       $("save-subject-preset").onclick = () => saveManagedPromptPreset("subject", "subject");
       $("delete-subject-preset").onclick = () => deleteManagedPromptPreset("subject", "subject", "clean_asset");
-      $("open-style-presets").onclick = () => moduleAction("open_config");
+      $("open-style-presets").onclick = () => moduleAction("open_image_presets");
       $("save-style-preset").onclick = () => saveManagedPromptPreset("style", "style");
       $("delete-style-preset").onclick = () => deleteManagedPromptPreset("style", "style", "none");
       $("mode-text-image").onclick = () => setImageWorkflow(false);
@@ -2085,6 +2088,7 @@
       $("saved-prompt").onchange = loadSavedPrompt;
       $("save-current-prompt").onclick = saveCurrentPrompt;
       $("delete-saved-prompt").onclick = deleteSavedPrompt;
+      $("open-saved-presets").onclick = () => moduleAction("open_image_presets");
       $("apply-prompt").onclick = applyPromptPresets;
       $("edit-prompt").onclick = () => openTextModal("Prompt Editor", $("prompt").value, (value) => { $("prompt").value = value; });
       $("clear-prompt").onclick = () => { $("prompt").value = ""; };

@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "Image",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -50,6 +50,8 @@
     "open": "scripts/zimage_open.sh",
     "open_nymph_ui": "scripts/zimage_nymph_ui.sh",
     "open_config": "scripts/zimage_open_config.sh",
+    "open_image_presets": "scripts/zimage_open_image_presets.sh",
+    "open_image_settings_presets": "scripts/zimage_open_image_settings_presets.sh",
     "logs": "scripts/zimage_logs.sh",
     "delete_models": "scripts/zimage_delete_models.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
@@ -171,7 +173,7 @@
       {
         "id": "open_config",
         "label": "Open Presets",
-        "entrypoint": "open_config",
+        "entrypoint": "open_image_presets",
         "result": "open_directory"
       },
       {
