@@ -444,31 +444,12 @@
       border: 1px solid rgba(40, 68, 70, 0.9);
       border-radius: 8px;
       background:
-        radial-gradient(circle at 18% 20%, rgba(41, 230, 218, 0.13), transparent 18%),
-        radial-gradient(circle at 82% 72%, rgba(139, 245, 68, 0.10), transparent 21%),
-        radial-gradient(ellipse at 5% 100%, rgba(139, 245, 68, 0.14), transparent 34%),
-        radial-gradient(ellipse at 100% 4%, rgba(41, 230, 218, 0.11), transparent 30%),
-        repeating-linear-gradient(134deg, rgba(139, 245, 68, 0.045) 0 1px, transparent 1px 38px),
-        repeating-linear-gradient(46deg, rgba(41, 230, 218, 0.032) 0 1px, transparent 1px 56px),
+        url("/ui/nymphs_preview_forest.png") center center / contain no-repeat,
         rgba(4, 12, 11, 0.82);
       display: grid;
       place-items: center;
       overflow: hidden;
       position: relative;
-    }
-
-    .image-shell::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0.74;
-      background:
-        radial-gradient(ellipse at 13% 78%, transparent 0 28%, rgba(139, 245, 68, 0.08) 29% 30%, transparent 31%),
-        radial-gradient(ellipse at 88% 17%, transparent 0 24%, rgba(41, 230, 218, 0.07) 25% 26%, transparent 27%),
-        linear-gradient(118deg, transparent 0 44%, rgba(139, 245, 68, 0.055) 45% 46%, transparent 47%),
-        linear-gradient(72deg, transparent 0 56%, rgba(41, 230, 218, 0.045) 57% 58%, transparent 59%);
-      mix-blend-mode: screen;
     }
 
     .image-shell img {
@@ -881,7 +862,7 @@
       <section class="viewer">
         <div class="image-shell">
           <img id="result-image" alt="Generated image">
-          <div class="empty" id="empty">Generated image appears here.</div>
+          <div class="empty" id="empty" aria-label="Generated image appears here."></div>
         </div>
       </section>
       <section class="progress">

@@ -19,6 +19,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request as FastAPIRequest
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from config import get_settings
@@ -41,6 +42,7 @@ WORKER_ID = uuid.uuid4().hex[:6]
 SETTINGS = get_settings()
 MODEL_MANAGER = ModelManager(SETTINGS)
 NYMPH_UI_PATH = Path(__file__).resolve().parent / "nymph_image.html"
+NYMPH_UI_ASSET_PATH = Path(__file__).resolve().parent / "ui"
 OPENROUTER_API_ROOT = "https://openrouter.ai/api/v1"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 PRESET_KINDS = {"subject", "style", "saved", "settings"}
@@ -50,6 +52,7 @@ app = FastAPI(
     version=VERSION,
     description="Local Nymphs Stable Diffusion-style backend scaffold.",
 )
+app.mount("/ui", StaticFiles(directory=NYMPH_UI_ASSET_PATH), name="ui")
 
 
 def _log_stage(message: str, **fields):
