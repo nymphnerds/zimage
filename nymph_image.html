@@ -390,7 +390,7 @@
       min-height: 0;
       height: 100vh;
       display: grid;
-      grid-template-rows: minmax(0, 1fr) 190px;
+      grid-template-rows: minmax(0, 1fr) auto;
       background: rgba(7, 16, 15, 0.88);
     }
 
@@ -431,7 +431,7 @@
       min-height: 0;
       display: grid;
       place-items: center;
-      padding: 18px;
+      padding: 16px 24px 14px;
       position: relative;
       overflow: hidden;
     }
@@ -444,14 +444,31 @@
       border: 1px solid rgba(40, 68, 70, 0.9);
       border-radius: 8px;
       background:
-        radial-gradient(circle at 50% 36%, rgba(41, 230, 218, 0.06), transparent 38%),
-        linear-gradient(45deg, rgba(255,255,255,0.025) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(255,255,255,0.025) 25%, transparent 25%),
-        rgba(4, 12, 11, 0.72);
-      background-size: 24px 24px;
+        radial-gradient(circle at 18% 20%, rgba(41, 230, 218, 0.13), transparent 18%),
+        radial-gradient(circle at 82% 72%, rgba(139, 245, 68, 0.10), transparent 21%),
+        radial-gradient(ellipse at 5% 100%, rgba(139, 245, 68, 0.14), transparent 34%),
+        radial-gradient(ellipse at 100% 4%, rgba(41, 230, 218, 0.11), transparent 30%),
+        repeating-linear-gradient(134deg, rgba(139, 245, 68, 0.045) 0 1px, transparent 1px 38px),
+        repeating-linear-gradient(46deg, rgba(41, 230, 218, 0.032) 0 1px, transparent 1px 56px),
+        rgba(4, 12, 11, 0.82);
       display: grid;
       place-items: center;
       overflow: hidden;
+      position: relative;
+    }
+
+    .image-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.74;
+      background:
+        radial-gradient(ellipse at 13% 78%, transparent 0 28%, rgba(139, 245, 68, 0.08) 29% 30%, transparent 31%),
+        radial-gradient(ellipse at 88% 17%, transparent 0 24%, rgba(41, 230, 218, 0.07) 25% 26%, transparent 27%),
+        linear-gradient(118deg, transparent 0 44%, rgba(139, 245, 68, 0.055) 45% 46%, transparent 47%),
+        linear-gradient(72deg, transparent 0 56%, rgba(41, 230, 218, 0.045) 57% 58%, transparent 59%);
+      mix-blend-mode: screen;
     }
 
     .image-shell img {
@@ -460,6 +477,8 @@
       object-fit: contain;
       object-position: center center;
       display: none;
+      position: relative;
+      z-index: 2;
     }
 
     .empty {
@@ -474,13 +493,15 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       padding: 20px;
+      position: relative;
+      z-index: 1;
     }
 
     .progress {
       border-top: 1px solid var(--line);
-      padding: 10px 18px;
+      padding: 9px 24px 10px;
       display: grid;
-      gap: 7px;
+      gap: 6px;
       background: rgba(11, 23, 24, 0.92);
     }
 
@@ -538,8 +559,8 @@
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
       align-items: center;
-      margin-top: 10px;
-      margin-bottom: 8px;
+      margin-top: 6px;
+      margin-bottom: 6px;
     }
 
     .strip-title {
@@ -581,10 +602,10 @@
     .gallery {
       display: grid;
       grid-auto-flow: column;
-      grid-auto-columns: 124px;
-      gap: 10px;
+      grid-auto-columns: 116px;
+      gap: 8px;
       overflow-x: auto;
-      min-height: 96px;
+      min-height: 84px;
     }
 
     .thumb {
@@ -593,14 +614,14 @@
       background: #08100f;
       padding: 5px;
       display: grid;
-      grid-template-rows: 72px auto;
+      grid-template-rows: 60px auto;
       gap: 5px;
       cursor: pointer;
       min-width: 0;
     }
 
     .thumb.selected { border-color: var(--green); }
-    .thumb img { width: 100%; height: 72px; object-fit: contain; object-position: center center; border-radius: 5px; background: #020403; }
+    .thumb img { width: 100%; height: 60px; object-fit: contain; object-position: center center; border-radius: 5px; background: #020403; }
     .thumb span { color: var(--muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .thumb.selected span { color: var(--green); }
 
