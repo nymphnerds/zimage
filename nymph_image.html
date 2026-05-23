@@ -682,8 +682,8 @@
           <input id="z-use-guide" type="checkbox" hidden>
         </div>
         <div class="command-row three">
-          <button id="open-outputs" type="button">Open Outputs</button>
-          <button class="subtle" id="clear-outputs" type="button">Clear Outputs</button>
+          <button id="open-outputs" type="button">Open</button>
+          <button class="subtle" id="clear-outputs" type="button">Clear</button>
           <button class="danger" id="stop-backend" type="button">Stop</button>
         </div>
       </section>
@@ -783,6 +783,10 @@
         <div class="section-title"><span>Prompt</span><span id="prompt-kind">asset</span></div>
         <div class="prompt-tools">
           <div class="field">
+            <label for="prompt-preset">Prompt Preset</label>
+            <select id="prompt-preset"></select>
+          </div>
+          <div class="field">
             <label for="subject">Subject</label>
             <select id="subject"></select>
           </div>
@@ -800,10 +804,9 @@
           </div>
         </div>
         <textarea id="prompt" spellcheck="false"></textarea>
-        <div class="command-row three">
-          <button id="apply-prompt" type="button">Apply</button>
+        <div class="command-row two">
           <button id="edit-prompt" type="button">Editor</button>
-          <button id="preview-prompt" type="button">Preview</button>
+          <button id="apply-prompt" type="button">Apply</button>
         </div>
         <div class="command-row two">
           <button class="subtle" id="open-prompt-folder" type="button">Open Presets</button>
@@ -936,6 +939,20 @@
       painterly: ["Painterly Fantasy", "painterly fantasy asset reference, elegant linework, soft watercolor shading, readable silhouette, ornate costume detail, handcrafted illustration finish, isolated subject only, no environment, no cinematic background, no floor plane"],
       inkwash: ["Storybook Inkwash", "strong storybook ink-and-wash asset reference, visible black ink contour lines, loose brush ink details, transparent watercolor washes, flat paper-white negative space, gentle muted fantasy palette, hand-painted traditional media finish, isolated subject only, no landscape, no room, not 3D render, not plastic, not glossy, not photorealistic"],
       lowpoly: ["Low Poly Reference", "low-poly game asset reference, simplified geometric planes, clear silhouette, readable color blocks, clean material zones, efficient stylized forms, isolated subject only, no environment, no floor plane, no text"],
+    };
+
+    const promptPresets = {
+      clean_asset: { label: "Clean Asset Reference", subject: "clean_asset", style: "clean_game" },
+      prop: { label: "Prop Asset", subject: "prop", style: "clean_game" },
+      character: { label: "Character Asset", subject: "character", style: "clean_game" },
+      master: { label: "Character Master", subject: "master", style: "clean_game" },
+      creature: { label: "Creature Asset", subject: "creature", style: "clean_game" },
+      building: { label: "Building Asset", subject: "building", style: "clean_game" },
+      hard_surface: { label: "Hard Surface Asset", subject: "hard_surface", style: "clean_game" },
+      lowpoly_prop: { label: "Low Poly Prop", subject: "prop", style: "lowpoly" },
+      painterly_character: { label: "Painterly Character", subject: "character", style: "painterly" },
+      inkwash_character: { label: "Inkwash Character", subject: "character", style: "inkwash" },
+      custom: { label: "Custom", subject: "", style: "" },
     };
 
     const profiles = {
@@ -1103,12 +1120,33 @@
       return prompt;
     }
 
+    function buildPresetPromptText() {
+      const subject = presetPrompt("subject", $("subject").value);
+      const style = presetPrompt("style", $("style").value);
+      return [subject, style].filter(Boolean).join("\n\n");
+    }
+
     function applyPromptPresets() {
       const subject = presetPrompt("subject", $("subject").value);
       const style = presetPrompt("style", $("style").value);
       const manual = ($("prompt").value || "").trim();
       const blocks = [subject, style, manual].filter(Boolean);
       $("prompt").value = [...new Set(blocks)].join("\n\n");
+    }
+
+    function applyPromptPreset() {
+      const preset = promptPresets[$("prompt-preset").value] || promptPresets.clean_asset;
+      if (preset.subject) $("subject").value = preset.subject;
+      if (preset.style) $("style").value = preset.style;
+      $("prompt").value = buildPresetPromptText();
+    }
+
+    function syncPromptPresetFromParts() {
+      const subject = $("subject").value;
+      const style = $("style").value;
+      const match = Object.entries(promptPresets).find(([, preset]) =>
+        preset.subject === subject && preset.style === style);
+      $("prompt-preset").value = match?.[0] || "custom";
     }
 
     function populatePromptSelect(selectId, kind, items) {
@@ -1122,6 +1160,16 @@
         select.appendChild(option(preset.name || preset.id, `user:${preset.id}`));
       }
       if ([...select.options].some((node) => node.value === previous)) select.value = previous;
+    }
+
+    function populatePromptPresetSelect() {
+      const select = $("prompt-preset");
+      const previous = select.value || "clean_asset";
+      select.innerHTML = "";
+      for (const [key, preset] of Object.entries(promptPresets)) {
+        select.appendChild(option(preset.label, key));
+      }
+      select.value = [...select.options].some((node) => node.value === previous) ? previous : "clean_asset";
     }
 
     function populateProfileSelect() {
@@ -1164,8 +1212,10 @@
       }
       populatePromptSelect("subject", "subject", subjects);
       populatePromptSelect("style", "style", styles);
+      populatePromptPresetSelect();
       populateProfileSelect();
       populateSavedPromptSelect();
+      syncPromptPresetFromParts();
     }
 
     async function saveSettingsPreset() {
@@ -1881,11 +1931,13 @@
     function init() {
       populatePromptSelect("subject", "subject", subjects);
       populatePromptSelect("style", "style", styles);
+      populatePromptPresetSelect();
       populateProfileSelect();
       populateSavedPromptSelect();
+      $("prompt-preset").value = "clean_asset";
       $("subject").value = "clean_asset";
       $("style").value = "clean_game";
-      applyPromptPresets();
+      applyPromptPreset();
       bindDrop();
       $("mode-zimage").onclick = () => setMode("zimage");
       $("mode-gemini").onclick = () => setMode("gemini");
@@ -1915,11 +1967,13 @@
       $("gemini-guide-open-images").onclick = openImagesFolder;
       $("gemini-guide-label").onclick = openImagesFolder;
       $("gemini-guide-clear").onclick = clearSource;
+      $("prompt-preset").onchange = applyPromptPreset;
+      $("subject").onchange = () => { syncPromptPresetFromParts(); };
+      $("style").onchange = () => { syncPromptPresetFromParts(); };
       $("saved-prompt").onchange = loadSavedPrompt;
       $("save-current-prompt").onclick = saveCurrentPrompt;
       $("apply-prompt").onclick = applyPromptPresets;
       $("edit-prompt").onclick = () => openTextModal("Prompt Editor", $("prompt").value, (value) => { $("prompt").value = value; });
-      $("preview-prompt").onclick = () => openTextModal("Prompt Preview", finalPrompt(), null, true);
       $("open-prompt-folder").onclick = () => moduleAction("open_config");
       $("clear-prompt").onclick = () => { $("prompt").value = ""; };
       $("generate").onclick = generate;
