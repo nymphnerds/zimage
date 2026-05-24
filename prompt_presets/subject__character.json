@@ -1,0 +1,6 @@
+{
+  "description": "Single character asset subject",
+  "kind": "subject",
+  "name": "Character",
+  "prompt": "single full-body character asset, complete body visible, readable anatomy, clothing, equipment, silhouette, and material zones"
+}

@@ -971,6 +971,10 @@
             <label for="style">Style</label>
             <select id="style"></select>
           </div>
+          <div class="field">
+            <label for="view">View</label>
+            <select id="view"></select>
+          </div>
         </div>
         <textarea id="prompt" spellcheck="false"></textarea>
         <div class="command-row two">
@@ -996,6 +1000,16 @@
             <button class="subtle" id="open-saved-presets" type="button">Open</button>
           </div>
         </div>
+        <details class="prompt-advanced">
+          <summary>Advanced Negative</summary>
+          <div class="prompt-tools">
+            <div class="field">
+              <label for="negative-preset">Negative</label>
+              <select id="negative-preset"></select>
+            </div>
+          </div>
+          <textarea id="negative-prompt" spellcheck="false"></textarea>
+        </details>
         <div class="command-row">
           <button class="primary" id="generate" type="button">Generate</button>
         </div>
@@ -1023,7 +1037,8 @@
             <div class="toggle-row"><span>Face</span><input id="base-face" type="checkbox"></div>
             <div class="toggle-row"><span>Eyes In Base</span><input id="base-eyes" type="checkbox"></div>
             <div class="toggle-row wide"><span>Add Eyeball Part</span><input id="eye-part" type="checkbox"></div>
-            <div class="field wide"><label for="part-guidance">Extraction Prompt</label><textarea id="part-guidance" spellcheck="false">Preserve the master image design, media style, silhouette, material details, and scale relationship. Output clean isolated references for 3D asset creation.</textarea></div>
+            <div class="field wide"><label for="part-guidance-select">Extraction Prompt</label><select id="part-guidance-select"></select></div>
+            <div class="field wide"><textarea id="part-guidance" spellcheck="false"></textarea></div>
             <div class="command-row two wide no-top">
               <button id="edit-part-guidance" type="button">Editor</button>
               <button class="subtle" id="clear-part-guidance" type="button">Clear</button>
@@ -1122,7 +1137,7 @@
       busy: false,
       openrouterConfigured: false,
       progressTimer: null,
-      userPresets: { subject: [], style: [], saved: [], settings: [] },
+      userPresets: { subject: [], style: [], view: [], negative: [], part_guidance: [], saved: [], settings: [] },
       loraRuns: [],
       loraCheckpoints: {},
       modalApply: null,
@@ -1131,6 +1146,9 @@
 
     const subjects = { none: ["None", ""] };
     const styles = { none: ["No Style", ""] };
+    const views = { none: ["None", ""] };
+    const negatives = { none: ["None", ""] };
+    const partGuidancePresets = { none: ["None", ""] };
 
     const profiles = {
       default: { label: "Turbo Default", modelChoice: "auto_r32", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
@@ -1236,7 +1254,8 @@
     function presetPrompt(kind, key) {
       if (!key) return "";
       if (!key.startsWith("user:")) {
-        const source = kind === "style" ? styles : subjects;
+        const sources = { subject: subjects, style: styles, view: views, negative: negatives, part_guidance: partGuidancePresets };
+        const source = sources[kind] || subjects;
         return source[key]?.[1] || "";
       }
       const id = key.slice(5);
@@ -1247,7 +1266,8 @@
     function presetLabel(kind, key) {
       if (!key) return "";
       if (!key.startsWith("user:")) {
-        const source = kind === "style" ? styles : subjects;
+        const sources = { subject: subjects, style: styles, view: views, negative: negatives, part_guidance: partGuidancePresets };
+        const source = sources[kind] || subjects;
         return source[key]?.[0] || "";
       }
       const preset = (state.userPresets[kind] || []).find((item) => item.id === key.slice(5));
@@ -1323,11 +1343,12 @@
     function buildPresetPromptText() {
       const subject = presetPrompt("subject", $("subject").value);
       const style = presetPrompt("style", $("style").value);
-      return [subject, style].filter(Boolean).join("\n\n");
+      const view = presetPrompt("view", $("view").value);
+      return [subject, style, view].filter(Boolean).join("\n\n");
     }
 
     function managedPromptBlock(kind, prompt) {
-      const labels = { subject: "Auto Subject", style: "Auto Style", lora: "Auto LoRA" };
+      const labels = { subject: "Auto Subject", style: "Auto Style", view: "Auto View", lora: "Auto LoRA" };
       const label = labels[kind];
       const value = (prompt || "").trim();
       if (!label || !value) return "";
@@ -1335,7 +1356,7 @@
     }
 
     function removeManagedPromptBlock(text, kind) {
-      const labels = { subject: "Auto Subject", style: "Auto Style", lora: "Auto LoRA" };
+      const labels = { subject: "Auto Subject", style: "Auto Style", view: "Auto View", lora: "Auto LoRA" };
       const label = labels[kind];
       if (!label) return (text || "").trim();
       const pattern = new RegExp(`\\n?\\[${label}\\]\\n[\\s\\S]*?\\n\\[\\/${label}\\]\\n?`, "g");
@@ -1343,7 +1364,7 @@
     }
 
     function managedPromptBlockContent(text, kind) {
-      const labels = { subject: "Auto Subject", style: "Auto Style", lora: "Auto LoRA" };
+      const labels = { subject: "Auto Subject", style: "Auto Style", view: "Auto View", lora: "Auto LoRA" };
       const label = labels[kind];
       if (!label) return "";
       const pattern = new RegExp(`\\[${label}\\]\\n([\\s\\S]*?)\\n\\[\\/${label}\\]`);
@@ -1352,13 +1373,13 @@
     }
 
     function removeAllManagedPromptBlocks(text) {
-      return ["subject", "style", "lora"].reduce((value, kind) => removeManagedPromptBlock(value, kind), text || "");
+      return ["subject", "style", "view", "lora"].reduce((value, kind) => removeManagedPromptBlock(value, kind), text || "");
     }
 
     function unwrapManagedPromptMarkers(text) {
       return (text || "")
-        .replace(/\n?\[Auto (?:Subject|Style|LoRA)\]\n?/g, "\n")
-        .replace(/\n?\[\/Auto (?:Subject|Style|LoRA)\]\n?/g, "\n")
+        .replace(/\n?\[Auto (?:Subject|Style|View|LoRA)\]\n?/g, "\n")
+        .replace(/\n?\[\/Auto (?:Subject|Style|View|LoRA)\]\n?/g, "\n")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
     }
@@ -1366,12 +1387,14 @@
     function syncManagedPromptBlocks() {
       const subject = presetPrompt("subject", $("subject").value);
       const style = presetPrompt("style", $("style").value);
+      const view = presetPrompt("view", $("view").value);
       const activation = ($("z-lora-trigger")?.value || "").trim();
       const useLora = state.mode === "zimage" && $("z-use-lora").checked && $("z-lora-auto-trigger").checked && activation;
       const body = removeAllManagedPromptBlocks($("prompt").value);
       const blocks = [
         managedPromptBlock("subject", subject),
         managedPromptBlock("style", style),
+        managedPromptBlock("view", view),
         managedPromptBlock("lora", useLora ? activation : ""),
         body,
       ].filter(Boolean);
@@ -1420,6 +1443,16 @@
       if ([...select.options].some((node) => node.value === previous)) select.value = previous;
     }
 
+    function applyNegativePreset() {
+      const prompt = presetPrompt("negative", $("negative-preset").value);
+      $("negative-prompt").value = prompt;
+    }
+
+    function applyPartGuidancePreset(overwrite = true) {
+      const prompt = presetPrompt("part_guidance", $("part-guidance-select").value);
+      if (overwrite || !$("part-guidance").value.trim()) $("part-guidance").value = prompt;
+    }
+
     async function loadPresets() {
       try {
         const response = await fetch("/api/presets", { cache: "no-store" });
@@ -1428,14 +1461,21 @@
         state.userPresets = {
           subject: body.subject || [],
           style: body.style || [],
+          view: body.view || [],
+          negative: body.negative || [],
+          part_guidance: body.part_guidance || [],
           saved: body.saved || [],
           settings: body.settings || [],
         };
       } catch {
-        state.userPresets = { subject: [], style: [], saved: [], settings: [] };
+        state.userPresets = { subject: [], style: [], view: [], negative: [], part_guidance: [], saved: [], settings: [] };
       }
       populatePromptSelect("subject", "subject", subjects, "none");
       populatePromptSelect("style", "style", styles, "none");
+      populatePromptSelect("view", "view", views, "user:three_quarter_cutout");
+      populatePromptSelect("negative-preset", "negative", negatives, "none");
+      populatePromptSelect("part-guidance-select", "part_guidance", partGuidancePresets, "user:default");
+      applyPartGuidancePreset(false);
       populateProfileSelect();
       populateSavedPromptSelect();
       syncManagedPromptBlocks();
@@ -1663,6 +1703,7 @@
       if (preset?.prompt) {
         $("subject").value = "none";
         $("style").value = "none";
+        $("view").value = "none";
         $("prompt").value = preset.prompt;
       }
     }
@@ -2358,6 +2399,9 @@
             item_index: index + 1,
             item_total: count,
           };
+          const guidanceValue = parseFloat($("guidance").value || "0");
+          const negativePrompt = $("negative-prompt").value.trim();
+          if (guidanceValue > 1 && negativePrompt) payload.negative_prompt = negativePrompt;
           if ($("z-use-lora").checked) {
             payload.lora_path = $("z-lora-path").value.trim();
             payload.lora_scale = parseFloat($("z-lora-strength").value || "1");
@@ -2553,6 +2597,8 @@
             guidance: $("part-guidance").value,
             style_lock: $("style-lock").checked,
             style_text: presetPrompt("style", $("style").value),
+            base_face: $("base-face").checked,
+            base_eyes: $("base-eyes").checked,
             batch_id: batchId,
             batch_label: "Image Parts",
             batch_type: "parts",
@@ -2678,6 +2724,9 @@
       $("gemini-guide-clear").onclick = clearSource;
       $("subject").onchange = applyPromptPresets;
       $("style").onchange = applyPromptPresets;
+      $("view").onchange = applyPromptPresets;
+      $("negative-preset").onchange = applyNegativePreset;
+      $("part-guidance-select").onchange = () => applyPartGuidancePreset(true);
       $("saved-prompt").onchange = loadSavedPrompt;
       $("save-current-prompt").onclick = saveCurrentPrompt;
       $("delete-saved-prompt").onclick = deleteSavedPrompt;

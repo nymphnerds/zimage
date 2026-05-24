@@ -1,5 +1,0 @@
-{
-  "name": "Creature Asset",
-  "description": "Creature/monster prompt with a readable whole-body shape",
-  "prompt": "single creature asset reference, exactly one whole creature visible, centered, front-readable neutral pose, clean readable silhouette, clear anatomy, distinctive shape language, pure white empty background, soft even neutral lighting, minimal contact shadow only if needed, designed as a 3D creature reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no extra objects."
-}

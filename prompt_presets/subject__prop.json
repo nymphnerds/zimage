@@ -1,0 +1,6 @@
+{
+  "description": "Single prop asset subject",
+  "kind": "subject",
+  "name": "Prop",
+  "prompt": "single prop asset, complete object visible, readable function, clear silhouette, construction details, and material zones"
+}

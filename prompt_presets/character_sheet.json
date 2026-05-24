@@ -1,5 +1,0 @@
-{
-  "name": "Character Sheet",
-  "description": "Clean multi-view character sheet for modeling reference",
-  "prompt": "Create a clean character model sheet from the character description below. Show the same character in three aligned orthographic views: front view, side view, and back view. Use a neutral A-pose or relaxed T-pose in every view, symmetrical stance, arms slightly away from the torso, straight readable legs, feet visible, and consistent proportions across all views. Keep the sheet minimal and functional for 3D modeling reference, with clear costume shapes, hair silhouette, accessories, and material zones. Use a pure white empty background, soft even neutral lighting, and simple evenly spaced columns. Critical exclusions: no scenery, no room, no floor plane, no horizon line, no gradient backdrop, no decorative frame, no action pose, no perspective view, no duplicate poses beyond the three views, no separate item callouts, no text labels unless absolutely necessary. Character description:"
-}

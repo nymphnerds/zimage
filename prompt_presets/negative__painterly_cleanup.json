@@ -1,0 +1,6 @@
+{
+  "description": "Preserves painterly style while removing extraction-hostile artifacts",
+  "kind": "negative",
+  "name": "Painterly Cleanup",
+  "prompt": "photorealistic skin, glossy plastic, toy-like material, muddy colors, noisy texture, messy edges, low contrast silhouette, heavy bloom, harsh rim light, cinematic background, busy environment, atmospheric haze, smoke, particles, motion blur, cast shadow, reflection, floor line, cropped subject, extra objects, text, watermark, signature"
+}

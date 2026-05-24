@@ -1,0 +1,6 @@
+{
+  "description": "Default 3/4 cutout view for Pixal3D and RMBG",
+  "kind": "view",
+  "name": "3/4 Cutout",
+  "prompt": "three-quarter view, centered, single subject, full object visible, solid flat light gray background, clean silhouette, sharp edges, even studio lighting, no scenery, no floor line, no cast shadow, no reflection, no text, no watermark"
+}

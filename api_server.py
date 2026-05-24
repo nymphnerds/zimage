@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import importlib.util
 import json
 import mimetypes
 import os
@@ -47,11 +48,63 @@ MODEL_MANAGER = ModelManager(SETTINGS)
 NYMPH_UI_PATH = Path(__file__).resolve().parent / "nymph_image.html"
 NYMPH_UI_ASSET_PATH = Path(__file__).resolve().parent / "ui"
 PACKAGED_PROMPT_PRESET_PATH = Path(__file__).resolve().parent / "prompt_presets"
+PACKAGED_SHARED_PARTS_PATH = Path(__file__).resolve().parent / "shared_image_parts.py"
 OPENROUTER_API_ROOT = "https://openrouter.ai/api/v1"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
-PRESET_KINDS = {"subject", "style", "saved", "settings"}
-PROMPT_PRESET_KINDS = {"subject", "style", "saved"}
+PRESET_KINDS = {"subject", "style", "view", "negative", "part_guidance", "saved", "settings"}
+PROMPT_PRESET_KINDS = {"subject", "style", "view", "negative", "part_guidance", "saved"}
 GENERATION_PRESET_FILE = Path.home() / "NymphsData" / "config" / "zimage" / "generation-preset.env"
+SHARED_PARTS_MODULE = None
+PRESET_DEFAULT_MARKER = ".asset_defaults_20260524_seeded"
+LEGACY_DEFAULT_PRESET_IDS = {
+    "anime_model_sheet",
+    "building_asset",
+    "character_asset",
+    "character_master_reference",
+    "character_sheet",
+    "chibi_game_asset",
+    "clay_sculpt_preview",
+    "clean_anime",
+    "clean_asset_concept",
+    "clean_game_concept",
+    "creature_asset",
+    "grimdark_realism",
+    "handpainted_game_asset",
+    "hard_surface_asset",
+    "hard_surface_blueprint",
+    "ink_line_reference",
+    "japanese_watercolor_woodblock",
+    "low_poly_reference",
+    "minimalist_chinese_watercolor",
+    "painterly_fantasy",
+    "storybook_inkwash",
+    "stylized_prop",
+}
+PRESET_ORDER = {
+    "subject": {"character": 1, "creature": 2, "prop": 3, "weapon": 4, "building": 5, "foliage": 6},
+    "style": {
+        "clean_stylized": 1,
+        "handpainted_rpg": 2,
+        "handpainted_storybook": 3,
+        "handpainted_dark_fantasy": 4,
+        "rustic_handcrafted": 5,
+        "rustic_medieval": 6,
+        "organic_natural": 7,
+        "organic_fantasy": 8,
+        "anatomical_reference": 9,
+        "pencil_concept": 10,
+        "loose_design_sketch": 11,
+        "realistic_rpg": 12,
+        "realistic_worn_materials": 13,
+        "realistic_sculpt_reference": 14,
+        "minimalist_chinese_watercolor": 15,
+        "japanese_woodblock": 16,
+        "clay_form_study": 17,
+    },
+    "view": {"three_quarter_cutout": 1, "front_cutout": 2, "side_cutout": 3},
+    "negative": {"asset_cleanup": 1, "painterly_cleanup": 2, "mesh_cleanup": 3},
+    "part_guidance": {"default": 1},
+}
 
 app = FastAPI(
     title="Nymphs2D2 API",
@@ -119,6 +172,42 @@ def _image_settings_preset_dir() -> Path:
     return path
 
 
+def _image_prompt_templates_dir() -> Path:
+    configured = os.getenv("NYMPHS_IMAGE_PROMPT_TEMPLATES_DIR")
+    path = Path(configured).expanduser() if configured else _nymphs_config_root() / "image_prompts"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _shared_parts_module_path() -> Path:
+    return _image_prompt_templates_dir() / "parts.py"
+
+
+def _ensure_shared_parts_module() -> Path:
+    target = _shared_parts_module_path()
+    if not target.exists():
+        shutil.copy2(PACKAGED_SHARED_PARTS_PATH, target)
+    return target
+
+
+def _shared_parts():
+    global SHARED_PARTS_MODULE
+    path = _ensure_shared_parts_module()
+    if SHARED_PARTS_MODULE is not None and getattr(SHARED_PARTS_MODULE, "__nymphs_source_path__", "") == str(path):
+        return SHARED_PARTS_MODULE
+    spec = importlib.util.spec_from_file_location("nymphs_shared_image_parts", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load shared image parts module from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.__nymphs_source_path__ = str(path)
+    SHARED_PARTS_MODULE = module
+    return module
+
+
+_shared_parts()
+
+
 def _preset_dir(kind: str) -> Path:
     normalized = (kind or "").strip().lower()
     if normalized not in PRESET_KINDS:
@@ -152,7 +241,7 @@ def _safe_preset_path(kind: str, preset_id: str) -> Path:
 
 def _seed_packaged_prompt_presets() -> None:
     target_dir = _image_prompt_preset_dir()
-    marker = target_dir / ".defaults_seeded"
+    marker = target_dir / PRESET_DEFAULT_MARKER
     if marker.exists():
         return
     if not PACKAGED_PROMPT_PRESET_PATH.is_dir():
@@ -166,12 +255,21 @@ def _seed_packaged_prompt_presets() -> None:
         if not isinstance(data, dict):
             continue
         raw_kind = str(data.get("kind") or data.get("type") or "").strip().lower()
-        kind = "style" if raw_kind == "style" or "style" in data else "subject"
-        if kind not in {"subject", "style"}:
+        if raw_kind in PROMPT_PRESET_KINDS:
+            kind = raw_kind
+        elif "style" in data:
+            kind = "style"
+        else:
+            kind = "subject"
+        if kind not in PROMPT_PRESET_KINDS:
             continue
         preset_id = source.stem
         if kind == "style" and preset_id.endswith("_style"):
             preset_id = preset_id[:-6]
+        if "__" in preset_id:
+            prefix, _, remainder = preset_id.partition("__")
+            if prefix in PROMPT_PRESET_KINDS:
+                preset_id = remainder
         path = _safe_preset_path(kind, preset_id)
         if path.exists():
             continue
@@ -225,6 +323,8 @@ def _load_user_presets(kind: str) -> list[dict]:
             preset_id = path.stem
         if preset_id in seen:
             continue
+        if preset_id in LEGACY_DEFAULT_PRESET_IDS:
+            continue
         seen.add(preset_id)
         presets.append(
             {
@@ -236,6 +336,8 @@ def _load_user_presets(kind: str) -> list[dict]:
                 "description": str(data.get("description") or "").strip(),
             }
         )
+    order = PRESET_ORDER.get(normalized, {})
+    presets.sort(key=lambda item: (order.get(item["id"], 999), item["name"].lower(), item["id"]))
     return presets
 
 
@@ -671,134 +773,34 @@ def _gemini_request_image(payload: dict, prompt: str, output_label: str) -> list
 
 
 def _extract_json_payload(text: str) -> dict:
-    raw = (text or "").strip()
-    if raw.startswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE).strip()
-        raw = re.sub(r"\s*```$", "", raw).strip()
-    try:
-        return json.loads(raw)
-    except Exception:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start >= 0 and end > start:
-            return json.loads(raw[start : end + 1])
-        raise
+    return _shared_parts().extract_json_payload(text)
 
 
 def _normalize_bbox(value) -> list[float]:
-    if not isinstance(value, (list, tuple)) or len(value) != 4:
-        return []
-    normalized = []
-    for item in value:
-        try:
-            normalized.append(max(0.0, min(1.0, float(item))))
-        except Exception:
-            return []
-    return normalized
+    return _shared_parts().normalized_bbox(value)
 
 
 def _normalize_part_plan(raw_plan: dict, max_parts: int = 8) -> dict:
-    raw_parts = raw_plan.get("parts") if isinstance(raw_plan, dict) else None
-    if not isinstance(raw_parts, list):
-        raise RuntimeError("Planner JSON did not contain a parts list.")
-    parts = []
-    seen = set()
-    for index, raw_part in enumerate(raw_parts, start=1):
-        if not isinstance(raw_part, dict):
-            continue
-        display_name = str(raw_part.get("display_name") or raw_part.get("name") or "").strip()
-        part_id = _slugify(str(raw_part.get("id") or display_name), f"part-{index:02d}").replace("-", "_")
-        if part_id in seen:
-            part_id = f"{part_id}_{index:02d}"
-        seen.add(part_id)
-        if not display_name:
-            display_name = part_id.replace("_", " ").title()
-        extraction_prompt = str(raw_part.get("extraction_prompt") or raw_part.get("prompt") or "").strip()
-        if not extraction_prompt:
-            extraction_prompt = (
-                f"Extract only the {display_name}. Remove unrelated body parts, heads, mannequins, labels, "
-                "extra objects, and background elements."
-            )
-        try:
-            priority = int(raw_part.get("priority") or index)
-        except Exception:
-            priority = index
-        parts.append(
-            {
-                "id": part_id,
-                "display_name": display_name,
-                "category": str(raw_part.get("category") or "part").strip().lower(),
-                "priority": priority,
-                "selected": True,
-                "symmetry": bool(raw_part.get("symmetry", False)),
-                "normalized_bbox": _normalize_bbox(raw_part.get("normalized_bbox")),
-                "extraction_prompt": extraction_prompt,
-            }
-        )
-    if not parts:
-        raise RuntimeError("Planner did not identify any extractable parts.")
-    parts.sort(key=lambda item: (item.get("priority", 999), item.get("id", "")))
-    return {"parts": parts[: max(1, int(max_parts or 8))]}
+    return _shared_parts().normalize_part_plan(raw_plan, max_parts=max_parts)
 
 
 def _part_planning_prompt(guidance: str, *, base_face: bool, base_eyes: bool, eye_part: bool) -> str:
-    face_rule = (
-        "- For anatomy_base, keep facial features on the base body and match the source face structure.\n"
-        if base_face
-        else "- For anatomy_base, keep the head feature-neutral with no finished face details.\n"
-    )
-    eyes_rule = ""
-    if base_face and base_eyes:
-        eyes_rule = "- For anatomy_base, include finished eyes on the base body.\n"
-    elif base_face:
-        eyes_rule = "- For anatomy_base, keep face structure but do not include finished eyes.\n"
-    eye_rule = (
-        "- Include one reusable Eyeball part with category face_feature: one isolated spherical eyeball only.\n"
-        if eye_part
-        else ""
-    )
-    return (
-        "Look at the master character reference image and plan separate asset extractions for a 3D game asset workflow.\n\n"
-        "Return JSON only. Schema: {\"parts\":[{\"id\":\"short_slug\",\"display_name\":\"Name\",\"category\":\"anatomy_base | hair | clothing | armor | accessory | weapon | prop | face_feature\",\"priority\":1,\"normalized_bbox\":[0,0,1,1],\"extraction_prompt\":\"specific instruction\"}]}\n\n"
-        "Rules:\n"
-        "- Include one anatomy_base part first when a body/base mesh is visible or inferable.\n"
-        "- For anatomy_base, ask for body/base mesh only, not the dressed character.\n"
-        "- Include major garments, armor, hair, weapons, carried props, pouches, belts, and accessories that matter for 3D asset creation.\n"
-        f"{face_rule}{eyes_rule}{eye_rule}"
-        "- Do not include scenery, shadows, background decorations, labels, duplicate variants, or combined multi-item parts.\n"
-        "- Prefer the most important 4 to 8 parts.\n"
-        "- Each extraction_prompt must ask for exactly one isolated target item and remove unrelated body parts, heads, mannequins, labels, extra objects, and background.\n\n"
-        f"Global extraction guidance: {(guidance or 'Preserve the source design, scale relationship, silhouette, materials, and media style.').strip()}"
+    return _shared_parts().part_planning_prompt(
+        guidance,
+        base_include_face=base_face,
+        base_include_eyes=base_eyes,
+        include_eye_part=eye_part,
     )
 
 
 def _part_extraction_prompt(part: dict, payload: dict) -> str:
-    display_name = part.get("display_name") or part.get("id") or "character part"
-    category = (part.get("category") or "").strip().lower()
-    instruction = (part.get("extraction_prompt") or "").strip()
-    guidance = (payload.get("guidance") or "Preserve the master image design and media style.").strip()
-    style_text = (payload.get("style_text") or "").strip() if payload.get("style_lock", True) else ""
-    style_block = f"\nStyle lock: {style_text}" if style_text else ""
-    symmetry = (
-        "\nSymmetry lock: make the item left-right symmetrical and front-readable."
-        if part.get("symmetry")
-        else ""
-    )
-    if "eye" in f"{part.get('id','')} {display_name} {category}".lower():
-        instruction = (
-            "Create exactly one isolated spherical eyeball asset from the source character. Show only sclera, iris, pupil, cornea highlight, and painted surface detail. "
-            "Do not include eyelids, skin, brow, socket, surrounding flesh, face, head, or hair."
-        )
-    return (
-        "Using the master character reference image, create one clean isolated asset reference image.\n\n"
-        f"Target part: {display_name}\n"
-        f"Extraction instruction: {instruction}\n"
-        f"Global guidance: {guidance}{style_block}{symmetry}\n\n"
-        "Output rules:\n"
-        "- Show exactly one centered target item.\n"
-        "- Preserve the original design language, material details, color palette, and scale relationship.\n"
-        "- Use a plain background only to isolate the item.\n"
-        "- Do not create a parts sheet, grid, lineup, collage, catalog page, labels, text, scenery, or unrelated objects."
+    return _shared_parts().part_extraction_prompt(
+        part,
+        payload.get("guidance") or "",
+        (payload.get("style_text") or "").strip() if payload.get("style_lock", True) else "",
+        "",
+        base_include_face=bool(payload.get("base_face")),
+        base_include_eyes=bool(payload.get("base_eyes")),
     )
 
 
@@ -863,6 +865,11 @@ def _part_plan_worker(payload: dict) -> dict:
     progress_update(status="processing", stage="planning_parts", detail="Planning character parts", progress_percent=12.0)
     response_text, detail = _openrouter_text_from_image(api_key, planner_model, source_image, prompt)
     plan = _normalize_part_plan(_extract_json_payload(response_text), max_parts=max_parts)
+    plan = _shared_parts().ensure_required_part_plan_entries(
+        plan,
+        max_parts=max_parts,
+        include_eye_part=bool(payload.get("eye_part")),
+    )
     metadata = {
         "provider": "Gemini Flash",
         "mode": "part_plan",

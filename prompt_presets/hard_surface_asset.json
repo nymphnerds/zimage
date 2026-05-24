@@ -1,5 +1,0 @@
-{
-  "name": "Hard Surface Asset",
-  "description": "Vehicle, machine, robot, or sci-fi object prompt",
-  "prompt": "single hard-surface asset reference, exactly one vehicle, machine, robot, or sci-fi object centered, whole object visible, orthographic front-readable asset presentation, clean silhouette, readable mechanical forms, consistent proportions, clear panel lines and material breaks, pure white empty background, soft even neutral lighting, designed for 3D modeling reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no extra objects."
-}

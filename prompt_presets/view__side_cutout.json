@@ -1,0 +1,6 @@
+{
+  "description": "Side cutout view for profiles and long objects",
+  "kind": "view",
+  "name": "Side Cutout",
+  "prompt": "side view, centered, single subject, full object visible, solid flat light gray background, clean silhouette, sharp edges, even studio lighting, no scenery, no floor line, no cast shadow, no reflection, no text, no watermark"
+}

@@ -1,5 +1,0 @@
-{
-  "name": "Character Asset",
-  "description": "Readable full-character prompt for image-to-3D workflows",
-  "prompt": "single original character asset reference, full body, centered, head to toe visible, front-facing symmetrical neutral A-pose or relaxed T-pose, arms slightly away from torso, straight readable legs, feet visible, clean silhouette, clear limb separation, readable costume design, pure white empty background, soft even neutral lighting, designed for 3D modeling reference. No action pose, no perspective drama, no cropped limbs, no scenery, no room, no floor plane, no horizon line, no gradient backdrop, no text, no labels, no props crossing the body."
-}

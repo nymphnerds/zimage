@@ -1,0 +1,6 @@
+{
+  "description": "Reduces over-detail and fragile geometry for mesh creation",
+  "kind": "negative",
+  "name": "Mesh Cleanup",
+  "prompt": "excessive detail, micro details, noisy texture, cluttered ornament, too many accessories, thin dangling parts, transparent parts, smoke, particles, motion blur, busy silhouette, muddy colors, low contrast edges, text, watermark, signature"
+}

@@ -1,0 +1,6 @@
+{
+  "description": "Single creature asset subject",
+  "kind": "subject",
+  "name": "Creature",
+  "prompt": "single creature asset, complete body visible, readable anatomy, distinctive silhouette, limbs, head, body shape, and material zones"
+}

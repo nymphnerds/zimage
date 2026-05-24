@@ -1,0 +1,6 @@
+{
+  "description": "Front cutout view for character/reference assets",
+  "kind": "view",
+  "name": "Front Cutout",
+  "prompt": "front view, centered, single subject, full object visible, solid flat light gray background, clean silhouette, sharp edges, even studio lighting, no scenery, no floor line, no cast shadow, no reflection, no text, no watermark"
+}

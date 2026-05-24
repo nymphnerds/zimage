@@ -1,0 +1,6 @@
+{
+  "description": "Single building or modular environment asset subject",
+  "kind": "subject",
+  "name": "Building",
+  "prompt": "single building or modular environment asset, complete structure visible, readable roof, walls, doorway, windows, silhouette, and material zones"
+}

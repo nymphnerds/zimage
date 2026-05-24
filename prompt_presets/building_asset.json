@@ -1,5 +1,0 @@
-{
-  "name": "Building Asset",
-  "description": "Isolated building or environment-piece prompt",
-  "prompt": "single building or modular environment asset, exactly one structure centered, full structure visible, orthographic front-readable asset presentation, clean silhouette, readable roof and wall shapes, clear material zones, pure white empty background, soft even neutral lighting, designed for 3D modeling reference. No surrounding scene, no landscape, no street, no sky, no floor plane, no horizon line, no gradient backdrop, no text, no labels."
-}

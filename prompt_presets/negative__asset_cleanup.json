@@ -1,0 +1,6 @@
+{
+  "description": "General cleanup negatives when guidance is enabled",
+  "kind": "negative",
+  "name": "Asset Cleanup",
+  "prompt": "blurry, jpeg artifacts, low quality, watermark, signature, text, noisy edges, messy silhouette, cropped subject, extra objects, duplicate subject, busy composition, motion blur, low contrast edges"
+}

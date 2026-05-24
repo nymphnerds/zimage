@@ -1,0 +1,6 @@
+{
+  "description": "Default shared guidance for Gemini parts extraction",
+  "kind": "part_guidance",
+  "name": "Default Parts",
+  "prompt": "Preserve the exact illustration style, proportions, color palette, material details, and scale relationship from the reference image. Preserve the character's inferred body type and silhouette proportions from the master image, including short, squat, stout, bulky, chibi, or stylized proportions when present. Do not replace the character with a generic slim adult anatomy template. Match the same line weight, brush texture, paper texture, color softness, rendering flatness, and level of detail. Use the same media feel as the source image on a simple plain background. Do not convert the result into a 3D render, product render, glossy material render, realistic render, toy render, or studio product photo. Do not include unrelated body parts, heads, mannequins, labels, extra objects, scenery, or shadows."
+}

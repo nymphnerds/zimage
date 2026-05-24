@@ -1,0 +1,6 @@
+{
+  "description": "Single plant/tree/natural asset subject",
+  "kind": "subject",
+  "name": "Foliage",
+  "prompt": "single foliage asset, complete plant, tree, flower, mushroom, or natural object visible, readable trunk, stems, leaves, blossoms, silhouette, and material zones"
+}

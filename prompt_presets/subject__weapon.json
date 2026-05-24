@@ -1,0 +1,6 @@
+{
+  "description": "Single weapon asset subject",
+  "kind": "subject",
+  "name": "Weapon",
+  "prompt": "single weapon asset, complete object visible, readable handle, blade, head, barrel, or functional parts, clear silhouette and material zones"
+}

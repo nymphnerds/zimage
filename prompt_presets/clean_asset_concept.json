@@ -1,5 +1,0 @@
-{
-  "name": "Clean Asset Reference",
-  "description": "General-purpose isolated asset prompt for props, creatures, buildings, and objects",
-  "prompt": "single game asset reference, exactly one centered subject, whole subject visible, orthographic front-readable presentation, clean readable silhouette, clear material zones, pure white empty background, soft even neutral lighting, minimal contact shadow only if needed, designed for 3D modeling reference. No scenery, no room, no floor plane, no horizon line, no gradient backdrop, no decorative frame, no text, no labels, no extra objects."
-}
