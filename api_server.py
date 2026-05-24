@@ -897,6 +897,8 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
     strength = payload.strength if payload.strength is not None else SETTINGS.default_strength
     lora_path = (payload.lora_path or "").strip() or None
     lora_scale = payload.lora_scale if lora_path is not None else None
+    nunchaku_rank = payload.nunchaku_rank
+    nunchaku_precision = (payload.nunchaku_precision or "").strip().lower() or None
     if lora_path is not None and lora_scale is None:
         lora_scale = 1.0
 
@@ -910,6 +912,12 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
         raise ValueError("strength must be between 0 and 1.")
     if lora_scale is not None and lora_scale < 0.0:
         raise ValueError("lora_scale must be zero or greater.")
+    if nunchaku_rank is not None and nunchaku_rank not in {32, 128, 256}:
+        raise ValueError("nunchaku_rank must be 32, 128, or 256.")
+    if nunchaku_precision is not None and nunchaku_precision not in {"auto", "int4", "fp4"}:
+        raise ValueError("nunchaku_precision must be auto, int4, or fp4.")
+    if nunchaku_precision == "fp4" and nunchaku_rank == 256:
+        raise ValueError("FP4 r256 is not a published Z-Image Turbo weight.")
 
     return payload.model_copy(
         update={
@@ -921,8 +929,62 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
             "negative_prompt": payload.negative_prompt or SETTINGS.default_negative_prompt,
             "lora_path": lora_path,
             "lora_scale": lora_scale,
+            "nunchaku_precision": nunchaku_precision,
         }
     )
+
+
+def _normalize_model_load_payload(payload: dict) -> dict:
+    model_id = str(payload.get("model_id") or SETTINGS.default_model_id).strip() or SETTINGS.default_model_id
+    rank_value = payload.get("nunchaku_rank")
+    nunchaku_rank = int(rank_value) if rank_value is not None else SETTINGS.nunchaku_rank
+    nunchaku_precision = str(payload.get("nunchaku_precision") or SETTINGS.nunchaku_precision or "auto").strip().lower()
+    if nunchaku_rank not in {32, 128, 256}:
+        raise ValueError("nunchaku_rank must be 32, 128, or 256.")
+    if nunchaku_precision not in {"auto", "int4", "fp4"}:
+        raise ValueError("nunchaku_precision must be auto, int4, or fp4.")
+    if nunchaku_precision == "fp4" and nunchaku_rank == 256:
+        raise ValueError("FP4 r256 is not a published Z-Image Turbo weight.")
+    return {
+        "model_id": model_id,
+        "nunchaku_rank": nunchaku_rank,
+        "nunchaku_precision": nunchaku_precision,
+    }
+
+
+def _load_selected_model(payload: dict) -> dict:
+    normalized = _normalize_model_load_payload(payload)
+    started_at = perf_counter()
+    progress_update(
+        status="processing",
+        stage="loading_model",
+        detail="Loading selected model",
+        model_id=normalized["model_id"],
+        progress_current=0,
+        progress_total=1,
+        progress_percent=8.0,
+    )
+    _log_stage("model.load.begin", **normalized)
+    model_id = MODEL_MANAGER.ensure_model(
+        normalized["model_id"],
+        nunchaku_rank=normalized["nunchaku_rank"],
+        nunchaku_precision=normalized["nunchaku_precision"],
+    )
+    _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
+    progress_update(
+        status="idle",
+        stage="model_loaded",
+        detail="Selected model loaded",
+        model_id=model_id,
+        progress_current=1,
+        progress_total=1,
+        progress_percent=100.0,
+    )
+    return {
+        "status": "ok",
+        "model_id": model_id,
+        "extra": MODEL_MANAGER.loaded_runtime_extra,
+    }
 
 
 def _generate(payload: GenerateRequest) -> GenerateResponse:
@@ -938,12 +1000,19 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
     progress_update(
         status="processing",
         stage="loading_model",
-        detail="Loading or reusing model",
+        detail="Loading selected model",
         model_id=payload.model_id or SETTINGS.default_model_id,
         progress_current=0,
         progress_total=3,
-        progress_percent=0.0,
+        progress_percent=8.0,
     )
+    _log_stage("model.load.begin", model_id=payload.model_id or SETTINGS.default_model_id)
+    model_id = MODEL_MANAGER.ensure_model(
+        payload.model_id,
+        nunchaku_rank=payload.nunchaku_rank,
+        nunchaku_precision=payload.nunchaku_precision,
+    )
+    _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
 
     if payload.mode == "txt2img":
         progress_update(
@@ -963,7 +1032,9 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             steps=payload.steps,
             guidance_scale=payload.guidance_scale,
             seed=payload.seed,
-            model_id=payload.model_id,
+            model_id=model_id,
+            nunchaku_rank=payload.nunchaku_rank,
+            nunchaku_precision=payload.nunchaku_precision,
             lora_path=payload.lora_path,
             lora_scale=payload.lora_scale,
         )
@@ -990,7 +1061,9 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             guidance_scale=payload.guidance_scale,
             strength=payload.strength,
             seed=payload.seed,
-            model_id=payload.model_id,
+            model_id=model_id,
+            nunchaku_rank=payload.nunchaku_rank,
+            nunchaku_precision=payload.nunchaku_precision,
             lora_path=payload.lora_path,
             lora_scale=payload.lora_scale,
         )
@@ -1013,6 +1086,8 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         "runtime": MODEL_MANAGER.loaded_runtime or SETTINGS.runtime,
         "mode": payload.mode,
         "model_id": model_id,
+        "nunchaku_rank": payload.nunchaku_rank,
+        "nunchaku_precision": payload.nunchaku_precision,
         "prompt": payload.prompt,
         "negative_prompt": payload.negative_prompt,
         "width": payload.width,
@@ -1120,6 +1195,29 @@ async def server_info():
 @app.get("/active_task", response_model=ActiveTaskResponse, tags=["status"])
 async def active_task():
     return ActiveTaskResponse(**progress_snapshot())
+
+
+@app.post("/api/model/load", tags=["generation"])
+async def load_model(request: FastAPIRequest):
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Model load payload must be an object.")
+        return JSONResponse(await run_in_threadpool(_load_selected_model, payload))
+    except ValueError as exc:
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        raise HTTPException(status_code=400, detail=detail) from exc
+    except RuntimeError as exc:
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        print(f"[nymphs:zimage:error] model_load.runtime_error detail={detail}", flush=True)
+        raise HTTPException(status_code=500, detail=detail) from exc
+    except Exception as exc:
+        detail = "".join(traceback.format_exception_only(type(exc), exc)).strip() or str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        print(f"[nymphs:zimage:error] model_load.unhandled detail={detail}", flush=True)
+        raise HTTPException(status_code=500, detail=detail) from exc
 
 
 @app.get("/outputs/{relative_path:path}", tags=["ui"])

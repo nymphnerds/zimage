@@ -506,6 +506,22 @@
       white-space: nowrap;
     }
 
+    .model-line {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dim);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .model-line span:first-child {
+      color: var(--cyan);
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
     .progress-line {
       display: grid;
       grid-template-columns: 160px minmax(0, 1fr) 86px;
@@ -722,6 +738,18 @@
         <div class="section-title"><span>Z-Image</span><span id="zimage-ready">checking</span></div>
         <div class="grid">
           <div class="field wide">
+            <label for="z-model-choice">Model Choice</label>
+            <select id="z-model-choice">
+              <option value="auto_r32">Z-Image Nunchaku r32</option>
+              <option value="auto_r128">Z-Image Nunchaku r128</option>
+              <option value="int4_r256">Z-Image Nunchaku r256</option>
+              <option value="int4_r32">INT4 r32</option>
+              <option value="int4_r128">INT4 r128</option>
+              <option value="fp4_r32">FP4 r32</option>
+              <option value="fp4_r128">FP4 r128</option>
+            </select>
+          </div>
+          <div class="field wide">
             <label for="z-profile">Profile</label>
             <select id="z-profile">
               <option value="default">Turbo Default</option>
@@ -879,6 +907,7 @@
           <span id="runtime-text">No model loaded</span>
           <span id="output-label">No output</span>
         </div>
+        <div class="model-line"><span>Selected</span> <span id="selected-model-text">checking</span></div>
         <div class="progress-line">
           <span class="progress-stage" id="progress-stage">Idle</span>
           <span id="progress-detail">Waiting for prompt.</span>
@@ -937,11 +966,22 @@
     const styles = { none: ["No Style", ""] };
 
     const profiles = {
-      default: { label: "Turbo Default", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
-      balanced: { label: "Balanced 1024", width: 1024, height: 1024, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
-      portrait: { label: "Portrait 1024x1536", width: 1024, height: 1536, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
-      quality: { label: "Quality 1536", width: 1536, height: 1536, steps: 20, guidance: 0, variants: 1, seedStep: 1 },
+      default: { label: "Turbo Default", modelChoice: "auto_r32", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      balanced: { label: "Balanced 1024", modelChoice: "auto_r32", width: 1024, height: 1024, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
+      portrait: { label: "Portrait 1024x1536", modelChoice: "auto_r128", width: 1024, height: 1536, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
+      quality: { label: "Quality 1536", modelChoice: "int4_r256", width: 1536, height: 1536, steps: 20, guidance: 0, variants: 1, seedStep: 1 },
     };
+
+    function zModelSelection() {
+      const value = $("z-model-choice").value || "auto_r32";
+      const [precision, rawRank] = value.split("_r");
+      return {
+        model_id: "Tongyi-MAI/Z-Image-Turbo",
+        nunchaku_precision: precision || "auto",
+        nunchaku_rank: parseInt(rawRank || "32", 10),
+        label: $("z-model-choice").selectedOptions[0]?.textContent || "Z-Image",
+      };
+    }
 
     function numberValue(id, fallback) {
       const value = parseFloat($(id).value);
@@ -969,6 +1009,7 @@
         seed: intValue("seed", 0),
         variants: intValue("variants", 1),
         seedStep: intValue("seed-step", 1),
+        modelChoice: $("z-model-choice").value,
         useGuide: $("z-use-guide").checked,
         strength: numberValue("strength", 0.55),
         useLora: $("z-use-lora").checked,
@@ -993,6 +1034,7 @@
         ["seed", values.seed],
         ["variants", values.variants],
         ["seed-step", values.seedStep],
+        ["z-model-choice", values.modelChoice],
         ["strength", values.strength],
         ["z-lora-path", values.loraPath],
         ["z-lora-strength", values.loraStrength],
@@ -1256,6 +1298,31 @@
       await fetch(`/api/presets/settings/${encodeURIComponent(value.slice(5))}`, { method: "DELETE" });
       await loadPresets();
       toast("Profile deleted.");
+    }
+
+    async function loadSelectedZModel() {
+      if (state.mode !== "zimage") return;
+      const selection = zModelSelection();
+      setBusy(true);
+      startProgress();
+      try {
+        const response = await fetch("/api/model/load", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(selection),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.detail || `Model load failed with HTTP ${response.status}.`);
+        }
+        stopProgress(true, "Model loaded.");
+        await refreshInfo();
+      } catch (err) {
+        stopProgress(false);
+        toast(err.message || "Model load failed.");
+      } finally {
+        setBusy(false);
+      }
     }
 
     async function saveManagedPromptPreset(kind, selectId) {
@@ -1730,6 +1797,7 @@
             steps: parseInt($("steps").value || "9", 10),
             guidance_scale: parseFloat($("guidance").value || "0"),
             seed: activeSeed(index),
+            ...zModelSelection(),
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
             batch_id: batchId,
@@ -1961,12 +2029,15 @@
         const runtime = extra.runtime || extra.configured_runtime || "";
         const rank = extra.nunchaku_rank ? `r${extra.nunchaku_rank}` : "";
         const precision = extra.nunchaku_precision || "";
+        const selected = zModelSelection();
+        $("selected-model-text").textContent = `${selected.label} / ${selected.nunchaku_precision} / r${selected.nunchaku_rank}`;
         $("runtime-text").textContent = info.loaded_model_id
-          ? `Loaded ${[runtime, precision, rank].filter(Boolean).join(" / ")}`
+          ? `Loaded ${[(info.loaded_model_id || "").split("/").pop(), runtime, precision, rank].filter(Boolean).join(" / ")}`
           : "No model loaded";
         $("zimage-ready").textContent = (info.supported_modes || []).join("+") || "ready";
       } catch {
         $("runtime-text").textContent = "Runtime unreachable";
+        $("selected-model-text").textContent = "unreachable";
         $("zimage-ready").textContent = "offline";
       }
       try {
@@ -2021,7 +2092,9 @@
           ? (state.userPresets.settings || []).find((item) => item.id === value.slice(5))?.values
           : profiles[value];
         applyProfileValues(profile || profiles.default);
+        loadSelectedZModel();
       };
+      $("z-model-choice").onchange = loadSelectedZModel;
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;
       $("open-config").onclick = () => moduleAction("open_image_settings_presets");

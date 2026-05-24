@@ -20,6 +20,8 @@ class GenerateRequest(BaseModel):
     seed: int | None = None
     strength: float | None = None
     model_id: str | None = None
+    nunchaku_rank: int | None = None
+    nunchaku_precision: str | None = None
     lora_path: str | None = None
     lora_scale: float | None = None
     batch_id: str | None = None
