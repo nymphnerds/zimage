@@ -632,10 +632,65 @@
       margin-bottom: 8px;
     }
 
+    .folder-choice {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 34px;
+      gap: 6px;
+      min-width: 0;
+      position: relative;
+    }
+
     .folder-select {
       height: 28px;
       font-size: 11px;
       font-family: var(--font-mono);
+    }
+
+    .folder-menu {
+      position: relative;
+      min-width: 0;
+    }
+
+    .folder-menu summary {
+      width: 34px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 5px;
+      background: rgba(15, 26, 28, 0.85);
+      color: var(--cyan);
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
+      list-style: none;
+    }
+    .folder-menu summary::-webkit-details-marker { display: none; }
+    .folder-menu summary::before { content: ""; }
+
+    .folder-menu-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 6;
+      width: 210px;
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: rgba(7, 16, 15, 0.98);
+      box-shadow: 0 18px 45px rgba(0,0,0,0.36);
+    }
+
+    .folder-menu-panel button {
+      width: 100%;
+      min-height: 28px;
+      justify-content: flex-start;
+      padding: 0 9px;
+      font-size: 9.8px;
     }
 
     .strip-select-actions {
@@ -1007,14 +1062,22 @@
           </div>
         </div>
         <div class="strip-browser">
-          <select class="folder-select" id="output-folder" aria-label="Output folder"></select>
+          <div class="folder-choice">
+            <select class="folder-select" id="output-folder" aria-label="Output folder"></select>
+            <details class="folder-menu" id="folder-menu">
+              <summary aria-label="Folder actions" title="Folder actions">...</summary>
+              <div class="folder-menu-panel">
+                <button id="choose-folder" type="button">Choose Folder</button>
+                <button id="move-selected" type="button">Move Selected</button>
+                <button class="danger" id="delete-folder" type="button">Delete Folder</button>
+              </div>
+            </details>
+          </div>
           <div class="strip-select-actions">
             <span class="selection-count" id="selection-count">0 selected</span>
-            <button id="choose-folder" type="button">Choose</button>
             <button id="select-visible" type="button">Select</button>
             <button id="select-all-visible" type="button">Select All</button>
             <button id="clear-selection" type="button">Clear</button>
-            <button id="move-selected" type="button">Move</button>
             <button class="danger" id="delete-selected" type="button">Delete</button>
           </div>
         </div>
@@ -1971,6 +2034,19 @@
       return state.visibleOutputs.filter((output) => state.selectedOutputPaths.has(outputKey(output)));
     }
 
+    function currentManagedFolder() {
+      if (state.viewerSource === "manual" || !state.outputView.startsWith("folder:")) return "";
+      const folder = state.outputView.slice(7);
+      if (!folder) return "";
+      const hasManagedOutput = state.visibleOutputs.some((output) => output.managed !== false && outputFolder(output) === folder);
+      return hasManagedOutput ? folder : "";
+    }
+
+    function closeFolderMenu() {
+      const menu = $("folder-menu");
+      if (menu) menu.open = false;
+    }
+
     function updateSelectionUi() {
       const selected = visibleSelectedOutputs();
       const managedSelected = selected.filter((output) => output.managed !== false);
@@ -1980,6 +2056,7 @@
       $("clear-selection").disabled = selected.length === 0;
       $("move-selected").disabled = managedSelected.length === 0;
       $("delete-selected").disabled = managedSelected.length === 0;
+      $("delete-folder").disabled = !currentManagedFolder();
       for (const node of document.querySelectorAll(".thumb")) {
         const checked = state.selectedOutputPaths.has(node.dataset.key);
         node.classList.toggle("checked", checked);
@@ -2027,6 +2104,7 @@
       if (!managed.length) return;
       const folder = window.prompt("Move selected images to folder", "");
       if (folder === null) return;
+      closeFolderMenu();
       const response = await fetch("/api/outputs/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2044,6 +2122,36 @@
       renderGallery();
       if (state.visibleOutputs[0]) showResult(state.visibleOutputs[0]);
       toast(`Moved ${body.moved || 0} images to ${body.folder || "folder"}.`);
+    }
+
+    async function deleteCurrentFolder() {
+      const folder = currentManagedFolder();
+      if (!folder) {
+        toast("Choose a managed group folder first.");
+        closeFolderMenu();
+        return;
+      }
+      const count = state.visibleOutputs.filter((output) => output.managed !== false && outputFolder(output) === folder).length;
+      const noun = count === 1 ? "image" : "images";
+      if (!window.confirm(`Delete folder "${folder}" and ${count} ${noun} inside it?`)) return;
+      closeFolderMenu();
+      const response = await fetch("/api/outputs/folder/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast(body.detail || "Could not delete folder.");
+        return;
+      }
+      for (const output of state.visibleOutputs) state.selectedOutputPaths.delete(outputKey(output));
+      state.outputs = body.outputs || [];
+      state.outputView = "recent";
+      renderGallery();
+      if (state.visibleOutputs[0]) showResult(state.visibleOutputs[0]);
+      else clearCurrentPreview();
+      toast(`Deleted folder ${body.folder || folder}.`);
     }
 
     async function deleteSelectedOutputs() {
@@ -2584,12 +2692,13 @@
       $("strip-prev").onclick = () => selectFromVisible(-1);
       $("strip-next").onclick = () => selectFromVisible(1);
       $("output-folder").onchange = () => { state.outputView = $("output-folder").value; renderGallery(); };
-      $("choose-folder").onclick = () => $("folder-picker").click();
+      $("choose-folder").onclick = () => { closeFolderMenu(); $("folder-picker").click(); };
       $("folder-picker").addEventListener("change", handleFolderPicked);
       $("select-visible").onclick = selectVisibleOutputs;
       $("select-all-visible").onclick = selectAllVisibleOutputs;
       $("clear-selection").onclick = clearVisibleSelection;
       $("move-selected").onclick = moveSelectedOutputs;
+      $("delete-folder").onclick = deleteCurrentFolder;
       $("delete-selected").onclick = deleteSelectedOutputs;
       $("gallery").addEventListener("wheel", scrollGalleryWithWheel, { passive: false });
       $("plan-parts").onclick = planParts;

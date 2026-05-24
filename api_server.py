@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import re
+import shutil
 import shlex
 import subprocess
 import traceback
@@ -1515,6 +1516,35 @@ async def move_outputs(request: FastAPIRequest):
             "outputs": _recent_outputs(),
         }
     )
+
+
+@app.post("/api/outputs/folder/delete", tags=["ui"])
+async def delete_output_folder(request: FastAPIRequest):
+    payload = await request.json()
+    raw_folder = str(payload.get("folder") or payload.get("folder_name") or "").strip()
+    if not raw_folder:
+        raise HTTPException(status_code=400, detail="Folder name is required.")
+    if "/" in raw_folder or "\\" in raw_folder:
+        raise HTTPException(status_code=400, detail="Only managed output group folders can be deleted.")
+    folder = _safe_output_folder_name(raw_folder)
+    if folder != raw_folder:
+        raise HTTPException(status_code=400, detail="Only managed output group folders can be deleted.")
+
+    root = SETTINGS.output_dir.resolve()
+    folder_dir = (root / folder).resolve()
+    if folder_dir.parent != root:
+        raise HTTPException(status_code=400, detail="Invalid output folder.")
+    if not folder_dir.exists():
+        return JSONResponse({"status": "ok", "removed": 0, "folder": folder, "outputs": _recent_outputs()})
+    if not folder_dir.is_dir():
+        raise HTTPException(status_code=400, detail="Invalid output folder.")
+
+    removed = len([path for path in folder_dir.rglob("*") if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES])
+    try:
+        shutil.rmtree(folder_dir)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Could not delete output folder.")
+    return JSONResponse({"status": "ok", "folder": folder, "removed": removed, "outputs": _recent_outputs()})
 
 
 @app.get("/api/presets", tags=["ui"])
