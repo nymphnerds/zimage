@@ -1338,9 +1338,9 @@
       if (state.mode !== "zimage") return;
       const selection = zModelSelection();
       setBusy(true);
-      setProgress("Restarting", `Restarting Z-Image for ${selection.label}.`, 5);
+      setProgress("Loading", `Loading ${selection.label}.`, 5);
       try {
-        const response = await fetch("/api/model/select", {
+        const response = await fetch("/api/model/load", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...selection, restart: true }),
@@ -1348,6 +1348,13 @@
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
           throw new Error(body.detail || `Model switch failed with HTTP ${response.status}.`);
+        }
+        const body = await response.json().catch(() => ({}));
+        if (body.loaded) {
+          await refreshInfo();
+          setProgress("Idle", `${selection.label} loaded.`, 0);
+          toast(`${selection.label} loaded.`);
+          return;
         }
         toast(`Restarting Z-Image for ${selection.label}.`);
         await waitForRuntimeAfterRestart();

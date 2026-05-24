@@ -958,6 +958,34 @@ def _normalize_model_load_payload(payload: dict) -> dict:
 def _load_selected_model(payload: dict) -> dict:
     normalized = _normalize_model_load_payload(payload)
     result = _save_selected_model(normalized)
+    current_precision = (SETTINGS.nunchaku_precision or "auto").strip().lower()
+    current_rank = int(SETTINGS.nunchaku_rank)
+    can_load_now = (
+        normalized["nunchaku_rank"] == current_rank
+        and normalized["nunchaku_precision"] == current_precision
+    )
+    if can_load_now:
+        progress_update(
+            status="processing",
+            stage="loading_model",
+            detail="Loading selected model",
+            model_id=normalized["model_id"],
+            progress_percent=8.0,
+        )
+        model_id = MODEL_MANAGER.ensure_model(normalized["model_id"])
+        progress_update(
+            status="idle",
+            stage="idle",
+            detail="Model loaded",
+            model_id=model_id,
+            progress_percent=100.0,
+        )
+        return {
+            **result,
+            "loaded": True,
+            "extra": MODEL_MANAGER.loaded_runtime_extra,
+        }
+
     progress_update(
         status="processing",
         stage="restarting_runtime",
