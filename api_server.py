@@ -149,6 +149,8 @@ def _safe_preset_path(kind: str, preset_id: str) -> Path:
 def _seed_packaged_prompt_presets() -> None:
     target_dir = _image_prompt_preset_dir()
     marker = target_dir / ".defaults_seeded"
+    if marker.exists():
+        return
     if not PACKAGED_PROMPT_PRESET_PATH.is_dir():
         return
 

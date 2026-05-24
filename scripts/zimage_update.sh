@@ -26,6 +26,14 @@ install -m 644 "${MODULE_ROOT}/progress_state.py" "${ZIMAGE_INSTALL_ROOT}/progre
 install -m 644 "${MODULE_ROOT}/requirements.lock.txt" "${ZIMAGE_INSTALL_ROOT}/requirements.lock.txt"
 install -m 644 "${MODULE_ROOT}/schemas.py" "${ZIMAGE_INSTALL_ROOT}/schemas.py"
 
+if [[ -d "${MODULE_ROOT}/prompt_presets" ]]; then
+  mkdir -p "${ZIMAGE_INSTALL_ROOT}/prompt_presets"
+  find "${MODULE_ROOT}/prompt_presets" -maxdepth 1 -type f -name '*.json' -print0 |
+    while IFS= read -r -d '' preset_file; do
+      install -m 644 "${preset_file}" "${ZIMAGE_INSTALL_ROOT}/prompt_presets/$(basename "${preset_file}")"
+    done
+fi
+
 find "${MODULE_ROOT}/scripts" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) -print0 |
   while IFS= read -r -d '' script_file; do
     install -m 755 "${script_file}" "${ZIMAGE_INSTALL_ROOT}/scripts/$(basename "${script_file}")"
@@ -50,6 +58,10 @@ print(str(manifest.get("version", "unknown")).strip() or "unknown")
 PY
 )"
 printf '%s\n' "${module_version}" > "${ZIMAGE_INSTALL_ROOT}/.nymph-module-version"
+
+if [[ -x "${ZIMAGE_INSTALL_ROOT}/scripts/zimage_seed_image_presets.sh" ]]; then
+  ZIMAGE_SEED_IMAGE_PRESETS_IF_EMPTY=1 "${ZIMAGE_INSTALL_ROOT}/scripts/zimage_seed_image_presets.sh" >/dev/null || true
+fi
 
 echo "Z-Image Turbo module wrappers updated."
 echo "installed_version=${module_version}"
