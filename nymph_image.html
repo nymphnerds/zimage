@@ -239,9 +239,15 @@
 
     .model-choice-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 116px;
-      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) 74px;
+      gap: 8px;
       align-items: end;
+    }
+    .model-choice-row select { font-size: 12px; }
+    .model-choice-row button {
+      width: 74px;
+      min-width: 74px;
+      padding-inline: 8px;
     }
 
     .field {
@@ -1332,23 +1338,27 @@
       if (state.mode !== "zimage") return;
       const selection = zModelSelection();
       setBusy(true);
-      setProgress("Restarting", `Switching to ${selection.label}.`, 5);
+      setProgress("Loading", `Loading ${selection.label}.`, 8);
+      startProgress();
       try {
-        const response = await fetch("/api/model/select", {
+        const response = await fetch("/api/model/load", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...selection, restart: true }),
+          body: JSON.stringify(selection),
         });
+        const body = await response.json().catch(() => ({}));
         if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
           throw new Error(body.detail || `Model switch failed with HTTP ${response.status}.`);
         }
-        toast("Restarting Z-Image for selected model.");
-        await waitForRuntimeAfterRestart();
+        await refreshInfo();
+        setProgress("Idle", `${selection.label} loaded.`, 0);
+        toast(`${selection.label} loaded.`);
       } catch (err) {
         setProgress("Idle", "Model switch failed.", 0);
         toast(err.message || "Model switch failed.");
       } finally {
+        clearInterval(state.progressTimer);
+        state.progressTimer = null;
         setBusy(false);
       }
     }
@@ -1838,6 +1848,7 @@
       setBusy(true);
       startProgress();
       try {
+        const selectedModel = zModelSelection();
         for (let index = 0; index < count; index++) {
           const payload = {
             mode: useGuide ? "img2img" : "txt2img",
@@ -1847,7 +1858,9 @@
             steps: parseInt($("steps").value || "9", 10),
             guidance_scale: parseFloat($("guidance").value || "0"),
             seed: activeSeed(index),
-            model_id: zModelSelection().model_id,
+            model_id: selectedModel.model_id,
+            nunchaku_rank: selectedModel.nunchaku_rank,
+            nunchaku_precision: selectedModel.nunchaku_precision,
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
             batch_id: batchId,

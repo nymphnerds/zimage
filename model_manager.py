@@ -458,23 +458,6 @@ class ModelManager:
         generator.manual_seed(seed)
         return generator
 
-    def _step_progress_callback(self, *, mode: str, steps: int):
-        total = max(1, int(steps or 1))
-
-        def callback(_pipeline, step, _timestep, callback_kwargs):
-            current = min(total, int(step) + 1)
-            progress_update(
-                status="processing",
-                stage="generating_image",
-                detail=f"Nunchaku {mode} denoising step {current}/{total}",
-                progress_current=current,
-                progress_total=total,
-                progress_percent=33.0 + ((current / total) * 57.0),
-            )
-            return callback_kwargs
-
-        return callback
-
     def _load_lora_with_alpha_fallback(self, pipeline, lora_path: str, adapter_name: str):
         try:
             pipeline.load_lora_weights(lora_path, adapter_name=adapter_name)
@@ -590,8 +573,14 @@ class ModelManager:
             if self._loaded_runtime != "nunchaku":
                 kwargs["negative_prompt"] = negative_prompt
             else:
-                kwargs["callback_on_step_end"] = self._step_progress_callback(mode="txt2img", steps=steps)
-                kwargs["callback_on_step_end_tensor_inputs"] = ["latents"]
+                progress_update(
+                    status="processing",
+                    stage="generating_image",
+                    detail=f"Nunchaku txt2img running {steps} steps",
+                    progress_current=None,
+                    progress_total=steps,
+                    progress_percent=50.0,
+                )
             print("[nymphs:zimage:stage] pipeline.txt2img.begin", flush=True)
             result = self._txt2img(**kwargs)
             print("[nymphs:zimage:stage] pipeline.txt2img.returned", flush=True)
@@ -627,19 +616,26 @@ class ModelManager:
             self._configure_pipeline_lora(pipeline, lora_path, lora_scale)
             generator = self._build_generator(seed)
             print("[nymphs:zimage:stage] pipeline.img2img.begin", flush=True)
-            result = pipeline(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                image=image,
-                width=width,
-                height=height,
-                num_inference_steps=steps,
-                guidance_scale=guidance_scale,
-                strength=strength,
-                generator=generator,
-                callback_on_step_end=self._step_progress_callback(mode="img2img", steps=steps),
-                callback_on_step_end_tensor_inputs=["latents"],
+            kwargs = {
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "image": image,
+                "width": width,
+                "height": height,
+                "num_inference_steps": steps,
+                "guidance_scale": guidance_scale,
+                "strength": strength,
+                "generator": generator,
+            }
+            progress_update(
+                status="processing",
+                stage="generating_image",
+                detail=f"Nunchaku img2img running {steps} steps",
+                progress_current=None,
+                progress_total=steps,
+                progress_percent=50.0,
             )
+            result = pipeline(**kwargs)
             print("[nymphs:zimage:stage] pipeline.img2img.returned", flush=True)
             output_image = result.images[0]
             print("[nymphs:zimage:stage] pipeline.img2img.image_extracted", flush=True)

@@ -958,6 +958,7 @@ def _normalize_model_load_payload(payload: dict) -> dict:
 def _load_selected_model(payload: dict) -> dict:
     normalized = _normalize_model_load_payload(payload)
     started_at = perf_counter()
+    _save_selected_model(normalized)
     progress_update(
         status="processing",
         stage="loading_model",
