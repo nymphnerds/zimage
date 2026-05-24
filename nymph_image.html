@@ -1290,6 +1290,111 @@
       r256_max: { label: "Max 2048", modelChoice: "int4_r256", width: 2048, height: 2048, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
     };
 
+    const controlHelp = {
+      "mode-zimage": "Use the local Z-Image backend for prompt and image-to-image generation.",
+      "mode-gemini": "Use Gemini image generation through OpenRouter.",
+      "mode-text-image": "Generate from the visible prompt only.",
+      "mode-image-to-image": "Send one picked image with the Z-Image prompt.",
+      "open-outputs": "Open the generated image output folder.",
+      "clear-outputs": "Clear only the current big preview selection. This does not delete image files.",
+      "stop-backend": "Stop the local image backend runtime.",
+      "use-selected-source": "Use the image currently shown in the big preview as the image-to-image source.",
+      "open-source-images": "Choose a local image file as the image-to-image source.",
+      "clear-source": "Clear the current image-to-image source.",
+      "refresh-gallery": "Refresh the output image strip.",
+      strength: "How strongly Z-Image should transform the guide image.",
+      "z-model-choice": "Choose which local Z-Image Nunchaku weight to load.",
+      "load-z-model": "Load the selected Z-Image Nunchaku weight. Changing the dropdown alone does not load it.",
+      "z-profile": "Load a reusable Z-Image profile. Built-in profiles can switch Nunchaku rank, image size, steps, and variants.",
+      "save-profile": "Save the current Z-Image settings as a reusable profile.",
+      "delete-profile": "Delete the selected user profile.",
+      "open-config": "Open the editable image profile presets folder.",
+      width: "Generated image width in pixels.",
+      height: "Generated image height in pixels.",
+      steps: "How many image-generation refinement steps to run. More steps are slower.",
+      guidance: "How strongly Z-Image follows the prompt. Z-Image Turbo usually works best near the default.",
+      seed: "Z-Image seed. Use 0 for random, or a positive whole number to repeat a result.",
+      variants: "How many single-image variants Generate should make.",
+      "seed-step": "For Z-Image variants, add this amount to the starting seed for each next image.",
+      "z-use-lora": "Load a Z-Image LoRA during generation.",
+      "z-lora-run": "Choose a Z-Image LoRA folder or file from the LoRA library.",
+      "z-lora-checkpoint": "Choose which checkpoint file inside the selected LoRA run to use.",
+      "z-lora-open": "Open the LoRA folder.",
+      "z-lora-latest": "Use the latest available LoRA checkpoint from the selected run.",
+      "z-lora-clear": "Clear the selected LoRA.",
+      "z-lora-path": "Path to a Z-Image LoRA safetensors file.",
+      "z-lora-strength": "How strongly the selected LoRA should influence generation.",
+      "z-lora-auto-trigger": "Automatically insert this LoRA activation text into the prompt.",
+      "z-lora-trigger": "Activation text for this LoRA. By default this uses the selected LoRA name.",
+      "gemini-use-guide": "Send one picked image along with the prompt so Gemini can edit from or stay closer to an existing design.",
+      "gemini-guide-label": "Image file to send with the Gemini prompt.",
+      "gemini-guide-use-selected": "Use the image currently shown in the big preview as the Gemini guide image.",
+      "gemini-guide-open-images": "Choose a local image file as the Gemini guide image.",
+      "gemini-guide-clear": "Clear the Gemini guide image.",
+      "api-key": "OpenRouter API key for Gemini image generation. Leave blank to use the saved Manager/environment key.",
+      "gemini-model": "Gemini image model to call through OpenRouter.",
+      aspect: "Gemini output aspect ratio.",
+      "image-size": "Output size for Gemini 3.1 Flash Image or Gemini 3 Pro Image. Gemini 2.5 Flash Image uses its fixed size for the selected aspect ratio.",
+      "gemini-variants": "How many Gemini image variants Generate should make.",
+      subject: "Managed subject prompt block shown in the visible prompt.",
+      style: "Managed style prompt block shown in the visible prompt.",
+      view: "Managed view/cutout prompt block shown in the visible prompt.",
+      prompt: "What the selected image backend should create. Keep it direct and editable; use Editor for longer text.",
+      "edit-prompt": "Open the prompt in a larger editor.",
+      "apply-prompt": "Apply the selected subject, style, view, and negative preset blocks to the visible prompt.",
+      "clear-prompt": "Clear the visible prompt text.",
+      "saved-prompt": "Saved full prompt to load into the visible prompt.",
+      "save-current-prompt": "Save the current visible prompt.",
+      "delete-saved-prompt": "Delete the selected saved prompt.",
+      "open-saved-presets": "Open the editable prompt preset folder.",
+      "negative-preset": "Managed negative prompt block.",
+      "negative-prompt": "Optional negative prompt used when guidance is enabled.",
+      generate: "Run generation using the active backend and current settings.",
+      "parts-source-label": "Source image used for Image Part Extraction.",
+      "parts-source-drop": "Drop or choose the source image for Image Part Extraction.",
+      "parts-use-selected-source": "Use the image currently shown in the big preview as the parts extraction source.",
+      "parts-open-images": "Choose a local image file as the parts extraction source.",
+      "parts-clear-source": "Clear the parts extraction source image.",
+      "planner-model": "Vision model used to identify extractable character parts before image edits run.",
+      "max-parts": "Maximum parts to include in one extraction plan. This controls cost before image edits run.",
+      "style-lock": "Apply the active Style field strongly during guided part extraction.",
+      "base-face": "Keep facial features on the anatomy base extraction instead of leaving the head feature-neutral.",
+      "base-eyes": "When Face is on, keep finished eyes on the anatomy base instead of leaving the eye area blank.",
+      "eye-part": "Add one separate reusable eyeball-only extraction target.",
+      "part-guidance-select": "Reusable extraction guidance preset.",
+      "part-guidance": "Extra guidance applied to every character-part extraction request.",
+      "edit-part-guidance": "Open extraction guidance in a larger editor.",
+      "clear-part-guidance": "Clear only the extraction guidance prompt text.",
+      "plan-parts": "Analyze the parts source image and build an editable extraction checklist.",
+      "clear-parts": "Clear the current planned parts checklist.",
+      "extract-parts": "Extract every planned part with its Extract checkbox enabled.",
+      "output-folder": "Choose which output folder or recent group to browse in the strip.",
+      "choose-folder": "Choose a local folder of images to browse.",
+      "move-selected": "Move checked strip images into a new named folder.",
+      "delete-folder": "Delete the current user-created output folder.",
+      "select-visible": "Select the image currently shown in the big preview.",
+      "select-all-visible": "Select all images currently visible in the strip.",
+      "clear-selection": "Clear checked strip selections.",
+      "delete-selected": "Delete checked strip images from disk.",
+    };
+
+    function applyControlHelp() {
+      for (const [id, text] of Object.entries(controlHelp)) {
+        const node = $(id);
+        if (!node) continue;
+        node.title = text;
+        for (const label of document.querySelectorAll(`label[for="${CSS.escape(id)}"]`)) {
+          label.title = text;
+        }
+        const toggle = node.closest(".toggle-row");
+        if (toggle) {
+          toggle.title = text;
+          const caption = toggle.querySelector("span");
+          if (caption) caption.title = text;
+        }
+      }
+    }
+
     function zModelSelection() {
       const value = $("z-model-choice").value || "auto_r32";
       const [precision, rawRank] = value.split("_r");
@@ -2769,6 +2874,7 @@
         row.className = "part-item";
         const selected = document.createElement("input");
         selected.type = "checkbox";
+        selected.title = "Include this part when Extract runs.";
         selected.checked = part.selected !== false;
         selected.addEventListener("change", () => {
           part.selected = selected.checked;
@@ -2780,7 +2886,7 @@
         label.querySelector(".part-meta").textContent = part.category || "part";
         const symmetry = document.createElement("input");
         symmetry.type = "checkbox";
-        symmetry.title = "Symmetry";
+        symmetry.title = "Force this extracted part to stay perfectly left-right symmetrical.";
         symmetry.checked = !!part.symmetry;
         symmetry.addEventListener("change", () => { part.symmetry = symmetry.checked; });
         row.appendChild(selected);
@@ -3054,6 +3160,7 @@
       $("text-modal-close").onclick = closeTextModal;
       $("text-modal").addEventListener("click", (event) => { if (event.target === $("text-modal")) closeTextModal(); });
       document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeTextModal(); });
+      applyControlHelp();
       setMode("zimage");
       updateCurrentSourceButtons();
       syncGuideRows();
