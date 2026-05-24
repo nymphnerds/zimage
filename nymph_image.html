@@ -506,7 +506,6 @@
     }
 
     .progress {
-      border-top: 1px solid var(--line);
       padding: 9px 24px 10px;
       display: grid;
       gap: 6px;
@@ -569,12 +568,6 @@
       border-radius: 999px;
       background: #223532;
       overflow: hidden;
-      opacity: 0;
-      transition: opacity 0.16s ease;
-    }
-
-    .bar.active {
-      opacity: 1;
     }
 
     .bar span {
@@ -1317,7 +1310,6 @@
       $("progress-detail").textContent = detail || "";
       $("progress-percent").textContent = `${Math.round(value)}%`;
       $("progress-bar").style.width = `${value}%`;
-      $("progress-bar").parentElement.classList.toggle("active", value > 0);
     }
 
     async function pollTask() {
