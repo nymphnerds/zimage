@@ -196,6 +196,10 @@ class ModelManager:
         if runtime == "nunchaku":
             if hasattr(pipeline, "remove_all_hooks"):
                 pipeline.remove_all_hooks()
+            if self.settings.device != "cpu" and hasattr(pipeline, "enable_sequential_cpu_offload"):
+                pipeline.enable_sequential_cpu_offload()
+                pipeline._nymphs_nunchaku_offload_enabled = True
+                return pipeline
             if self.settings.device:
                 pipeline = pipeline.to(self.settings.device)
             pipeline._nymphs_nunchaku_offload_enabled = False
@@ -492,6 +496,7 @@ class ModelManager:
         nunchaku_precision: str | None,
         lora_path: str | None,
         lora_scale: float | None,
+        progress_callback=None,
     ):
         with self._lock:
             active_model_id = self.ensure_model(model_id)
@@ -507,6 +512,12 @@ class ModelManager:
             }
             if self._loaded_runtime != "nunchaku":
                 kwargs["negative_prompt"] = negative_prompt
+            if progress_callback is not None:
+                def _on_step_end(_pipeline, step_index, _timestep, callback_kwargs):
+                    progress_callback(int(step_index) + 1, steps)
+                    return callback_kwargs
+
+                kwargs["callback_on_step_end"] = _on_step_end
             print("[nymphs:zimage:stage] pipeline.txt2img.begin", flush=True)
             result = self._txt2img(**kwargs)
             print("[nymphs:zimage:stage] pipeline.txt2img.returned", flush=True)
@@ -531,12 +542,20 @@ class ModelManager:
         nunchaku_precision: str | None,
         lora_path: str | None,
         lora_scale: float | None,
+        progress_callback=None,
     ):
         with self._lock:
             active_model_id = self.ensure_model(model_id)
             pipeline = self._ensure_img2img()
             self._configure_pipeline_lora(pipeline, lora_path, lora_scale)
             generator = self._build_generator(seed)
+            callback_kwargs = {}
+            if progress_callback is not None:
+                def _on_step_end(_pipeline, step_index, _timestep, callback_state):
+                    progress_callback(int(step_index) + 1, steps)
+                    return callback_state
+
+                callback_kwargs["callback_on_step_end"] = _on_step_end
             print("[nymphs:zimage:stage] pipeline.img2img.begin", flush=True)
             result = pipeline(
                 prompt=prompt,
@@ -548,6 +567,7 @@ class ModelManager:
                 guidance_scale=guidance_scale,
                 strength=strength,
                 generator=generator,
+                **callback_kwargs,
             )
             print("[nymphs:zimage:stage] pipeline.img2img.returned", flush=True)
             output_image = result.images[0]

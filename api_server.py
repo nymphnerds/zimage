@@ -1039,6 +1039,19 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
     model_id = MODEL_MANAGER.ensure_model(payload.model_id)
     _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
 
+    def _denoise_progress(current: int, total: int, label: str) -> None:
+        total = max(1, int(total or 1))
+        current = max(0, min(int(current or 0), total))
+        progress_update(
+            status="processing",
+            stage="generating_image",
+            detail=f"{label} denoising step {current}/{total}",
+            model_id=model_id,
+            progress_current=current,
+            progress_total=total,
+            progress_percent=33.0 + (current / total) * 57.0,
+        )
+
     if payload.mode == "txt2img":
         progress_update(
             status="processing",
@@ -1062,6 +1075,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             nunchaku_precision=payload.nunchaku_precision,
             lora_path=payload.lora_path,
             lora_scale=payload.lora_scale,
+            progress_callback=lambda current, total: _denoise_progress(current, total, "Nunchaku txt2img"),
         )
         _log_stage("txt2img.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
     else:
@@ -1091,6 +1105,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             nunchaku_precision=payload.nunchaku_precision,
             lora_path=payload.lora_path,
             lora_scale=payload.lora_scale,
+            progress_callback=lambda current, total: _denoise_progress(current, total, "Nunchaku img2img"),
         )
         _log_stage("img2img.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
 
