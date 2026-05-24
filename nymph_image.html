@@ -322,6 +322,52 @@
       font-weight: 700;
     }
 
+    .parts-source-card {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(8, 16, 15, 0.72);
+    }
+
+    .parts-source-thumb {
+      width: 72px;
+      height: 72px;
+      border: 1px dashed rgba(41,230,218,0.36);
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--dim);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 900;
+      text-transform: uppercase;
+      background: rgba(4, 8, 8, 0.78);
+    }
+
+    .parts-source-thumb.drag {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .parts-source-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    .parts-source-meta {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
     .command-row {
       display: grid;
       gap: 7px;
@@ -1014,11 +1060,23 @@
         <details id="parts-details">
           <summary>Image Part Extraction</summary>
           <div class="grid" style="margin-top:10px">
-            <div class="field wide"><label for="parts-source-label">Source Image</label><input id="parts-source-label" type="text" readonly value="none"></div>
-            <div class="command-row three wide no-top">
-              <button id="parts-use-selected-source" type="button">Current</button>
-              <button id="parts-open-images" type="button">Open</button>
-              <button class="subtle" id="parts-clear-source" type="button">Clear</button>
+            <div class="field wide">
+              <label for="parts-source-label">Source Image</label>
+              <div class="parts-source-card">
+                <div class="parts-source-thumb" id="parts-source-drop">
+                  <input id="parts-source-file" type="file" accept="image/*" hidden>
+                  <img id="parts-source-preview" alt="Parts source preview">
+                  <span id="parts-source-empty">none</span>
+                </div>
+                <div class="parts-source-meta">
+                  <input id="parts-source-label" type="text" readonly value="none">
+                  <div class="command-row three no-top">
+                    <button id="parts-use-selected-source" type="button">Current</button>
+                    <button id="parts-open-images" type="button">Open</button>
+                    <button class="subtle" id="parts-clear-source" type="button">Clear</button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="field wide">
               <label for="planner-model">Planner</label>
@@ -1118,6 +1176,8 @@
       mode: "zimage",
       sourceDataUrl: "",
       sourceName: "",
+      partsSourceDataUrl: "",
+      partsSourceName: "",
       selectedOutput: null,
       outputs: [],
       localOutputs: [],
@@ -1795,11 +1855,9 @@
     }
 
     function syncSourceVisibility() {
-      const partsOpen = Boolean($("parts-details")?.open);
       const active =
         (state.mode === "zimage" && $("z-use-guide").checked) ||
-        (state.mode === "gemini" && $("gemini-use-guide").checked) ||
-        partsOpen;
+        (state.mode === "gemini" && $("gemini-use-guide").checked);
       $("source-section").hidden = !active;
       $("source-section").classList.toggle("promoted", active);
     }
@@ -1813,7 +1871,7 @@
     function updateSourceLabels() {
       const label = state.sourceName || "none";
       $("gemini-guide-label").value = label;
-      $("parts-source-label").value = label;
+      $("parts-source-label").value = state.partsSourceName || "none";
     }
 
     function updateCurrentSourceButtons() {
@@ -1968,8 +2026,6 @@
       $("source-name").textContent = file.name.slice(0, 22);
       $("clear-source").disabled = false;
       updateSourceLabels();
-      state.parts = [];
-      renderParts();
     }
 
     function clearSource() {
@@ -1982,8 +2038,38 @@
       $("source-file").value = "";
       $("clear-source").disabled = true;
       updateSourceLabels();
+    }
+
+    async function setPartsSourceFile(file) {
+      if (!file || !file.type.startsWith("image/")) return;
+      state.partsSourceDataUrl = await readFileDataUrl(file);
+      state.partsSourceName = file.name;
+      $("parts-source-preview").src = state.partsSourceDataUrl;
+      $("parts-source-preview").style.display = "block";
+      $("parts-source-empty").style.display = "none";
+      $("parts-source-label").value = file.name;
       state.parts = [];
       renderParts();
+    }
+
+    function clearPartsSource() {
+      state.partsSourceDataUrl = "";
+      state.partsSourceName = "";
+      $("parts-source-preview").removeAttribute("src");
+      $("parts-source-preview").style.display = "none";
+      $("parts-source-empty").style.display = "block";
+      $("parts-source-label").value = "none";
+      $("parts-source-file").value = "";
+      state.parts = [];
+      renderParts();
+    }
+
+    async function outputAsFile(output) {
+      if (output.file instanceof File) return output.file;
+      const response = await fetch(output.url, { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not read current preview image.");
+      const blob = await response.blob();
+      return new File([blob], output.name || "output.png", { type: blob.type || "image/png" });
     }
 
     async function useSelectedAsSource() {
@@ -1992,20 +2078,25 @@
           toast("Select an image in the big preview first.");
           return;
         }
-        const output = state.selectedOutput;
-        if (output.file instanceof File) {
-          await setSourceFile(output.file);
-          toast("Current image set as source.");
-          return;
-        }
-        const response = await fetch(output.url, { cache: "no-store" });
-        if (!response.ok) throw new Error("Could not read current preview image.");
-        const blob = await response.blob();
-        const file = new File([blob], output.name || "output.png", { type: blob.type || "image/png" });
+        const file = await outputAsFile(state.selectedOutput);
         await setSourceFile(file);
         toast("Current image set as source.");
       } catch (err) {
         toast(err.message || "Could not use current image as source.");
+      }
+    }
+
+    async function useSelectedAsPartsSource() {
+      try {
+        if (!state.selectedOutput) {
+          toast("Select an image in the big preview first.");
+          return;
+        }
+        const file = await outputAsFile(state.selectedOutput);
+        await setPartsSourceFile(file);
+        toast("Current image set as parts source.");
+      } catch (err) {
+        toast(err.message || "Could not use current image as parts source.");
       }
     }
 
@@ -2640,7 +2731,7 @@
     }
 
     async function planParts() {
-      if (!state.sourceDataUrl) {
+      if (!state.partsSourceDataUrl) {
         toast("Choose a source image first.");
         return;
       }
@@ -2652,7 +2743,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             api_key: $("api-key").value.trim(),
-            source_image: state.sourceDataUrl,
+            source_image: state.partsSourceDataUrl,
             planner_model: $("planner-model").value,
             max_parts: parseInt($("max-parts").value || "8", 10),
             guidance: $("part-guidance").value,
@@ -2677,7 +2768,7 @@
     async function extractParts() {
       const parts = selectedParts();
       if (!parts.length) return;
-      if (!state.sourceDataUrl) {
+      if (!state.partsSourceDataUrl) {
         toast("Choose a source image first.");
         return;
       }
@@ -2693,8 +2784,8 @@
             model_id: $("gemini-model").value,
             aspect_ratio: "1:1",
             image_size: $("image-size").value,
-            source_image: state.sourceDataUrl,
-            guide_image: state.sourceDataUrl,
+            source_image: state.partsSourceDataUrl,
+            guide_image: state.partsSourceDataUrl,
             parts,
             guidance: $("part-guidance").value,
             style_lock: $("style-lock").checked,
@@ -2873,10 +2964,21 @@
       });
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
-      $("parts-use-selected-source").onclick = useSelectedAsSource;
-      $("parts-open-images").onclick = openImagesFolder;
-      $("parts-clear-source").onclick = clearSource;
-      $("parts-details").addEventListener("toggle", syncSourceVisibility);
+      $("parts-use-selected-source").onclick = useSelectedAsPartsSource;
+      $("parts-open-images").onclick = () => $("parts-source-file").click();
+      $("parts-clear-source").onclick = clearPartsSource;
+      $("parts-source-drop").onclick = () => $("parts-source-file").click();
+      $("parts-source-file").addEventListener("change", (event) => setPartsSourceFile(event.target.files?.[0]));
+      $("parts-source-drop").addEventListener("dragover", (event) => {
+        event.preventDefault();
+        $("parts-source-drop").classList.add("drag");
+      });
+      $("parts-source-drop").addEventListener("dragleave", () => $("parts-source-drop").classList.remove("drag"));
+      $("parts-source-drop").addEventListener("drop", (event) => {
+        event.preventDefault();
+        $("parts-source-drop").classList.remove("drag");
+        setPartsSourceFile(event.dataTransfer.files?.[0]);
+      });
       $("base-face").onchange = syncFaceControls;
       $("edit-part-guidance").onclick = () => openTextModal("Extraction Prompt", $("part-guidance").value, (value) => { $("part-guidance").value = value; });
       $("clear-part-guidance").onclick = () => { $("part-guidance").value = ""; };
