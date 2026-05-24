@@ -896,20 +896,15 @@
           </div>
           <div class="field wide">
             <label for="z-profile">Profile</label>
-            <select id="z-profile">
-              <option value="default">Turbo Default</option>
-              <option value="balanced">Balanced 1024</option>
-              <option value="portrait">Portrait 1024x1536</option>
-              <option value="quality">Quality 1536</option>
-            </select>
+            <select id="z-profile"></select>
           </div>
           <div class="command-row three wide no-top">
             <button id="save-profile" type="button">Save</button>
             <button class="subtle" id="delete-profile" type="button">Delete</button>
             <button class="subtle" id="open-config" type="button">Open</button>
           </div>
-          <div class="field"><label for="width">Width</label><input id="width" type="number" min="64" max="1536" step="8" value="1024"></div>
-          <div class="field"><label for="height">Height</label><input id="height" type="number" min="64" max="1536" step="8" value="1024"></div>
+          <div class="field"><label for="width">Width</label><input id="width" type="number" min="64" max="2048" step="8" value="1024"></div>
+          <div class="field"><label for="height">Height</label><input id="height" type="number" min="64" max="2048" step="8" value="1024"></div>
           <div class="field"><label for="steps">Steps</label><input id="steps" type="number" min="1" max="80" value="9"></div>
           <div class="field"><label for="guidance">Guidance</label><input id="guidance" type="number" step="0.1" value="0"></div>
           <div class="field"><label for="seed">Seed</label><input id="seed" type="number" value="0"></div>
@@ -1141,6 +1136,7 @@
       loraCheckpoints: {},
       modalApply: null,
       serverInfo: null,
+      modelChoiceDirty: false,
     };
 
     const subjects = { none: ["None", ""] };
@@ -1150,10 +1146,21 @@
     const partGuidancePresets = { none: ["None", ""] };
 
     const profiles = {
-      default: { label: "Turbo Default", modelChoice: "auto_r32", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
-      balanced: { label: "Balanced 1024", modelChoice: "auto_r32", width: 1024, height: 1024, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
-      portrait: { label: "Portrait 1024x1536", modelChoice: "auto_r128", width: 1024, height: 1536, steps: 16, guidance: 0, variants: 1, seedStep: 1 },
-      quality: { label: "Quality 1536", modelChoice: "int4_r256", width: 1536, height: 1536, steps: 20, guidance: 0, variants: 1, seedStep: 1 },
+      r32_fast: { label: "Fast 512", modelChoice: "auto_r32", width: 512, height: 512, steps: 8, guidance: 0, variants: 1, seedStep: 1 },
+      r32_draft: { label: "Draft 768", modelChoice: "auto_r32", width: 768, height: 768, steps: 8, guidance: 0, variants: 1, seedStep: 1 },
+      r32_default: { label: "Default 1024", modelChoice: "auto_r32", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r32_large: { label: "Large 1536", modelChoice: "auto_r32", width: 1536, height: 1536, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r32_max: { label: "Max 2048", modelChoice: "auto_r32", width: 2048, height: 2048, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r128_fast: { label: "Fast 512", modelChoice: "auto_r128", width: 512, height: 512, steps: 8, guidance: 0, variants: 1, seedStep: 1 },
+      r128_draft: { label: "Draft 768", modelChoice: "auto_r128", width: 768, height: 768, steps: 8, guidance: 0, variants: 1, seedStep: 1 },
+      r128_default: { label: "Default 1024", modelChoice: "auto_r128", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r128_large: { label: "Large 1536", modelChoice: "auto_r128", width: 1536, height: 1536, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r128_max: { label: "Max 2048", modelChoice: "auto_r128", width: 2048, height: 2048, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r256_fast: { label: "Fast 512", modelChoice: "int4_r256", width: 512, height: 512, steps: 8, guidance: 0, variants: 1, seedStep: 1 },
+      r256_draft: { label: "Draft 768", modelChoice: "int4_r256", width: 768, height: 768, steps: 8, guidance: 0, variants: 1, seedStep: 1 },
+      r256_default: { label: "Default 1024", modelChoice: "int4_r256", width: 1024, height: 1024, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r256_large: { label: "Large 1536", modelChoice: "int4_r256", width: 1536, height: 1536, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
+      r256_max: { label: "Max 2048", modelChoice: "int4_r256", width: 2048, height: 2048, steps: 9, guidance: 0, variants: 1, seedStep: 1 },
     };
 
     function zModelSelection() {
@@ -1165,6 +1172,22 @@
         nunchaku_rank: parseInt(rawRank || "32", 10),
         label: $("z-model-choice").selectedOptions[0]?.textContent || "Z-Image",
       };
+    }
+
+    function profileModelChoice(values) {
+      return values?.modelChoice || "auto_r32";
+    }
+
+    function profileBelongsToSelectedModel(values) {
+      return profileModelChoice(values) === ($("z-model-choice").value || "auto_r32");
+    }
+
+    function modelChoiceFromInfo(info) {
+      const extra = info?.extra || {};
+      const rank = parseInt(extra.configured_nunchaku_rank || extra.nunchaku_rank || "32", 10);
+      if (rank === 256) return "int4_r256";
+      if (rank === 128) return "auto_r128";
+      return "auto_r32";
     }
 
     function numberValue(id, fallback) {
@@ -1218,7 +1241,6 @@
         ["seed", values.seed],
         ["variants", values.variants],
         ["seed-step", values.seedStep],
-        ["z-model-choice", values.modelChoice],
         ["strength", values.strength],
         ["z-lora-path", values.loraPath],
         ["z-lora-strength", values.loraStrength],
@@ -1420,15 +1442,34 @@
 
     function populateProfileSelect() {
       const select = $("z-profile");
-      const previous = select.value || "default";
+      const previous = select.value;
+      const isLoaded = selectedModelIsLoaded();
       select.innerHTML = "";
-      for (const [key, value] of Object.entries(profiles)) {
+      if (!isLoaded) {
+        select.appendChild(option("Load model first", ""));
+        select.disabled = true;
+        $("save-profile").disabled = true;
+        $("delete-profile").disabled = true;
+        return;
+      }
+      select.disabled = false;
+      $("save-profile").disabled = false;
+      $("delete-profile").disabled = false;
+      for (const [key, value] of Object.entries(profiles).filter(([, value]) => profileBelongsToSelectedModel(value))) {
         select.appendChild(option(value.label || key, key));
       }
-      for (const preset of state.userPresets.settings || []) {
+      for (const preset of (state.userPresets.settings || []).filter((preset) => profileBelongsToSelectedModel(preset.values || {}))) {
         select.appendChild(option(preset.name || preset.id, `user:${preset.id}`));
       }
-      select.value = [...select.options].some((node) => node.value === previous) ? previous : "default";
+      const values = [...select.options].map((node) => node.value);
+      if (previous && values.includes(previous)) select.value = previous;
+      else select.selectedIndex = 0;
+      if (select.value) {
+        const profile = select.value.startsWith("user:")
+          ? (state.userPresets.settings || []).find((item) => item.id === select.value.slice(5))?.values
+          : profiles[select.value];
+        applyProfileValues(profile);
+      }
     }
 
     function populateSavedPromptSelect() {
@@ -1528,6 +1569,19 @@
       return false;
     }
 
+    async function requestSelectedZModelLoad(selection) {
+      const response = await fetch("/api/model/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selection),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || `Model switch failed with HTTP ${response.status}.`);
+      }
+      return response.json().catch(() => ({}));
+    }
+
     function configuredSelection(info) {
       const extra = info?.extra || {};
       return {
@@ -1558,18 +1612,11 @@
       if (manageBusy) setBusy(true);
       setProgress("Loading", `Loading ${selection.label}.`, 5);
       try {
-        const response = await fetch("/api/model/load", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...selection, restart: true }),
-        });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.detail || `Model switch failed with HTTP ${response.status}.`);
-        }
-        const body = await response.json().catch(() => ({}));
+        let body = await requestSelectedZModelLoad(selection);
         if (body.loaded) {
+          state.modelChoiceDirty = false;
           await refreshInfo();
+          populateProfileSelect();
           setProgress("Idle", `${selection.label} loaded.`, 0);
           toast(`${selection.label} loaded.`);
           return true;
@@ -1577,8 +1624,17 @@
         toast(`Restarting Z-Image for ${selection.label}.`);
         const restarted = await waitForRuntimeAfterRestart();
         if (!restarted) throw new Error("Z-Image restart is taking longer than expected.");
+        setProgress("Loading", `Loading ${selection.label}.`, 8);
+        body = await requestSelectedZModelLoad(selection);
+        if (!body.loaded) throw new Error("Z-Image restarted, but the selected model did not load.");
+        state.modelChoiceDirty = false;
+        await refreshInfo();
+        populateProfileSelect();
+        setProgress("Idle", `${selection.label} loaded.`, 0);
+        toast(`${selection.label} loaded.`);
         return true;
       } catch (err) {
+        populateProfileSelect();
         setProgress("Idle", "Model switch failed.", 0);
         toast(err.message || "Model switch failed.");
         if (throwOnError) throw err;
@@ -2632,17 +2688,23 @@
         const runtime = extra.runtime || extra.configured_runtime || "";
         const rank = extra.nunchaku_rank ? `r${extra.nunchaku_rank}` : "";
         const precision = extra.nunchaku_precision || "";
+        const configuredChoice = modelChoiceFromInfo(info);
+        if (!state.modelChoiceDirty && info.loaded_model_id && [...$("z-model-choice").options].some((node) => node.value === configuredChoice)) {
+          $("z-model-choice").value = configuredChoice;
+        }
         const selected = zModelSelection();
         $("selected-model-text").textContent = selected.label;
         $("runtime-text").textContent = info.loaded_model_id
           ? `Loaded ${[(info.loaded_model_id || "").split("/").pop(), runtime, precision, rank].filter(Boolean).join(" / ")}`
           : "No model loaded";
         $("zimage-ready").textContent = (info.supported_modes || []).join("+") || "ready";
+        populateProfileSelect();
       } catch {
         state.serverInfo = null;
         $("runtime-text").textContent = "Runtime unreachable";
         $("selected-model-text").textContent = "unreachable";
         $("zimage-ready").textContent = "offline";
+        populateProfileSelect();
       }
       try {
         const response = await fetch("/api/openrouter/status", { cache: "no-store" });
@@ -2695,10 +2757,14 @@
         const profile = value.startsWith("user:")
           ? (state.userPresets.settings || []).find((item) => item.id === value.slice(5))?.values
           : profiles[value];
-        applyProfileValues(profile || profiles.default);
-        applySelectedZModel();
+        applyProfileValues(profile);
       };
-      $("z-model-choice").onchange = applySelectedZModel;
+      $("z-model-choice").onchange = () => {
+        state.modelChoiceDirty = true;
+        populateProfileSelect();
+        const selection = zModelSelection();
+        $("selected-model-text").textContent = `${selection.label} - click Load`;
+      };
       $("load-z-model").onclick = applySelectedZModel;
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;

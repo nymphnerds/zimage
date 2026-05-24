@@ -145,8 +145,8 @@ def get_settings() -> Settings:
         use_safetensors=_env_bool("NYMPHS2D2_USE_SAFETENSORS", True),
         hf_cache_dir=hf_cache_dir,
         hf_token=os.getenv("NYMPHS3D_HF_TOKEN") or None,
-        max_width=int(os.getenv("NYMPHS2D2_MAX_WIDTH", "1536")),
-        max_height=int(os.getenv("NYMPHS2D2_MAX_HEIGHT", "1536")),
+        max_width=int(os.getenv("NYMPHS2D2_MAX_WIDTH", "2048")),
+        max_height=int(os.getenv("NYMPHS2D2_MAX_HEIGHT", "2048")),
         default_steps=int(os.getenv("NYMPHS2D2_DEFAULT_STEPS", str(_default_steps_for_model(default_model_id)))),
         default_guidance_scale=float(
             os.getenv("NYMPHS2D2_DEFAULT_GUIDANCE_SCALE", str(_default_guidance_for_model(default_model_id)))
