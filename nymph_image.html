@@ -63,14 +63,14 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 5px 8px;
+      gap: 5px;
+      padding: 4px 7px;
       border: 1px solid var(--line-strong);
       border-radius: 5px;
       background: rgba(15, 26, 28, 0.85);
       color: var(--cyan);
       font-family: var(--font-mono);
-      font-size: 10.5px;
+      font-size: 10.2px;
       font-weight: 850;
       line-height: 1.1;
       white-space: nowrap;
@@ -118,20 +118,20 @@
       background: var(--surface-2);
       color: var(--text);
       outline: none;
-      font-size: 13px;
+      font-size: 12.5px;
     }
 
     input,
     select {
-      height: 32px;
-      padding: 0 10px;
+      height: 30px;
+      padding: 0 8px;
     }
 
     textarea {
-      min-height: 122px;
+      min-height: 116px;
       resize: vertical;
-      padding: 10px;
-      line-height: 1.38;
+      padding: 8px;
+      line-height: 1.34;
     }
 
     input:focus,
@@ -143,9 +143,9 @@
 
     label {
       display: block;
-      margin: 0 0 5px;
+      margin: 0 0 4px;
       color: #dcefeb;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 750;
     }
 
@@ -177,7 +177,7 @@
       border-top: 1px solid rgba(33, 71, 74, 0.72);
       border-radius: 0;
       background: transparent;
-      padding: 15px 0;
+      padding: 14px 0;
       box-shadow: none;
       min-width: 0;
     }
@@ -200,7 +200,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin: 0 0 10px;
+      margin: 0 0 9px;
       color: var(--green);
       font-family: var(--font-mono);
       font-size: 11px;
@@ -214,7 +214,7 @@
     .segmented {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 7px;
+      gap: 6px;
       padding: 0;
       border: 0;
       border-radius: 0;
@@ -236,7 +236,7 @@
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 9px;
     }
 
     .model-choice-row {
@@ -265,9 +265,9 @@
       justify-content: space-between;
       align-items: center;
       gap: 10px;
-      min-height: 34px;
+      min-height: 30px;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 750;
     }
 
@@ -324,19 +324,19 @@
 
     .parts-source-card {
       display: grid;
-      grid-template-columns: 72px minmax(0, 1fr);
-      gap: 10px;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 9px;
       align-items: center;
       min-width: 0;
       padding: 8px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(8, 16, 15, 0.72);
+      background: rgba(8, 16, 15, 0.62);
     }
 
     .parts-source-thumb {
-      width: 72px;
-      height: 72px;
+      width: 76px;
+      height: 76px;
       border: 1px dashed rgba(41,230,218,0.36);
       border-radius: 7px;
       display: grid;
@@ -364,14 +364,33 @@
 
     .parts-source-meta {
       display: grid;
-      gap: 7px;
+      gap: 6px;
       min-width: 0;
+    }
+
+    .parts-source-meta input[readonly] {
+      height: 28px;
+      border-radius: 5px;
+      border-color: rgba(33, 71, 74, 0.72);
+      background: rgba(7, 16, 16, 0.78);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 850;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+
+    .parts-source-meta .command-row button {
+      height: 28px;
+      min-height: 28px;
+      padding-inline: 6px;
     }
 
     .command-row {
       display: grid;
-      gap: 7px;
-      margin-top: 10px;
+      gap: 6px;
+      margin-top: 8px;
       align-items: stretch;
     }
 
@@ -380,7 +399,7 @@
       min-width: 0;
       height: 30px;
       min-height: 30px;
-      padding: 3px 8px;
+      padding: 3px 7px;
       font-size: 9.8px;
       text-align: center;
     }
@@ -399,8 +418,8 @@
     .prompt-tools {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 10px;
-      margin-bottom: 10px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
     .saved-prompt-tools { margin-top: 14px; }
 
