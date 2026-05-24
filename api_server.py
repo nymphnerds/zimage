@@ -337,6 +337,13 @@ def _output_url(path: Path) -> str:
     return f"/outputs/{quote(rel, safe='/')}"
 
 
+def _output_relative_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(SETTINGS.output_dir.resolve()).as_posix()
+    except Exception:
+        return path.name
+
+
 def _metadata_for(path: Path) -> dict:
     metadata_path = path.with_suffix(".json")
     if not metadata_path.is_file():
@@ -349,9 +356,15 @@ def _metadata_for(path: Path) -> dict:
 
 def _output_record(path: Path) -> dict:
     metadata = _metadata_for(path)
+    relative_path = _output_relative_path(path)
+    folder = Path(relative_path).parent.as_posix()
+    if folder == ".":
+        folder = ""
     return {
         "name": path.name,
         "path": str(path),
+        "relative_path": relative_path,
+        "folder": folder,
         "url": _output_url(path),
         "metadata_path": str(path.with_suffix(".json")) if path.with_suffix(".json").is_file() else "",
         "provider": metadata.get("provider") or metadata.get("backend") or "",
@@ -1371,6 +1384,56 @@ async def clear_outputs():
         except Exception:
             pass
     return JSONResponse({"status": "ok", "removed": removed, "outputs": []})
+
+
+@app.post("/api/outputs/delete", tags=["ui"])
+async def delete_outputs(request: FastAPIRequest):
+    payload = await request.json()
+    requested = payload.get("paths") or payload.get("relative_paths") or []
+    if not isinstance(requested, list):
+        raise HTTPException(status_code=400, detail="paths must be a list.")
+    requested = [str(item).strip() for item in requested if str(item).strip()]
+    if not requested:
+        return JSONResponse({"status": "ok", "removed": 0, "metadata_removed": 0, "outputs": _recent_outputs()})
+    if len(requested) > 200:
+        raise HTTPException(status_code=400, detail="Too many outputs selected.")
+
+    root = SETTINGS.output_dir.resolve()
+    removed = 0
+    metadata_removed = 0
+    removed_paths: list[str] = []
+    for item in dict.fromkeys(requested):
+        path = _safe_output_path(item)
+        metadata_path = path.with_suffix(".json")
+        relative_path = _output_relative_path(path)
+        try:
+            path.unlink()
+            removed += 1
+            removed_paths.append(relative_path)
+        except Exception:
+            continue
+        if metadata_path.is_file():
+            try:
+                metadata_path.unlink()
+                metadata_removed += 1
+            except Exception:
+                pass
+        parent = path.parent
+        while parent != root and root in parent.parents:
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
+    return JSONResponse(
+        {
+            "status": "ok",
+            "removed": removed,
+            "metadata_removed": metadata_removed,
+            "removed_paths": removed_paths,
+            "outputs": _recent_outputs(),
+        }
+    )
 
 
 @app.get("/api/presets", tags=["ui"])

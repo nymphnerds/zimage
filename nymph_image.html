@@ -616,10 +616,45 @@
       color: var(--green);
     }
 
+    .strip-browser {
+      display: grid;
+      grid-template-columns: minmax(160px, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .folder-select {
+      height: 28px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    .strip-select-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .strip-select-actions button {
+      min-height: 28px;
+      padding: 0 9px;
+      font-size: 9.8px;
+    }
+
+    .selection-count {
+      color: var(--dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
     .gallery {
       display: grid;
       grid-auto-flow: column;
-      grid-auto-columns: 116px;
+      grid-auto-columns: 124px;
       gap: 8px;
       overflow-x: auto;
       min-height: 0;
@@ -637,12 +672,37 @@
       gap: 5px;
       cursor: pointer;
       min-width: 0;
+      position: relative;
     }
 
     .thumb.selected { border-color: var(--green); }
+    .thumb.checked { border-color: var(--cyan); }
     .thumb img { width: 100%; height: 60px; object-fit: contain; object-position: center center; border-radius: 5px; background: #020403; }
     .thumb span { color: var(--muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .thumb.selected span { color: var(--green); }
+
+    .thumb-check {
+      position: absolute;
+      top: 7px;
+      left: 7px;
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(41, 230, 218, 0.72);
+      border-radius: 4px;
+      background: rgba(2, 8, 7, 0.86);
+      z-index: 3;
+      cursor: pointer;
+    }
+
+    .thumb-check input {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--green);
+      margin: 0;
+      cursor: pointer;
+    }
 
     .toast {
       position: fixed;
@@ -941,6 +1001,15 @@
             <button id="strip-parts" type="button">Parts</button>
           </div>
         </div>
+        <div class="strip-browser">
+          <select class="folder-select" id="output-folder" aria-label="Output folder"></select>
+          <div class="strip-select-actions">
+            <span class="selection-count" id="selection-count">0 selected</span>
+            <button id="select-visible" type="button">Select</button>
+            <button id="clear-selection" type="button">Clear</button>
+            <button class="danger" id="delete-selected" type="button">Delete</button>
+          </div>
+        </div>
         <div class="gallery" id="gallery"></div>
       </section>
     </section>
@@ -966,7 +1035,9 @@
       selectedOutput: null,
       outputs: [],
       visibleOutputs: [],
+      selectedOutputPaths: new Set(),
       galleryMode: "recent",
+      outputFolder: "all",
       activeBatchId: "",
       parts: [],
       busy: false,
@@ -1683,6 +1754,8 @@
       state.outputs = [];
       state.visibleOutputs = [];
       state.selectedOutput = null;
+      state.selectedOutputPaths.clear();
+      state.outputFolder = "all";
       state.activeBatchId = "";
       $("result-image").removeAttribute("src");
       $("result-image").style.display = "none";
@@ -1780,11 +1853,23 @@
       return Number.isFinite(parsed) ? parsed : 9999;
     }
 
+    function outputKey(output) {
+      return output?.relative_path || output?.path || output?.url || "";
+    }
+
+    function outputFolder(output) {
+      return output?.folder || "";
+    }
+
+    function folderLabel(folder) {
+      return folder ? folder : "Outputs";
+    }
+
     function makeBatchId(prefix) {
       return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
     }
 
-    function stripOutputs() {
+    function workflowOutputs() {
       let outputs = [...state.outputs];
       if (state.galleryMode === "current") {
         outputs = state.activeBatchId ? outputs.filter((output) => outputBatchId(output) === state.activeBatchId) : [];
@@ -1800,8 +1885,38 @@
       return outputs;
     }
 
+    function syncFolderOptions(outputs) {
+      const select = $("output-folder");
+      const folders = [...new Set(outputs.map(outputFolder))].sort((a, b) => folderLabel(a).localeCompare(folderLabel(b)));
+      if (state.outputFolder !== "all" && !folders.includes(state.outputFolder)) {
+        state.outputFolder = "all";
+      }
+      select.innerHTML = "";
+      const allOption = document.createElement("option");
+      allOption.value = "all";
+      allOption.textContent = `All folders (${outputs.length})`;
+      select.appendChild(allOption);
+      for (const folder of folders) {
+        const count = outputs.filter((output) => outputFolder(output) === folder).length;
+        const option = document.createElement("option");
+        option.value = folder;
+        option.textContent = `${folderLabel(folder)} (${count})`;
+        select.appendChild(option);
+      }
+      select.value = state.outputFolder;
+      select.disabled = folders.length < 2;
+    }
+
+    function stripOutputs() {
+      const outputs = workflowOutputs();
+      syncFolderOptions(outputs);
+      if (state.outputFolder === "all") return outputs;
+      return outputs.filter((output) => outputFolder(output) === state.outputFolder);
+    }
+
     function setGalleryMode(mode) {
       state.galleryMode = mode;
+      state.outputFolder = "all";
       renderGallery();
     }
 
@@ -1819,6 +1934,81 @@
       $("strip-current").disabled = !state.activeBatchId;
       $("strip-prev").disabled = state.visibleOutputs.length < 2;
       $("strip-next").disabled = state.visibleOutputs.length < 2;
+      updateSelectionUi();
+    }
+
+    function visibleSelectedOutputs() {
+      return state.visibleOutputs.filter((output) => state.selectedOutputPaths.has(outputKey(output)));
+    }
+
+    function updateSelectionUi() {
+      const selected = visibleSelectedOutputs();
+      $("selection-count").textContent = `${selected.length} selected`;
+      $("select-visible").disabled = state.visibleOutputs.length === 0;
+      $("clear-selection").disabled = selected.length === 0;
+      $("delete-selected").disabled = selected.length === 0;
+      for (const node of document.querySelectorAll(".thumb")) {
+        const checked = state.selectedOutputPaths.has(node.dataset.key);
+        node.classList.toggle("checked", checked);
+        const checkbox = node.querySelector("input[type='checkbox']");
+        if (checkbox) checkbox.checked = checked;
+      }
+    }
+
+    function toggleOutputSelection(output, checked) {
+      const key = outputKey(output);
+      if (!key) return;
+      if (checked) {
+        state.selectedOutputPaths.add(key);
+      } else {
+        state.selectedOutputPaths.delete(key);
+      }
+      updateSelectionUi();
+    }
+
+    function selectVisibleOutputs() {
+      for (const output of state.visibleOutputs) {
+        const key = outputKey(output);
+        if (key) state.selectedOutputPaths.add(key);
+      }
+      updateSelectionUi();
+    }
+
+    function clearVisibleSelection() {
+      for (const output of state.visibleOutputs) {
+        state.selectedOutputPaths.delete(outputKey(output));
+      }
+      updateSelectionUi();
+    }
+
+    async function deleteSelectedOutputs() {
+      const selected = visibleSelectedOutputs();
+      if (!selected.length) return;
+      const noun = selected.length === 1 ? "image" : "images";
+      if (!window.confirm(`Delete ${selected.length} selected ${noun} and matching metadata from this output set?`)) return;
+      const response = await fetch("/api/outputs/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: selected.map((output) => output.relative_path || output.path) }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast(body.detail || "Could not delete selected outputs.");
+        return;
+      }
+      for (const output of selected) state.selectedOutputPaths.delete(outputKey(output));
+      state.outputs = body.outputs || [];
+      const removedKeys = new Set(selected.map(outputKey));
+      if (state.selectedOutput && removedKeys.has(outputKey(state.selectedOutput))) {
+        state.selectedOutput = null;
+        $("result-image").removeAttribute("src");
+        $("result-image").style.display = "none";
+        $("empty").style.display = "grid";
+        $("output-label").textContent = "No output";
+        $("use-selected-source").disabled = true;
+      }
+      renderGallery();
+      toast(`Deleted ${body.removed || 0} ${noun}.`);
     }
 
     function renderGallery() {
@@ -1836,11 +2026,22 @@
         const node = document.createElement("div");
         node.className = "thumb";
         node.dataset.path = output.path;
+        node.dataset.key = outputKey(output);
+        const check = document.createElement("label");
+        check.className = "thumb-check";
+        check.title = "Select output";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = state.selectedOutputPaths.has(outputKey(output));
+        checkbox.addEventListener("click", (event) => event.stopPropagation());
+        checkbox.addEventListener("change", () => toggleOutputSelection(output, checkbox.checked));
+        check.appendChild(checkbox);
         const img = document.createElement("img");
         img.src = output.url;
         img.alt = output.name;
         const label = document.createElement("span");
         label.textContent = outputItemLabel(output);
+        node.appendChild(check);
         node.appendChild(img);
         node.appendChild(label);
         node.addEventListener("click", () => showResult(output));
@@ -1852,6 +2053,7 @@
           node.classList.toggle("selected", node.dataset.path === state.selectedOutput.path);
         }
       }
+      updateSelectionUi();
     }
 
     async function refreshOutputs(selectFirst = false) {
@@ -1859,6 +2061,10 @@
         const response = await fetch("/api/outputs?limit=80", { cache: "no-store" });
         const body = await response.json();
         state.outputs = body.outputs || [];
+        const outputKeys = new Set(state.outputs.map(outputKey));
+        for (const key of [...state.selectedOutputPaths]) {
+          if (!outputKeys.has(key)) state.selectedOutputPaths.delete(key);
+        }
         renderGallery();
         if (selectFirst && state.outputs[0]) showResult(state.outputs[0]);
       } catch {
@@ -2252,6 +2458,10 @@
       $("strip-current").onclick = () => setGalleryMode("current");
       $("strip-variants").onclick = () => setGalleryMode("variants");
       $("strip-parts").onclick = () => setGalleryMode("parts");
+      $("output-folder").onchange = () => { state.outputFolder = $("output-folder").value; renderGallery(); };
+      $("select-visible").onclick = selectVisibleOutputs;
+      $("clear-selection").onclick = clearVisibleSelection;
+      $("delete-selected").onclick = deleteSelectedOutputs;
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
       $("parts-use-selected-source").onclick = useSelectedAsSource;
