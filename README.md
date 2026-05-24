@@ -73,6 +73,11 @@ lightweight batch metadata so the Nymphs Image UI can browse the current batch,
 all variants, all parts, or recent outputs from the strip beneath the main
 preview.
 
+The Nymphs Image UI exposes Z-Image, Gemini Flash, and Parts as separate top
+level modes. The Parts mode owns the image part planning and extraction controls
+so that future local vision planners can slot into the same workflow without
+being treated as Gemini image generation.
+
 The native Fetch Models UI downloads the base Z-Image Turbo model plus one
 Nunchaku-compatible quantized `.safetensors` weight:
 

@@ -224,6 +224,10 @@
       background: transparent;
     }
 
+    .segmented.three-way {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .segment {
       min-height: 28px;
     }
@@ -953,9 +957,10 @@
     <aside class="sidebar">
       <section class="section" id="runtime-section">
         <div class="section-title"><span>Runtime</span><span id="mode-chip">Z-Image</span></div>
-        <div class="segmented" role="tablist">
+        <div class="segmented three-way" role="tablist">
           <button class="segment active" id="mode-zimage" type="button">Z-Image</button>
           <button class="segment" id="mode-gemini" type="button">Gemini Flash</button>
+          <button class="segment" id="mode-parts" type="button">Parts</button>
         </div>
         <div class="segmented workflow-tabs" id="z-workflow-tabs" role="tablist" aria-label="Z-Image workflow">
           <button class="segment active" id="mode-text-image" type="button">Prompt</button>
@@ -1125,8 +1130,8 @@
         </div>
       </section>
 
-      <section class="section" id="parts-section">
-        <details id="parts-details">
+      <section class="section" id="parts-section" hidden>
+        <details id="parts-details" open>
           <summary>Image Part Extraction</summary>
           <div class="grid" style="margin-top:10px">
             <div class="field wide">
@@ -1303,6 +1308,7 @@
     const controlHelp = {
       "mode-zimage": "Use the local Z-Image backend for prompt and image-to-image generation.",
       "mode-gemini": "Use Gemini image generation through OpenRouter.",
+      "mode-parts": "Plan and extract reusable image parts from the big preview or a chosen source image.",
       "mode-text-image": "Generate from the visible prompt only.",
       "mode-image-to-image": "Send one picked image with the Z-Image prompt.",
       "open-outputs": "Open the generated image output folder.",
@@ -2018,11 +2024,14 @@
       state.mode = mode;
       $("mode-zimage").classList.toggle("active", mode === "zimage");
       $("mode-gemini").classList.toggle("active", mode === "gemini");
+      $("mode-parts").classList.toggle("active", mode === "parts");
       $("zimage-controls").hidden = mode !== "zimage";
       $("gemini-controls").hidden = mode !== "gemini";
+      $("prompt-section").hidden = mode === "parts";
+      $("parts-section").hidden = mode !== "parts";
       $("z-workflow-tabs").hidden = mode !== "zimage";
-      $("mode-chip").textContent = mode === "zimage" ? "Z-Image" : "Gemini";
-      $("prompt-kind").textContent = mode === "zimage" ? "local" : "cloud";
+      $("mode-chip").textContent = mode === "zimage" ? "Z-Image" : mode === "gemini" ? "Gemini" : "Parts";
+      $("prompt-kind").textContent = mode === "zimage" ? "local" : mode === "gemini" ? "cloud" : "planner";
       updateGenerateLabel();
       updatePartButton();
       syncGuideRows();
@@ -2856,6 +2865,10 @@
 
     async function generate() {
       try {
+        if (state.mode === "parts") {
+          toast("Use Plan Parts in the Parts workflow.");
+          return;
+        }
         if (state.mode === "gemini") await generateGemini();
         else await generateZImage();
       } catch (err) {
@@ -3118,6 +3131,7 @@
       bindDrop();
       $("mode-zimage").onclick = () => setMode("zimage");
       $("mode-gemini").onclick = () => setMode("gemini");
+      $("mode-parts").onclick = () => setMode("parts");
       $("z-profile").onchange = () => {
         const value = $("z-profile").value;
         const profile = value.startsWith("user:")
