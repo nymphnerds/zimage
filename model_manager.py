@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import os
+from pathlib import Path
 from threading import RLock
 
 import torch
@@ -10,6 +11,7 @@ from safetensors.torch import load_file
 
 from config import Settings
 from nunchaku_compat import patch_zimage_transformer_forward
+from progress_state import update as progress_update
 
 
 def _experimental_nunchaku_img2img_enabled() -> bool:
@@ -182,6 +184,7 @@ class ModelManager:
         model_family = self._model_family(model_id)
         kwargs = {
             "torch_dtype": self._dtype,
+            "local_files_only": True,
         }
         if model_family == "zimage":
             kwargs["low_cpu_mem_usage"] = False
@@ -265,13 +268,37 @@ class ModelManager:
     def _load_nunchaku_transformer(self):
         try:
             from nunchaku import NunchakuZImageTransformer2DModel
+            from huggingface_hub import hf_hub_download
         except ImportError as exc:
             raise RuntimeError("Nunchaku runtime dependencies are not installed in this environment.") from exc
 
         patch_zimage_transformer_forward(NunchakuZImageTransformer2DModel)
         rank_path, precision = self._nunchaku_rank_path()
         dtype = self._resolve_nunchaku_dtype()
-        transformer = NunchakuZImageTransformer2DModel.from_pretrained(rank_path, torch_dtype=dtype)
+        repo_id, filename = rank_path.rsplit("/", 1)
+        try:
+            cached_rank_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
+                token=self.settings.hf_token,
+                local_files_only=True,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Selected Nunchaku weight is not fetched yet: {precision} r{self._active_nunchaku_rank}. "
+                "Use Fetch Models for that weight, then restart Z-Image."
+            ) from exc
+        progress_update(
+            stage="loading_model",
+            detail=f"Loading Nunchaku {precision} r{self._active_nunchaku_rank}",
+            progress_percent=14.0,
+        )
+        transformer = NunchakuZImageTransformer2DModel.from_pretrained(
+            str(Path(cached_rank_path)),
+            torch_dtype=dtype,
+            local_files_only=True,
+        )
         return transformer, rank_path, precision, dtype
 
     def _load_txt2img_pipeline(self, model_id: str, runtime: str):
@@ -292,6 +319,7 @@ class ModelManager:
                 "zimage_forward_shim": True,
                 "experimental_img2img": _experimental_nunchaku_img2img_enabled(),
             }
+            progress_update(stage="loading_model", detail="Loading Z-Image Turbo pipeline", progress_percent=22.0)
             pipeline = ZImagePipeline.from_pretrained(
                 model_id,
                 transformer=transformer,

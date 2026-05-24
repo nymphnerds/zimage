@@ -1099,6 +1099,10 @@
       toast._timer = setTimeout(() => $("toast").classList.remove("show"), 3500);
     }
 
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
     function moduleAction(action) {
       window.location.href = `nymphs-module-action://${action}`;
     }
@@ -1300,26 +1304,66 @@
       toast("Profile deleted.");
     }
 
-    async function loadSelectedZModel() {
+    async function waitForRuntimeAfterRestart() {
+      for (let attempt = 0; attempt < 45; attempt++) {
+        await sleep(1000);
+        try {
+          const response = await fetch("/health", { cache: "no-store" });
+          if (response.ok) {
+            await refreshInfo();
+            setProgress("Idle", "Z-Image restarted for selected model.", 0);
+            return true;
+          }
+        } catch {
+          setProgress("Restarting", "Waiting for Z-Image to come back.", 5);
+        }
+      }
+      setProgress("Restarting", "Restart is taking longer than expected.", 5);
+      return false;
+    }
+
+    async function applySelectedZModel() {
       if (state.mode !== "zimage") return;
       const selection = zModelSelection();
       setBusy(true);
-      startProgress();
+      setProgress("Restarting", `Switching to ${selection.label}.`, 5);
       try {
-        const response = await fetch("/api/model/load", {
+        const response = await fetch("/api/model/select", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(selection),
+          body: JSON.stringify({ ...selection, restart: true }),
         });
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
-          throw new Error(body.detail || `Model load failed with HTTP ${response.status}.`);
+          throw new Error(body.detail || `Model switch failed with HTTP ${response.status}.`);
         }
-        stopProgress(true, "Model loaded.");
-        await refreshInfo();
+        toast("Restarting Z-Image for selected model.");
+        await waitForRuntimeAfterRestart();
       } catch (err) {
-        stopProgress(false);
-        toast(err.message || "Model load failed.");
+        setProgress("Idle", "Model switch failed.", 0);
+        toast(err.message || "Model switch failed.");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function stopRuntime() {
+      setBusy(true);
+      setProgress("Stopping", "Stopping Z-Image.", 5);
+      try {
+        const response = await fetch("/api/runtime/stop", { method: "POST" });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.detail || `Stop failed with HTTP ${response.status}.`);
+        }
+        toast("Stopping Z-Image.");
+        await sleep(1200);
+        $("runtime-text").textContent = "Runtime stopped";
+        $("zimage-ready").textContent = "offline";
+        setProgress("Idle", "Runtime stopped.", 0);
+      } catch (err) {
+        setProgress("Idle", "Stop failed.", 0);
+        toast(err.message || "Stop failed.");
       } finally {
         setBusy(false);
       }
@@ -1797,7 +1841,7 @@
             steps: parseInt($("steps").value || "9", 10),
             guidance_scale: parseFloat($("guidance").value || "0"),
             seed: activeSeed(index),
-            ...zModelSelection(),
+            model_id: zModelSelection().model_id,
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
             batch_id: batchId,
@@ -2087,14 +2131,15 @@
       $("mode-zimage").onclick = () => setMode("zimage");
       $("mode-gemini").onclick = () => setMode("gemini");
       $("z-profile").onchange = () => {
+        const previousModelChoice = $("z-model-choice").value;
         const value = $("z-profile").value;
         const profile = value.startsWith("user:")
           ? (state.userPresets.settings || []).find((item) => item.id === value.slice(5))?.values
           : profiles[value];
         applyProfileValues(profile || profiles.default);
-        loadSelectedZModel();
+        if ($("z-model-choice").value !== previousModelChoice) applySelectedZModel();
       };
-      $("z-model-choice").onchange = loadSelectedZModel;
+      $("z-model-choice").onchange = applySelectedZModel;
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;
       $("open-config").onclick = () => moduleAction("open_image_settings_presets");
@@ -2132,7 +2177,7 @@
       $("refresh-gallery").onclick = () => refreshOutputs();
       $("open-outputs").onclick = openImagesFolder;
       $("clear-outputs").onclick = clearOutputs;
-      $("stop-backend").onclick = () => moduleAction("stop");
+      $("stop-backend").onclick = stopRuntime;
       $("strip-prev").onclick = () => selectFromVisible(-1);
       $("strip-next").onclick = () => selectFromVisible(1);
       $("strip-recent").onclick = () => setGalleryMode("recent");

@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.37",
+  "version": "0.1.38",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -46,6 +46,7 @@
     "update": "scripts/zimage_update.sh",
     "status": "scripts/zimage_status.sh",
     "start": "scripts/zimage_start.sh",
+    "restart": "scripts/zimage_restart.sh",
     "stop": "scripts/zimage_stop.sh",
     "open": "scripts/zimage_open.sh",
     "open_nymph_ui": "scripts/zimage_nymph_ui.sh",
@@ -186,6 +187,12 @@
         "id": "start",
         "label": "Start",
         "entrypoint": "start",
+        "result": "show_output"
+      },
+      {
+        "id": "restart",
+        "label": "Restart",
+        "entrypoint": "restart",
         "result": "show_output"
       },
       {

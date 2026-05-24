@@ -208,6 +208,7 @@ for script in \
   zimage_open_outputs.sh \
   zimage_open_lora.sh \
   zimage_open_weights.sh \
+  zimage_restart.sh \
   zimage_seed_image_presets.sh \
   zimage_smoke_test.sh \
   zimage_start.sh \

@@ -6,6 +6,8 @@ import json
 import mimetypes
 import os
 import re
+import shlex
+import subprocess
 import traceback
 import uuid
 from io import BytesIO
@@ -48,6 +50,7 @@ OPENROUTER_API_ROOT = "https://openrouter.ai/api/v1"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 PRESET_KINDS = {"subject", "style", "saved", "settings"}
 PROMPT_PRESET_KINDS = {"subject", "style", "saved"}
+GENERATION_PRESET_FILE = Path.home() / "NymphsData" / "config" / "zimage" / "generation-preset.env"
 
 app = FastAPI(
     title="Nymphs2D2 API",
@@ -987,6 +990,49 @@ def _load_selected_model(payload: dict) -> dict:
     }
 
 
+def _save_selected_model(payload: dict) -> dict:
+    normalized = _normalize_model_load_payload(payload)
+    GENERATION_PRESET_FILE.parent.mkdir(parents=True, exist_ok=True)
+    GENERATION_PRESET_FILE.write_text(
+        "\n".join(
+            [
+                f"Z_IMAGE_NUNCHAKU_PRECISION={normalized['nunchaku_precision']}",
+                f"Z_IMAGE_NUNCHAKU_RANK={normalized['nunchaku_rank']}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    _log_stage("model.select.saved", preset_file=GENERATION_PRESET_FILE, **normalized)
+    return {
+        "status": "ok",
+        "model_id": normalized["model_id"],
+        "nunchaku_rank": normalized["nunchaku_rank"],
+        "nunchaku_precision": normalized["nunchaku_precision"],
+        "preset_file": str(GENERATION_PRESET_FILE),
+    }
+
+
+def _run_runtime_script_soon(script_name: str) -> None:
+    script_path = SETTINGS.root_dir / "scripts" / script_name
+    if not script_path.exists():
+        raise RuntimeError(f"Runtime script is missing: {script_path}")
+    command = f"sleep 0.6; exec {shlex.quote(str(script_path))}"
+    with open(os.devnull, "wb") as sink:
+        subprocess.Popen(
+            ["bash", "-lc", command],
+            cwd=str(SETTINGS.root_dir),
+            stdin=subprocess.DEVNULL,
+            stdout=sink,
+            stderr=sink,
+            start_new_session=True,
+        )
+
+
+def _restart_runtime_soon() -> None:
+    _run_runtime_script_soon("zimage_restart.sh")
+
+
 def _generate(payload: GenerateRequest) -> GenerateResponse:
     started_at = perf_counter()
     _log_stage(
@@ -1217,6 +1263,52 @@ async def load_model(request: FastAPIRequest):
         detail = "".join(traceback.format_exception_only(type(exc), exc)).strip() or str(exc)
         progress_update(status="error", stage="failed", detail=detail)
         print(f"[nymphs:zimage:error] model_load.unhandled detail={detail}", flush=True)
+        raise HTTPException(status_code=500, detail=detail) from exc
+
+
+@app.post("/api/model/select", tags=["generation"])
+async def select_model(request: FastAPIRequest):
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Model selection payload must be an object.")
+        result = _save_selected_model(payload)
+        if payload.get("restart", True):
+            progress_update(
+                status="processing",
+                stage="restarting_runtime",
+                detail="Restarting Z-Image for selected model",
+                model_id=result["model_id"],
+                progress_percent=5.0,
+            )
+            _restart_runtime_soon()
+            result["restart"] = "scheduled"
+        return JSONResponse(result)
+    except ValueError as exc:
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        raise HTTPException(status_code=400, detail=detail) from exc
+    except RuntimeError as exc:
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        print(f"[nymphs:zimage:error] model_select.runtime_error detail={detail}", flush=True)
+        raise HTTPException(status_code=500, detail=detail) from exc
+    except Exception as exc:
+        detail = "".join(traceback.format_exception_only(type(exc), exc)).strip() or str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        print(f"[nymphs:zimage:error] model_select.unhandled detail={detail}", flush=True)
+        raise HTTPException(status_code=500, detail=detail) from exc
+
+
+@app.post("/api/runtime/stop", tags=["status"])
+async def stop_runtime():
+    try:
+        progress_update(status="processing", stage="stopping_runtime", detail="Stopping Z-Image", progress_percent=5.0)
+        _run_runtime_script_soon("zimage_stop.sh")
+        return JSONResponse({"status": "ok", "stop": "scheduled"})
+    except RuntimeError as exc:
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
         raise HTTPException(status_code=500, detail=detail) from exc
 
 
