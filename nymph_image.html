@@ -330,19 +330,19 @@
 
     .parts-source-card {
       display: grid;
-      grid-template-columns: 72px minmax(0, 1fr);
+      grid-template-columns: 64px minmax(0, 1fr);
       gap: 8px;
       align-items: center;
       min-width: 0;
-      padding: 8px;
+      padding: 7px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: rgba(8, 16, 15, 0.62);
     }
 
     .parts-source-thumb {
-      width: 72px;
-      height: 72px;
+      width: 64px;
+      height: 64px;
       border: 1px dashed rgba(41,230,218,0.36);
       border-radius: 7px;
       display: grid;
@@ -393,8 +393,8 @@
     }
 
     .parts-source-actions button {
-      height: 28px;
-      min-height: 28px;
+      height: 26px;
+      min-height: 26px;
       padding-inline: 8px;
     }
 
@@ -420,6 +420,10 @@
     .four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .no-top { margin-top: 0; }
     .part-clear-row { margin-top: 7px; }
+
+    #part-guidance {
+      min-height: 88px;
+    }
 
     button.subtle {
       color: var(--muted);
@@ -1163,10 +1167,7 @@
             </div>
           </div>
           <div class="command-row">
-            <button id="plan-parts" type="button">Plan</button>
-          </div>
-          <div class="command-row part-clear-row">
-            <button id="clear-parts" type="button">Clear Parts</button>
+            <button id="plan-parts" type="button">Plan Parts</button>
           </div>
           <div class="parts-list-head" id="parts-list-head" hidden>
             <span>Extract</span>
@@ -1174,6 +1175,9 @@
             <span>Symmetry</span>
           </div>
           <div class="parts-list" id="parts-list"></div>
+          <div class="command-row part-clear-row" id="clear-parts-row" hidden>
+            <button id="clear-parts" type="button">Clear Parts</button>
+          </div>
           <div class="command-row parts-extract-row" id="parts-extract-row" hidden>
             <button class="primary" id="extract-parts" type="button" disabled>Extract (0)</button>
           </div>
@@ -2872,6 +2876,7 @@
       $("plan-parts").disabled = state.busy;
       $("extract-parts").disabled = state.busy || !count;
       $("parts-extract-row").hidden = !state.parts.length;
+      $("clear-parts-row").hidden = !state.parts.length;
     }
 
     function renderParts() {
