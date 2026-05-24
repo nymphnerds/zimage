@@ -747,6 +747,7 @@
     .thumb.selected { border-color: var(--green); }
     .thumb.checked { border-color: var(--cyan); }
     .thumb img { width: 100%; height: 60px; object-fit: contain; object-position: center center; border-radius: 5px; background: #020403; }
+    .thumb.broken img { opacity: 0.32; }
     .thumb span { color: var(--muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .thumb.selected span { color: var(--green); }
 
@@ -1322,8 +1323,8 @@
     function setBusy(value) {
       state.busy = value;
       $("generate").disabled = value;
-      $("plan-parts").disabled = value || state.mode !== "gemini";
       updatePartButton();
+      updateCurrentSourceButtons();
     }
 
     function setProgress(stage, detail, percent) {
@@ -1772,7 +1773,6 @@
       $("z-workflow-tabs").hidden = mode !== "zimage";
       $("mode-chip").textContent = mode === "zimage" ? "Z-Image" : "Gemini";
       $("prompt-kind").textContent = mode === "zimage" ? "local" : "cloud";
-      $("plan-parts").disabled = mode !== "gemini" || state.busy;
       updateGenerateLabel();
       updatePartButton();
       syncGuideRows();
@@ -1788,9 +1788,11 @@
     }
 
     function syncSourceVisibility() {
+      const partsOpen = Boolean($("parts-details")?.open);
       const active =
         (state.mode === "zimage" && $("z-use-guide").checked) ||
-        (state.mode === "gemini" && $("gemini-use-guide").checked);
+        (state.mode === "gemini" && $("gemini-use-guide").checked) ||
+        partsOpen;
       $("source-section").hidden = !active;
       $("source-section").classList.toggle("promoted", active);
     }
@@ -1805,6 +1807,13 @@
       const label = state.sourceName || "none";
       $("gemini-guide-label").value = label;
       $("parts-source-label").value = label;
+    }
+
+    function updateCurrentSourceButtons() {
+      const disabled = state.busy || !state.selectedOutput;
+      $("use-selected-source").disabled = disabled;
+      $("gemini-guide-use-selected").disabled = disabled;
+      $("parts-use-selected-source").disabled = disabled;
     }
 
     function updateGenerateLabel() {
@@ -1925,7 +1934,7 @@
       $("result-image").style.display = "none";
       $("empty").style.display = "grid";
       $("output-label").textContent = "No output";
-      $("use-selected-source").disabled = true;
+      updateCurrentSourceButtons();
       for (const node of document.querySelectorAll(".thumb")) {
         node.classList.remove("selected");
       }
@@ -1971,22 +1980,44 @@
     }
 
     async function useSelectedAsSource() {
-      if (!state.selectedOutput) return;
-      const response = await fetch(state.selectedOutput.url, { cache: "no-store" });
-      const blob = await response.blob();
-      const file = new File([blob], state.selectedOutput.name || "output.png", { type: blob.type || "image/png" });
-      await setSourceFile(file);
-      toast("Current image set as source.");
+      try {
+        if (!state.selectedOutput) {
+          toast("Select an image in the big preview first.");
+          return;
+        }
+        const output = state.selectedOutput;
+        if (output.file instanceof File) {
+          await setSourceFile(output.file);
+          toast("Current image set as source.");
+          return;
+        }
+        const response = await fetch(output.url, { cache: "no-store" });
+        if (!response.ok) throw new Error("Could not read current preview image.");
+        const blob = await response.blob();
+        const file = new File([blob], output.name || "output.png", { type: blob.type || "image/png" });
+        await setSourceFile(file);
+        toast("Current image set as source.");
+      } catch (err) {
+        toast(err.message || "Could not use current image as source.");
+      }
+    }
+
+    function previewUrl(output) {
+      if (!output?.url) return "";
+      if (String(output.url).startsWith("blob:")) return output.url;
+      const stamp = output.created ? String(Math.round(Number(output.created) * 1000)) : "";
+      if (!stamp) return output.url;
+      return `${output.url}${output.url.includes("?") ? "&" : "?"}v=${encodeURIComponent(stamp)}`;
     }
 
     function showResult(output) {
       if (!output) return;
       state.selectedOutput = output;
-      $("result-image").src = output.url;
+      $("result-image").src = previewUrl(output);
       $("result-image").style.display = "block";
       $("empty").style.display = "none";
       $("output-label").textContent = output.name || "Image ready";
-      $("use-selected-source").disabled = false;
+      updateCurrentSourceButtons();
       for (const node of document.querySelectorAll(".thumb")) {
         node.classList.toggle("selected", node.dataset.path === output.path);
       }
@@ -2282,7 +2313,7 @@
         $("result-image").style.display = "none";
         $("empty").style.display = "grid";
         $("output-label").textContent = "No output";
-        $("use-selected-source").disabled = true;
+        updateCurrentSourceButtons();
       }
       renderGallery();
       toast(`Deleted ${body.removed || 0} ${noun}.`);
@@ -2368,8 +2399,14 @@
         checkbox.addEventListener("change", () => toggleOutputSelection(output, checkbox.checked));
         check.appendChild(checkbox);
         const img = document.createElement("img");
-        img.src = output.url;
+        img.src = previewUrl(output);
         img.alt = output.name;
+        img.addEventListener("error", () => {
+          node.classList.add("broken");
+          if (state.selectedOutput && outputKey(state.selectedOutput) === outputKey(output)) {
+            $("output-label").textContent = "Preview image could not load";
+          }
+        });
         const label = document.createElement("span");
         label.textContent = outputItemLabel(output);
         node.appendChild(check);
@@ -2553,7 +2590,8 @@
     function updatePartButton() {
       const count = selectedParts().length;
       $("extract-parts").textContent = `Extract (${count})`;
-      $("extract-parts").disabled = state.busy || state.mode !== "gemini" || !count;
+      $("plan-parts").disabled = state.busy;
+      $("extract-parts").disabled = state.busy || !count;
     }
 
     function renderParts() {
@@ -2819,6 +2857,11 @@
       $("delete-folder").onclick = deleteCurrentFolder;
       $("delete-selected").onclick = deleteSelectedOutputs;
       $("gallery").addEventListener("wheel", scrollGalleryWithWheel, { passive: false });
+      $("result-image").addEventListener("error", () => {
+        $("output-label").textContent = "Preview image could not load";
+        $("result-image").style.display = "none";
+        $("empty").style.display = "grid";
+      });
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
       $("parts-use-selected-source").onclick = useSelectedAsSource;
@@ -2834,6 +2877,7 @@
       $("text-modal").addEventListener("click", (event) => { if (event.target === $("text-modal")) closeTextModal(); });
       document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeTextModal(); });
       setMode("zimage");
+      updateCurrentSourceButtons();
       syncGuideRows();
       syncLoraRows();
       syncFaceControls();

@@ -1392,7 +1392,7 @@ async def stop_runtime():
 async def output_file(relative_path: str):
     path = _safe_output_path(relative_path)
     media_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
-    return FileResponse(path, media_type=media_type, filename=path.name)
+    return FileResponse(path, media_type=media_type)
 
 
 @app.get("/api/outputs", tags=["ui"])
