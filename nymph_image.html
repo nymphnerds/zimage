@@ -1609,8 +1609,12 @@
       if (state.mode !== "zimage") return;
       const manageBusy = options.manageBusy !== false;
       const throwOnError = options.throwOnError === true;
+      const keepProgress = options.keepProgress === true;
+      const pollProgress = options.pollProgress !== false;
       const selection = zModelSelection();
+      const startedProgress = pollProgress && !state.progressTimer;
       if (manageBusy) setBusy(true);
+      if (startedProgress) startProgress();
       setProgress("Loading", `Loading ${selection.label}.`, 5);
       try {
         let body = await requestSelectedZModelLoad(selection);
@@ -1618,7 +1622,8 @@
           state.modelChoiceDirty = false;
           await refreshInfo();
           populateProfileSelect();
-          setProgress("Idle", `${selection.label} loaded.`, 0);
+          if (startedProgress && !keepProgress) stopProgress(true, `${selection.label} loaded.`);
+          else setProgress("Idle", `${selection.label} loaded.`, 0);
           toast(`${selection.label} loaded.`);
           return true;
         }
@@ -1631,11 +1636,13 @@
         state.modelChoiceDirty = false;
         await refreshInfo();
         populateProfileSelect();
-        setProgress("Idle", `${selection.label} loaded.`, 0);
+        if (startedProgress && !keepProgress) stopProgress(true, `${selection.label} loaded.`);
+        else setProgress("Idle", `${selection.label} loaded.`, 0);
         toast(`${selection.label} loaded.`);
         return true;
       } catch (err) {
         populateProfileSelect();
+        if (startedProgress && !keepProgress) stopProgress(false);
         setProgress("Idle", "Model switch failed.", 0);
         toast(err.message || "Model switch failed.");
         if (throwOnError) throw err;
@@ -1648,7 +1655,7 @@
     async function ensureSelectedZModelReady() {
       await refreshInfo();
       if (selectedModelIsLoaded()) return true;
-      return applySelectedZModel({ manageBusy: false, throwOnError: true });
+      return applySelectedZModel({ manageBusy: false, throwOnError: true, keepProgress: true });
     }
 
     async function stopRuntime() {
@@ -2458,17 +2465,19 @@
         toast("Choose a source image for Image to Image.");
         return;
       }
+      setBusy(true);
+      startProgress();
       try {
         await ensureSelectedZModelReady();
       } catch (err) {
+        stopProgress(false);
+        setBusy(false);
         toast(err.message || "Load the selected Z-Image model first.");
         return;
       }
       const count = Math.max(1, Math.min(parseInt($("variants").value || "1", 10), 8));
       const outputs = [];
       const batchId = makeBatchId("zimage");
-      setBusy(true);
-      startProgress();
       try {
         for (let index = 0; index < count; index++) {
           const payload = {
