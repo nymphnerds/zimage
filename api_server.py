@@ -1063,6 +1063,14 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         progress_total=3,
         progress_percent=8.0,
     )
+    if SETTINGS.runtime == "nunchaku":
+        requested_rank = payload.nunchaku_rank
+        requested_precision = (payload.nunchaku_precision or "").strip().lower() or None
+        configured_precision = (SETTINGS.nunchaku_precision or "auto").strip().lower()
+        if requested_rank is not None and int(requested_rank) != int(SETTINGS.nunchaku_rank):
+            raise ValueError("Selected model is not loaded yet. Load the selected Z-Image model before generating.")
+        if requested_precision is not None and requested_precision != configured_precision:
+            raise ValueError("Selected model is not loaded yet. Load the selected Z-Image model before generating.")
     _log_stage("model.load.begin", model_id=payload.model_id or SETTINGS.default_model_id)
     model_id = MODEL_MANAGER.ensure_model(payload.model_id)
     _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
@@ -1252,6 +1260,8 @@ async def server_info():
             "max_height": SETTINGS.max_height,
             "runtime": MODEL_MANAGER.loaded_runtime or SETTINGS.runtime,
             "configured_runtime": SETTINGS.runtime,
+            "configured_nunchaku_rank": SETTINGS.nunchaku_rank,
+            "configured_nunchaku_precision": SETTINGS.nunchaku_precision,
             "supports_lora": MODEL_MANAGER.supports_lora(),
             "nunchaku_rank": SETTINGS.nunchaku_rank,
             "nunchaku_precision": SETTINGS.nunchaku_precision,

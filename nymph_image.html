@@ -972,6 +972,7 @@
       loraRuns: [],
       loraCheckpoints: {},
       modalApply: null,
+      serverInfo: null,
     };
 
     const subjects = { none: ["None", ""] };
@@ -1334,10 +1335,34 @@
       return false;
     }
 
-    async function applySelectedZModel() {
+    function configuredSelection(info) {
+      const extra = info?.extra || {};
+      return {
+        model_id: info?.configured_model_id || "Tongyi-MAI/Z-Image-Turbo",
+        nunchaku_rank: parseInt(extra.configured_nunchaku_rank || extra.nunchaku_rank || "32", 10),
+        nunchaku_precision: String(extra.configured_nunchaku_precision || "auto").toLowerCase(),
+      };
+    }
+
+    function selectedMatchesConfigured(info = state.serverInfo) {
+      if (!info) return false;
+      const selected = zModelSelection();
+      const configured = configuredSelection(info);
+      return selected.model_id === configured.model_id
+        && selected.nunchaku_rank === configured.nunchaku_rank
+        && selected.nunchaku_precision === configured.nunchaku_precision;
+    }
+
+    function selectedModelIsLoaded(info = state.serverInfo) {
+      return Boolean(info?.loaded_model_id) && selectedMatchesConfigured(info);
+    }
+
+    async function applySelectedZModel(options = {}) {
       if (state.mode !== "zimage") return;
+      const manageBusy = options.manageBusy !== false;
+      const throwOnError = options.throwOnError === true;
       const selection = zModelSelection();
-      setBusy(true);
+      if (manageBusy) setBusy(true);
       setProgress("Loading", `Loading ${selection.label}.`, 5);
       try {
         const response = await fetch("/api/model/load", {
@@ -1354,16 +1379,26 @@
           await refreshInfo();
           setProgress("Idle", `${selection.label} loaded.`, 0);
           toast(`${selection.label} loaded.`);
-          return;
+          return true;
         }
         toast(`Restarting Z-Image for ${selection.label}.`);
-        await waitForRuntimeAfterRestart();
+        const restarted = await waitForRuntimeAfterRestart();
+        if (!restarted) throw new Error("Z-Image restart is taking longer than expected.");
+        return true;
       } catch (err) {
         setProgress("Idle", "Model switch failed.", 0);
         toast(err.message || "Model switch failed.");
+        if (throwOnError) throw err;
+        return false;
       } finally {
-        setBusy(false);
+        if (manageBusy) setBusy(false);
       }
+    }
+
+    async function ensureSelectedZModelReady() {
+      await refreshInfo();
+      if (selectedModelIsLoaded()) return true;
+      return applySelectedZModel({ manageBusy: false, throwOnError: true });
     }
 
     async function stopRuntime() {
@@ -1845,6 +1880,12 @@
         toast("Choose a source image for Image to Image.");
         return;
       }
+      try {
+        await ensureSelectedZModelReady();
+      } catch (err) {
+        toast(err.message || "Load the selected Z-Image model first.");
+        return;
+      }
       const count = Math.max(1, Math.min(parseInt($("variants").value || "1", 10), 8));
       const outputs = [];
       const batchId = makeBatchId("zimage");
@@ -1861,6 +1902,8 @@
             guidance_scale: parseFloat($("guidance").value || "0"),
             seed: activeSeed(index),
             model_id: zModelSelection().model_id,
+            nunchaku_rank: zModelSelection().nunchaku_rank,
+            nunchaku_precision: zModelSelection().nunchaku_precision,
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
             batch_id: batchId,
@@ -2088,6 +2131,7 @@
       try {
         const response = await fetch("/server_info", { cache: "no-store" });
         const info = await response.json();
+        state.serverInfo = info;
         const extra = info.extra || {};
         const runtime = extra.runtime || extra.configured_runtime || "";
         const rank = extra.nunchaku_rank ? `r${extra.nunchaku_rank}` : "";
@@ -2099,6 +2143,7 @@
           : "No model loaded";
         $("zimage-ready").textContent = (info.supported_modes || []).join("+") || "ready";
       } catch {
+        state.serverInfo = null;
         $("runtime-text").textContent = "Runtime unreachable";
         $("selected-model-text").textContent = "unreachable";
         $("zimage-ready").textContent = "offline";
@@ -2155,9 +2200,9 @@
           ? (state.userPresets.settings || []).find((item) => item.id === value.slice(5))?.values
           : profiles[value];
         applyProfileValues(profile || profiles.default);
-        refreshInfo();
+        applySelectedZModel();
       };
-      $("z-model-choice").onchange = refreshInfo;
+      $("z-model-choice").onchange = applySelectedZModel;
       $("load-z-model").onclick = applySelectedZModel;
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;
