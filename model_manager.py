@@ -297,7 +297,6 @@ class ModelManager:
         transformer = NunchakuZImageTransformer2DModel.from_pretrained(
             str(Path(cached_rank_path)),
             torch_dtype=dtype,
-            local_files_only=True,
         )
         return transformer, rank_path, precision, dtype
 
