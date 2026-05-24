@@ -1338,27 +1338,23 @@
       if (state.mode !== "zimage") return;
       const selection = zModelSelection();
       setBusy(true);
-      setProgress("Loading", `Loading ${selection.label}.`, 8);
-      startProgress();
+      setProgress("Restarting", `Restarting Z-Image for ${selection.label}.`, 5);
       try {
-        const response = await fetch("/api/model/load", {
+        const response = await fetch("/api/model/select", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(selection),
+          body: JSON.stringify({ ...selection, restart: true }),
         });
-        const body = await response.json().catch(() => ({}));
         if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
           throw new Error(body.detail || `Model switch failed with HTTP ${response.status}.`);
         }
-        await refreshInfo();
-        setProgress("Idle", `${selection.label} loaded.`, 0);
-        toast(`${selection.label} loaded.`);
+        toast(`Restarting Z-Image for ${selection.label}.`);
+        await waitForRuntimeAfterRestart();
       } catch (err) {
         setProgress("Idle", "Model switch failed.", 0);
         toast(err.message || "Model switch failed.");
       } finally {
-        clearInterval(state.progressTimer);
-        state.progressTimer = null;
         setBusy(false);
       }
     }
@@ -1848,7 +1844,6 @@
       setBusy(true);
       startProgress();
       try {
-        const selectedModel = zModelSelection();
         for (let index = 0; index < count; index++) {
           const payload = {
             mode: useGuide ? "img2img" : "txt2img",
@@ -1858,9 +1853,7 @@
             steps: parseInt($("steps").value || "9", 10),
             guidance_scale: parseFloat($("guidance").value || "0"),
             seed: activeSeed(index),
-            model_id: selectedModel.model_id,
-            nunchaku_rank: selectedModel.nunchaku_rank,
-            nunchaku_precision: selectedModel.nunchaku_precision,
+            model_id: zModelSelection().model_id,
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
             batch_id: batchId,

@@ -957,36 +957,18 @@ def _normalize_model_load_payload(payload: dict) -> dict:
 
 def _load_selected_model(payload: dict) -> dict:
     normalized = _normalize_model_load_payload(payload)
-    started_at = perf_counter()
-    _save_selected_model(normalized)
+    result = _save_selected_model(normalized)
     progress_update(
         status="processing",
-        stage="loading_model",
-        detail="Loading selected model",
+        stage="restarting_runtime",
+        detail="Restarting Z-Image for selected model",
         model_id=normalized["model_id"],
-        progress_current=0,
-        progress_total=1,
-        progress_percent=8.0,
+        progress_percent=5.0,
     )
-    _log_stage("model.load.begin", **normalized)
-    model_id = MODEL_MANAGER.ensure_model(
-        normalized["model_id"],
-        nunchaku_rank=normalized["nunchaku_rank"],
-        nunchaku_precision=normalized["nunchaku_precision"],
-    )
-    _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
-    progress_update(
-        status="idle",
-        stage="model_loaded",
-        detail="Selected model loaded",
-        model_id=model_id,
-        progress_current=1,
-        progress_total=1,
-        progress_percent=100.0,
-    )
+    _restart_runtime_soon()
+    result["restart"] = "scheduled"
     return {
-        "status": "ok",
-        "model_id": model_id,
+        **result,
         "extra": MODEL_MANAGER.loaded_runtime_extra,
     }
 
@@ -1054,11 +1036,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         progress_percent=8.0,
     )
     _log_stage("model.load.begin", model_id=payload.model_id or SETTINGS.default_model_id)
-    model_id = MODEL_MANAGER.ensure_model(
-        payload.model_id,
-        nunchaku_rank=payload.nunchaku_rank,
-        nunchaku_precision=payload.nunchaku_precision,
-    )
+    model_id = MODEL_MANAGER.ensure_model(payload.model_id)
     _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
 
     if payload.mode == "txt2img":

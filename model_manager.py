@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import gc
 import os
-from pathlib import Path
 from threading import RLock
 
 import torch
@@ -11,7 +10,6 @@ from safetensors.torch import load_file
 
 from config import Settings
 from nunchaku_compat import patch_zimage_transformer_forward
-from progress_state import update as progress_update
 
 
 def _experimental_nunchaku_img2img_enabled() -> bool:
@@ -102,9 +100,6 @@ class ModelManager:
         self._loaded_model_family = None
         self._loaded_runtime = None
         self._loaded_runtime_extra = {}
-        self._loaded_nunchaku_request = None
-        self._active_nunchaku_rank = settings.nunchaku_rank
-        self._active_nunchaku_precision = settings.nunchaku_precision
 
     @property
     def loaded_model_id(self) -> str | None:
@@ -184,7 +179,6 @@ class ModelManager:
         model_family = self._model_family(model_id)
         kwargs = {
             "torch_dtype": self._dtype,
-            "local_files_only": True,
         }
         if model_family == "zimage":
             kwargs["low_cpu_mem_usage"] = False
@@ -223,7 +217,6 @@ class ModelManager:
         self._loaded_model_family = None
         self._loaded_runtime = None
         self._loaded_runtime_extra = {}
-        self._loaded_nunchaku_request = None
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -245,59 +238,25 @@ class ModelManager:
     def _nunchaku_rank_path(self) -> tuple[str, str]:
         from nunchaku.utils import get_precision
 
-        precision = self._active_nunchaku_precision or "auto"
+        precision = self.settings.nunchaku_precision or "auto"
         if precision == "auto":
             precision = get_precision(precision="auto", device=self.settings.device)
         rank_path = (
             f"{self.settings.nunchaku_model_repo}/"
-            f"svdq-{precision}_r{self._active_nunchaku_rank}-z-image-turbo.safetensors"
+            f"svdq-{precision}_r{self.settings.nunchaku_rank}-z-image-turbo.safetensors"
         )
         return rank_path, precision
-
-    def _normalize_nunchaku_request(self, rank: int | None, precision: str | None) -> tuple[int, str]:
-        selected_rank = int(rank or self.settings.nunchaku_rank)
-        selected_precision = (precision or self.settings.nunchaku_precision or "auto").strip().lower()
-        if selected_rank not in {32, 128, 256}:
-            raise RuntimeError(f"Unsupported Nunchaku rank: {selected_rank}.")
-        if selected_precision not in {"auto", "int4", "fp4"}:
-            raise RuntimeError(f"Unsupported Nunchaku precision: {selected_precision}.")
-        if selected_precision == "fp4" and selected_rank == 256:
-            raise RuntimeError("FP4 r256 is not a published Z-Image Turbo weight.")
-        return selected_rank, selected_precision
 
     def _load_nunchaku_transformer(self):
         try:
             from nunchaku import NunchakuZImageTransformer2DModel
-            from huggingface_hub import hf_hub_download
         except ImportError as exc:
             raise RuntimeError("Nunchaku runtime dependencies are not installed in this environment.") from exc
 
         patch_zimage_transformer_forward(NunchakuZImageTransformer2DModel)
         rank_path, precision = self._nunchaku_rank_path()
         dtype = self._resolve_nunchaku_dtype()
-        repo_id, filename = rank_path.rsplit("/", 1)
-        try:
-            cached_rank_path = hf_hub_download(
-                repo_id=repo_id,
-                filename=filename,
-                cache_dir=str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
-                token=self.settings.hf_token,
-                local_files_only=True,
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"Selected Nunchaku weight is not fetched yet: {precision} r{self._active_nunchaku_rank}. "
-                "Use Fetch Models for that weight, then restart Z-Image."
-            ) from exc
-        progress_update(
-            stage="loading_model",
-            detail=f"Loading Nunchaku {precision} r{self._active_nunchaku_rank}",
-            progress_percent=14.0,
-        )
-        transformer = NunchakuZImageTransformer2DModel.from_pretrained(
-            str(Path(cached_rank_path)),
-            torch_dtype=dtype,
-        )
+        transformer = NunchakuZImageTransformer2DModel.from_pretrained(rank_path, torch_dtype=dtype)
         return transformer, rank_path, precision, dtype
 
     def _load_txt2img_pipeline(self, model_id: str, runtime: str):
@@ -310,15 +269,13 @@ class ModelManager:
             transformer, rank_path, precision, dtype = self._load_nunchaku_transformer()
             self._loaded_runtime_extra = {
                 "runtime": "nunchaku",
-                "nunchaku_rank": self._active_nunchaku_rank,
+                "nunchaku_rank": self.settings.nunchaku_rank,
                 "nunchaku_precision": precision,
-                "nunchaku_precision_requested": self._active_nunchaku_precision,
                 "nunchaku_rank_path": rank_path,
                 "runtime_dtype": str(dtype).replace("torch.", ""),
                 "zimage_forward_shim": True,
                 "experimental_img2img": _experimental_nunchaku_img2img_enabled(),
             }
-            progress_update(stage="loading_model", detail="Loading Z-Image Turbo pipeline", progress_percent=22.0)
             pipeline = ZImagePipeline.from_pretrained(
                 model_id,
                 transformer=transformer,
@@ -340,37 +297,19 @@ class ModelManager:
 
         return AutoPipelineForText2Image.from_pretrained(model_id, **self._pipeline_kwargs(model_id, runtime))
 
-    def ensure_model(
-        self,
-        requested_model_id: str | None = None,
-        *,
-        nunchaku_rank: int | None = None,
-        nunchaku_precision: str | None = None,
-    ) -> str:
+    def ensure_model(self, requested_model_id: str | None = None) -> str:
         model_id = requested_model_id or self.settings.default_model_id
         with self._lock:
-            runtime = self._resolve_runtime(model_id)
-            if self._is_zimage_turbo_model(model_id) and runtime != "nunchaku":
-                raise RuntimeError("Z-Image Turbo must run with the Nunchaku runtime in Nymphs Image.")
-            nunchaku_request = None
-            if runtime == "nunchaku":
-                nunchaku_request = self._normalize_nunchaku_request(nunchaku_rank, nunchaku_precision)
-            if (
-                self._txt2img is not None
-                and self._loaded_model_id == model_id
-                and self._loaded_nunchaku_request == nunchaku_request
-            ):
+            if self._txt2img is not None and self._loaded_model_id == model_id:
                 return model_id
 
+            runtime = self._resolve_runtime(model_id)
             self._unload_pipelines()
-            if nunchaku_request is not None:
-                self._active_nunchaku_rank, self._active_nunchaku_precision = nunchaku_request
             self._txt2img = self._load_txt2img_pipeline(model_id, runtime)
             self._txt2img = self._prepare_pipeline(self._txt2img, runtime)
             self._loaded_model_id = model_id
             self._loaded_model_family = self._model_family(model_id)
             self._loaded_runtime = runtime
-            self._loaded_nunchaku_request = nunchaku_request
             return model_id
 
     def _ensure_img2img(self):
@@ -555,11 +494,7 @@ class ModelManager:
         lora_scale: float | None,
     ):
         with self._lock:
-            active_model_id = self.ensure_model(
-                model_id,
-                nunchaku_rank=nunchaku_rank,
-                nunchaku_precision=nunchaku_precision,
-            )
+            active_model_id = self.ensure_model(model_id)
             self._configure_pipeline_lora(self._txt2img, lora_path, lora_scale)
             generator = self._build_generator(seed)
             kwargs = {
@@ -572,15 +507,6 @@ class ModelManager:
             }
             if self._loaded_runtime != "nunchaku":
                 kwargs["negative_prompt"] = negative_prompt
-            else:
-                progress_update(
-                    status="processing",
-                    stage="generating_image",
-                    detail=f"Nunchaku txt2img running {steps} steps",
-                    progress_current=None,
-                    progress_total=steps,
-                    progress_percent=50.0,
-                )
             print("[nymphs:zimage:stage] pipeline.txt2img.begin", flush=True)
             result = self._txt2img(**kwargs)
             print("[nymphs:zimage:stage] pipeline.txt2img.returned", flush=True)
@@ -607,35 +533,22 @@ class ModelManager:
         lora_scale: float | None,
     ):
         with self._lock:
-            active_model_id = self.ensure_model(
-                model_id,
-                nunchaku_rank=nunchaku_rank,
-                nunchaku_precision=nunchaku_precision,
-            )
+            active_model_id = self.ensure_model(model_id)
             pipeline = self._ensure_img2img()
             self._configure_pipeline_lora(pipeline, lora_path, lora_scale)
             generator = self._build_generator(seed)
             print("[nymphs:zimage:stage] pipeline.img2img.begin", flush=True)
-            kwargs = {
-                "prompt": prompt,
-                "negative_prompt": negative_prompt,
-                "image": image,
-                "width": width,
-                "height": height,
-                "num_inference_steps": steps,
-                "guidance_scale": guidance_scale,
-                "strength": strength,
-                "generator": generator,
-            }
-            progress_update(
-                status="processing",
-                stage="generating_image",
-                detail=f"Nunchaku img2img running {steps} steps",
-                progress_current=None,
-                progress_total=steps,
-                progress_percent=50.0,
+            result = pipeline(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                image=image,
+                width=width,
+                height=height,
+                num_inference_steps=steps,
+                guidance_scale=guidance_scale,
+                strength=strength,
+                generator=generator,
             )
-            result = pipeline(**kwargs)
             print("[nymphs:zimage:stage] pipeline.img2img.returned", flush=True)
             output_image = result.images[0]
             print("[nymphs:zimage:stage] pipeline.img2img.image_extracted", flush=True)
