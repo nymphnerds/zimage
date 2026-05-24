@@ -1048,6 +1048,10 @@
             <input id="api-key" type="password" autocomplete="off" placeholder="Optional if saved in Manager">
             <div class="hint" id="openrouter-status">Checking saved OpenRouter key.</div>
           </div>
+          <div class="command-row two wide no-top">
+            <button id="save-api-key" type="button">Apply Key</button>
+            <button class="subtle" id="remove-api-key" type="button">Remove Key</button>
+          </div>
           <div class="field wide">
             <label for="gemini-model">Model</label>
             <select id="gemini-model">
@@ -1158,8 +1162,10 @@
               <button class="subtle" id="clear-part-guidance" type="button">Clear Prompt</button>
             </div>
           </div>
-          <div class="command-row two">
+          <div class="command-row">
             <button id="plan-parts" type="button">Plan</button>
+          </div>
+          <div class="command-row part-clear-row">
             <button id="clear-parts" type="button">Clear Parts</button>
           </div>
           <div class="parts-list-head" id="parts-list-head" hidden>
@@ -1168,7 +1174,7 @@
             <span>Symmetry</span>
           </div>
           <div class="parts-list" id="parts-list"></div>
-          <div class="command-row parts-extract-row">
+          <div class="command-row parts-extract-row" id="parts-extract-row" hidden>
             <button class="primary" id="extract-parts" type="button" disabled>Extract (0)</button>
           </div>
         </details>
@@ -1332,6 +1338,8 @@
       "gemini-guide-open-images": "Choose a local image file as the Gemini guide image.",
       "gemini-guide-clear": "Clear the Gemini guide image.",
       "api-key": "OpenRouter API key for Gemini image generation. Leave blank to use the saved Manager/environment key.",
+      "save-api-key": "Save the pasted OpenRouter API key to the module config so Gemini and parts extraction can reuse it.",
+      "remove-api-key": "Remove the module-saved OpenRouter API key. Environment or Manager-provided keys may still be available.",
       "gemini-model": "Gemini image model to call through OpenRouter.",
       aspect: "Gemini output aspect ratio.",
       "image-size": "Output size for Gemini 3.1 Flash Image or Gemini 3 Pro Image. Gemini 2.5 Flash Image uses its fixed size for the selected aspect ratio.",
@@ -2863,6 +2871,7 @@
       $("extract-parts").textContent = `Extract (${count})`;
       $("plan-parts").disabled = state.busy;
       $("extract-parts").disabled = state.busy || !count;
+      $("parts-extract-row").hidden = !state.parts.length;
     }
 
     function renderParts() {
@@ -3022,13 +3031,54 @@
         const info = await response.json();
         state.openrouterConfigured = Boolean(info.configured);
         $("openrouter-status").textContent = state.openrouterConfigured
-          ? "Saved Manager key available."
-          : "Paste a key here, or use the shared Brain/OpenRouter key.";
+          ? "Saved OpenRouter key available."
+          : "Paste a key here and Apply Key, or use the shared Brain/OpenRouter key.";
         $("openrouter-status").classList.toggle("good", state.openrouterConfigured);
       } catch {
         state.openrouterConfigured = false;
         $("openrouter-status").textContent = "OpenRouter key status unavailable.";
         $("openrouter-status").classList.remove("good");
+      }
+    }
+
+    async function saveOpenrouterKey() {
+      const apiKey = $("api-key").value.trim();
+      if (!apiKey) {
+        toast("Paste an OpenRouter key first.");
+        return;
+      }
+      try {
+        const response = await fetch("/api/openrouter/key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: apiKey }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.detail || `Save key failed with HTTP ${response.status}.`);
+        $("api-key").value = "";
+        $("openrouter-status").textContent = "Saved OpenRouter key available.";
+        $("openrouter-status").classList.add("good");
+        state.openrouterConfigured = true;
+        toast("OpenRouter key saved.");
+      } catch (err) {
+        toast(err.message || "Could not save OpenRouter key.");
+      }
+    }
+
+    async function removeOpenrouterKey() {
+      try {
+        const response = await fetch("/api/openrouter/key", { method: "DELETE" });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.detail || `Remove key failed with HTTP ${response.status}.`);
+        $("api-key").value = "";
+        state.openrouterConfigured = Boolean(body.configured);
+        $("openrouter-status").textContent = state.openrouterConfigured
+          ? "Environment or Manager key still available."
+          : "No saved OpenRouter key.";
+        $("openrouter-status").classList.toggle("good", state.openrouterConfigured);
+        toast("OpenRouter key removed.");
+      } catch (err) {
+        toast(err.message || "Could not remove OpenRouter key.");
       }
     }
 
@@ -3093,6 +3143,8 @@
       $("z-lora-clear").onclick = clearLora;
       $("variants").oninput = updateGenerateLabel;
       $("gemini-variants").oninput = updateGenerateLabel;
+      $("save-api-key").onclick = saveOpenrouterKey;
+      $("remove-api-key").onclick = removeOpenrouterKey;
       $("gemini-use-guide").onchange = syncGuideRows;
       $("gemini-guide-use-selected").onclick = useSelectedAsSource;
       $("gemini-guide-open-images").onclick = openImagesFolder;

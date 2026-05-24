@@ -355,6 +355,27 @@ def _read_openrouter_api_key_file() -> str:
     return ""
 
 
+def _write_openrouter_api_key_file(api_key: str) -> None:
+    cleaned = (api_key or "").strip()
+    if not cleaned:
+        raise ValueError("OpenRouter API key is required.")
+    if "\n" in cleaned or "\r" in cleaned:
+        raise ValueError("OpenRouter API key must be a single line.")
+    path = _openrouter_env_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"OPENROUTER_API_KEY={cleaned}\n", encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except Exception:
+        pass
+
+
+def _delete_openrouter_api_key_file() -> None:
+    path = _openrouter_env_file()
+    if path.is_file():
+        path.unlink()
+
+
 def _resolve_openrouter_api_key(payload: dict | None = None) -> str:
     payload = payload or {}
     return (
@@ -1611,6 +1632,21 @@ async def list_loras():
 @app.get("/api/openrouter/status", tags=["ui"])
 async def openrouter_status():
     return JSONResponse({"configured": bool(_resolve_openrouter_api_key())})
+
+
+@app.post("/api/openrouter/key", tags=["ui"])
+async def save_openrouter_key(payload: dict):
+    try:
+        _write_openrouter_api_key_file(str(payload.get("api_key") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return JSONResponse({"status": "ok", "configured": True})
+
+
+@app.delete("/api/openrouter/key", tags=["ui"])
+async def remove_openrouter_key():
+    _delete_openrouter_api_key_file()
+    return JSONResponse({"status": "ok", "configured": bool(_resolve_openrouter_api_key())})
 
 
 @app.post("/generate", response_model=GenerateResponse, tags=["generation"])
