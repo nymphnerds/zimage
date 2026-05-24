@@ -743,10 +743,6 @@
               <option value="auto_r32">Z-Image Nunchaku r32</option>
               <option value="auto_r128">Z-Image Nunchaku r128</option>
               <option value="int4_r256">Z-Image Nunchaku r256</option>
-              <option value="int4_r32">INT4 r32</option>
-              <option value="int4_r128">INT4 r128</option>
-              <option value="fp4_r32">FP4 r32</option>
-              <option value="fp4_r128">FP4 r128</option>
             </select>
           </div>
           <div class="field wide">
@@ -2074,7 +2070,7 @@
         const rank = extra.nunchaku_rank ? `r${extra.nunchaku_rank}` : "";
         const precision = extra.nunchaku_precision || "";
         const selected = zModelSelection();
-        $("selected-model-text").textContent = `${selected.label} / ${selected.nunchaku_precision} / r${selected.nunchaku_rank}`;
+        $("selected-model-text").textContent = selected.label;
         $("runtime-text").textContent = info.loaded_model_id
           ? `Loaded ${[(info.loaded_model_id || "").split("/").pop(), runtime, precision, rank].filter(Boolean).join(" / ")}`
           : "No model loaded";
