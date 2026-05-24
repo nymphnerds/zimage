@@ -461,7 +461,7 @@ class ModelManager:
     def _step_progress_callback(self, *, mode: str, steps: int):
         total = max(1, int(steps or 1))
 
-        def callback(step, _timestep, callback_kwargs):
+        def callback(_pipeline, step, _timestep, callback_kwargs):
             current = min(total, int(step) + 1)
             progress_update(
                 status="processing",

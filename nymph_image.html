@@ -237,6 +237,13 @@
       gap: 10px;
     }
 
+    .model-choice-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 116px;
+      gap: 10px;
+      align-items: end;
+    }
+
     .field {
       display: grid;
       gap: 0;
@@ -737,13 +744,16 @@
       <section class="section" id="zimage-controls">
         <div class="section-title"><span>Z-Image</span><span id="zimage-ready">checking</span></div>
         <div class="grid">
-          <div class="field wide">
-            <label for="z-model-choice">Model Choice</label>
-            <select id="z-model-choice">
-              <option value="auto_r32">Z-Image Nunchaku r32</option>
-              <option value="auto_r128">Z-Image Nunchaku r128</option>
-              <option value="int4_r256">Z-Image Nunchaku r256</option>
-            </select>
+          <div class="model-choice-row wide">
+            <div class="field">
+              <label for="z-model-choice">Model Choice</label>
+              <select id="z-model-choice">
+                <option value="auto_r32">Z-Image Nunchaku r32</option>
+                <option value="auto_r128">Z-Image Nunchaku r128</option>
+                <option value="int4_r256">Z-Image Nunchaku r256</option>
+              </select>
+            </div>
+            <button id="load-z-model" type="button">Load</button>
           </div>
           <div class="field wide">
             <label for="z-profile">Profile</label>
@@ -2127,15 +2137,15 @@
       $("mode-zimage").onclick = () => setMode("zimage");
       $("mode-gemini").onclick = () => setMode("gemini");
       $("z-profile").onchange = () => {
-        const previousModelChoice = $("z-model-choice").value;
         const value = $("z-profile").value;
         const profile = value.startsWith("user:")
           ? (state.userPresets.settings || []).find((item) => item.id === value.slice(5))?.values
           : profiles[value];
         applyProfileValues(profile || profiles.default);
-        if ($("z-model-choice").value !== previousModelChoice) applySelectedZModel();
+        refreshInfo();
       };
-      $("z-model-choice").onchange = applySelectedZModel;
+      $("z-model-choice").onchange = refreshInfo;
+      $("load-z-model").onclick = applySelectedZModel;
       $("save-profile").onclick = saveSettingsPreset;
       $("delete-profile").onclick = deleteSettingsPreset;
       $("open-config").onclick = () => moduleAction("open_image_settings_presets");
