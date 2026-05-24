@@ -154,7 +154,7 @@
       height: 100dvh;
       min-height: 0;
       display: grid;
-      grid-template-columns: 300px minmax(460px, 1fr);
+      grid-template-columns: clamp(260px, 28vw, 300px) minmax(300px, 1fr);
       min-width: 0;
       background: rgba(2, 8, 7, 0.72);
     }
@@ -499,6 +499,7 @@
 
     .empty::before {
       content: "Generated image appears here.";
+      color: var(--cyan);
       font-size: 11px;
       line-height: 1;
       white-space: nowrap;
@@ -766,7 +767,7 @@
       max-height: 62vh;
     }
 
-    @media (max-width: 760px) {
+    @media (max-width: 600px) {
       body { overflow: auto; }
       .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
       .sidebar { height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -1366,8 +1367,8 @@
       } catch {
         state.userPresets = { subject: [], style: [], saved: [], settings: [] };
       }
-      populatePromptSelect("subject", "subject", subjects, "user:clean_asset_concept");
-      populatePromptSelect("style", "style", styles, "user:clean_game_concept");
+      populatePromptSelect("subject", "subject", subjects, "none");
+      populatePromptSelect("style", "style", styles, "none");
       populateProfileSelect();
       populateSavedPromptSelect();
       syncManagedPromptBlocks();
