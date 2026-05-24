@@ -569,6 +569,12 @@
       border-radius: 999px;
       background: #223532;
       overflow: hidden;
+      opacity: 0;
+      transition: opacity 0.16s ease;
+    }
+
+    .bar.active {
+      opacity: 1;
     }
 
     .bar span {
@@ -1311,6 +1317,7 @@
       $("progress-detail").textContent = detail || "";
       $("progress-percent").textContent = `${Math.round(value)}%`;
       $("progress-bar").style.width = `${value}%`;
+      $("progress-bar").parentElement.classList.toggle("active", value > 0);
     }
 
     async function pollTask() {
@@ -1472,7 +1479,7 @@
       }
       populatePromptSelect("subject", "subject", subjects, "none");
       populatePromptSelect("style", "style", styles, "none");
-      populatePromptSelect("view", "view", views, "user:three_quarter_cutout");
+      populatePromptSelect("view", "view", views, "none");
       populatePromptSelect("negative-preset", "negative", negatives, "none");
       populatePromptSelect("part-guidance-select", "part_guidance", partGuidancePresets, "user:default");
       applyPartGuidancePreset(false);
