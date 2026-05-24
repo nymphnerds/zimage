@@ -350,6 +350,8 @@ class ModelManager:
         model_id = requested_model_id or self.settings.default_model_id
         with self._lock:
             runtime = self._resolve_runtime(model_id)
+            if self._is_zimage_turbo_model(model_id) and runtime != "nunchaku":
+                raise RuntimeError("Z-Image Turbo must run with the Nunchaku runtime in Nymphs Image.")
             nunchaku_request = None
             if runtime == "nunchaku":
                 nunchaku_request = self._normalize_nunchaku_request(nunchaku_rank, nunchaku_precision)
@@ -455,6 +457,23 @@ class ModelManager:
         generator = torch.Generator(device=device)
         generator.manual_seed(seed)
         return generator
+
+    def _step_progress_callback(self, *, mode: str, steps: int):
+        total = max(1, int(steps or 1))
+
+        def callback(step, _timestep, callback_kwargs):
+            current = min(total, int(step) + 1)
+            progress_update(
+                status="processing",
+                stage="generating_image",
+                detail=f"Nunchaku {mode} denoising step {current}/{total}",
+                progress_current=current,
+                progress_total=total,
+                progress_percent=33.0 + ((current / total) * 57.0),
+            )
+            return callback_kwargs
+
+        return callback
 
     def _load_lora_with_alpha_fallback(self, pipeline, lora_path: str, adapter_name: str):
         try:
@@ -570,6 +589,9 @@ class ModelManager:
             }
             if self._loaded_runtime != "nunchaku":
                 kwargs["negative_prompt"] = negative_prompt
+            else:
+                kwargs["callback_on_step_end"] = self._step_progress_callback(mode="txt2img", steps=steps)
+                kwargs["callback_on_step_end_tensor_inputs"] = ["latents"]
             print("[nymphs:zimage:stage] pipeline.txt2img.begin", flush=True)
             result = self._txt2img(**kwargs)
             print("[nymphs:zimage:stage] pipeline.txt2img.returned", flush=True)
@@ -615,6 +637,8 @@ class ModelManager:
                 guidance_scale=guidance_scale,
                 strength=strength,
                 generator=generator,
+                callback_on_step_end=self._step_progress_callback(mode="img2img", steps=steps),
+                callback_on_step_end_tensor_inputs=["latents"],
             )
             print("[nymphs:zimage:stage] pipeline.img2img.returned", flush=True)
             output_image = result.images[0]
