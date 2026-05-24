@@ -330,8 +330,8 @@
 
     .parts-source-card {
       display: grid;
-      grid-template-columns: 76px minmax(0, 1fr);
-      gap: 9px;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 8px;
       align-items: center;
       min-width: 0;
       padding: 8px;
@@ -341,8 +341,8 @@
     }
 
     .parts-source-thumb {
-      width: 76px;
-      height: 76px;
+      width: 72px;
+      height: 72px;
       border: 1px dashed rgba(41,230,218,0.36);
       border-radius: 7px;
       display: grid;
@@ -387,10 +387,15 @@
       pointer-events: none;
     }
 
-    .parts-source-meta .command-row button {
+    .parts-source-actions {
+      grid-column: 1 / -1;
+      margin-top: 0;
+    }
+
+    .parts-source-actions button {
       height: 28px;
       min-height: 28px;
-      padding-inline: 6px;
+      padding-inline: 8px;
     }
 
     .command-row {
@@ -1095,11 +1100,11 @@
                 </div>
                 <div class="parts-source-meta">
                   <input id="parts-source-label" type="text" readonly value="none">
-                  <div class="command-row three no-top">
-                    <button id="parts-use-selected-source" type="button">Current</button>
-                    <button id="parts-open-images" type="button">Open</button>
-                    <button class="subtle" id="parts-clear-source" type="button">Clear</button>
-                  </div>
+                </div>
+                <div class="command-row three no-top parts-source-actions">
+                  <button id="parts-use-selected-source" type="button">Current</button>
+                  <button id="parts-open-images" type="button">Open</button>
+                  <button class="subtle" id="parts-clear-source" type="button">Clear</button>
                 </div>
               </div>
             </div>
