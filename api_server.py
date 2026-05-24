@@ -43,6 +43,7 @@ SETTINGS = get_settings()
 MODEL_MANAGER = ModelManager(SETTINGS)
 NYMPH_UI_PATH = Path(__file__).resolve().parent / "nymph_image.html"
 NYMPH_UI_ASSET_PATH = Path(__file__).resolve().parent / "ui"
+PACKAGED_PROMPT_PRESET_PATH = Path(__file__).resolve().parent / "prompt_presets"
 OPENROUTER_API_ROOT = "https://openrouter.ai/api/v1"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 PRESET_KINDS = {"subject", "style", "saved", "settings"}
@@ -145,11 +146,52 @@ def _safe_preset_path(kind: str, preset_id: str) -> Path:
     return _preset_dir(normalized) / f"{_safe_slug(preset_id, 'preset')}.json"
 
 
+def _seed_packaged_prompt_presets() -> None:
+    target_dir = _image_prompt_preset_dir()
+    marker = target_dir / ".defaults_seeded"
+    if not PACKAGED_PROMPT_PRESET_PATH.is_dir():
+        return
+
+    for source in sorted(PACKAGED_PROMPT_PRESET_PATH.glob("*.json")):
+        try:
+            data = json.loads(source.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        raw_kind = str(data.get("kind") or data.get("type") or "").strip().lower()
+        kind = "style" if raw_kind == "style" or "style" in data else "subject"
+        if kind not in {"subject", "style"}:
+            continue
+        preset_id = source.stem
+        if kind == "style" and preset_id.endswith("_style"):
+            preset_id = preset_id[:-6]
+        path = _safe_preset_path(kind, preset_id)
+        if path.exists():
+            continue
+        payload = {
+            "name": str(data.get("name") or data.get("label") or preset_id.replace("_", " ").title()).strip(),
+            "kind": kind,
+            "description": str(data.get("description") or "").strip(),
+        }
+        prompt_text = str(data.get("style") or data.get("prompt") or "").strip()
+        if not prompt_text:
+            continue
+        if kind == "style":
+            payload["style"] = prompt_text
+        else:
+            payload["prompt"] = prompt_text
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    marker.write_text("Defaults seeded.\n", encoding="utf-8")
+
+
 def _load_user_presets(kind: str) -> list[dict]:
     normalized = (kind or "").strip().lower()
     if normalized not in PRESET_KINDS:
         raise HTTPException(status_code=400, detail="Unsupported preset kind.")
     if normalized in PROMPT_PRESET_KINDS:
+        _seed_packaged_prompt_presets()
         files = list(_image_prompt_preset_dir().glob(f"{normalized}__*.json"))
     elif normalized == "settings":
         files = list(_image_settings_preset_dir().glob("*.json"))

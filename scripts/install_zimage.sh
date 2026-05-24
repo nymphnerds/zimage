@@ -186,6 +186,13 @@ install -m 644 "${MODULE_ROOT}/progress_state.py" "${STAGING_ROOT}/progress_stat
 install -m 644 "${MODULE_ROOT}/requirements.lock.txt" "${STAGING_ROOT}/requirements.lock.txt"
 install -m 644 "${MODULE_ROOT}/schemas.py" "${STAGING_ROOT}/schemas.py"
 
+if [[ -d "${MODULE_ROOT}/prompt_presets" ]]; then
+  mkdir -p "${STAGING_ROOT}/prompt_presets"
+  find "${MODULE_ROOT}/prompt_presets" -maxdepth 1 -type f -name '*.json' -print0 | while IFS= read -r -d '' preset_file; do
+    install -m 644 "${preset_file}" "${STAGING_ROOT}/prompt_presets/$(basename "${preset_file}")"
+  done
+fi
+
 for script in \
   _zimage_common.sh \
   prefetch_model.py \
