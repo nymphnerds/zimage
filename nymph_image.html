@@ -461,7 +461,7 @@
       border: 1px solid rgba(40, 68, 70, 0.9);
       border-radius: 8px;
       background:
-        url("/ui/nymphs_preview_forest.png") center center / contain no-repeat,
+        url("/ui/nymphs_preview_forest.png") center center / cover no-repeat,
         rgba(4, 12, 11, 0.82);
       display: grid;
       place-items: center;
@@ -618,7 +618,7 @@
 
     .strip-browser {
       display: grid;
-      grid-template-columns: minmax(160px, 1fr) auto;
+      grid-template-columns: minmax(220px, 1fr) auto;
       gap: 8px;
       align-items: center;
       margin-bottom: 8px;
@@ -657,6 +657,7 @@
       grid-auto-columns: 124px;
       gap: 8px;
       overflow-x: auto;
+      overscroll-behavior-inline: contain;
       min-height: 0;
     }
 
@@ -799,7 +800,7 @@
           </div>
         </div>
         <div class="command-row two">
-          <button id="use-selected-source" type="button" disabled>Use</button>
+          <button id="use-selected-source" type="button" disabled>Current</button>
           <button id="open-source-images" type="button">Open</button>
         </div>
         <div class="command-row two no-top">
@@ -867,7 +868,7 @@
           <div class="toggle-row wide"><span>Guide Image</span><input id="gemini-use-guide" type="checkbox"></div>
           <div class="field wide gemini-guide-row" hidden><label for="gemini-guide-label">Guide Image</label><input id="gemini-guide-label" type="text" readonly value="none"></div>
           <div class="command-row three wide gemini-guide-row no-top" hidden>
-            <button id="gemini-guide-use-selected" type="button">Use</button>
+            <button id="gemini-guide-use-selected" type="button">Current</button>
             <button id="gemini-guide-open-images" type="button">Open</button>
             <button class="subtle" id="gemini-guide-clear" type="button">Clear</button>
           </div>
@@ -937,7 +938,7 @@
           <div class="grid" style="margin-top:10px">
             <div class="field wide"><label for="parts-source-label">Source Image</label><input id="parts-source-label" type="text" readonly value="none"></div>
             <div class="command-row three wide no-top">
-              <button id="parts-use-selected-source" type="button">Use</button>
+              <button id="parts-use-selected-source" type="button">Current</button>
               <button id="parts-open-images" type="button">Open</button>
               <button class="subtle" id="parts-clear-source" type="button">Clear</button>
             </div>
@@ -984,32 +985,32 @@
           <span id="output-label">No output</span>
         </div>
         <div class="model-line"><span>Selected</span> <span id="selected-model-text">checking</span></div>
-        <div class="progress-line">
+        <div class="progress-line" hidden>
           <span class="progress-stage" id="progress-stage">Idle</span>
           <span id="progress-detail">Waiting for prompt.</span>
           <span id="progress-percent">0%</span>
         </div>
-        <div class="bar"><span id="progress-bar"></span></div>
+        <div class="bar" hidden><span id="progress-bar"></span></div>
         <div class="strip-head">
-          <div class="strip-title"><span>Browse</span><span id="strip-label">Recent</span></div>
+          <div class="strip-title"><span>Browse</span><span id="strip-label">Outputs</span></div>
           <div class="strip-controls">
             <button id="strip-prev" type="button" title="Previous output">&lt;</button>
             <button id="strip-next" type="button" title="Next output">&gt;</button>
-            <button class="active" id="strip-recent" type="button">Recent</button>
-            <button id="strip-current" type="button">Current</button>
-            <button id="strip-variants" type="button">Variants</button>
-            <button id="strip-parts" type="button">Parts</button>
           </div>
         </div>
         <div class="strip-browser">
           <select class="folder-select" id="output-folder" aria-label="Output folder"></select>
           <div class="strip-select-actions">
             <span class="selection-count" id="selection-count">0 selected</span>
+            <button id="choose-folder" type="button">Choose</button>
             <button id="select-visible" type="button">Select</button>
+            <button id="select-all-visible" type="button">Select All</button>
             <button id="clear-selection" type="button">Clear</button>
+            <button id="move-selected" type="button">Move</button>
             <button class="danger" id="delete-selected" type="button">Delete</button>
           </div>
         </div>
+        <input id="folder-picker" type="file" accept="image/*" webkitdirectory multiple hidden>
         <div class="gallery" id="gallery"></div>
       </section>
     </section>
@@ -1034,10 +1035,13 @@
       sourceName: "",
       selectedOutput: null,
       outputs: [],
+      localOutputs: [],
+      localObjectUrls: [],
       visibleOutputs: [],
       selectedOutputPaths: new Set(),
-      galleryMode: "recent",
-      outputFolder: "all",
+      outputView: "recent",
+      viewerSource: "outputs",
+      manualFolderName: "",
       activeBatchId: "",
       parts: [],
       busy: false,
@@ -1744,27 +1748,18 @@
       syncManagedPromptBlocks();
     }
 
-    async function clearOutputs() {
-      if (!window.confirm("Clear generated images and metadata from the output folder?")) return;
-      const response = await fetch("/api/outputs/clear", { method: "POST" });
-      if (!response.ok) {
-        toast("Could not clear outputs.");
-        return;
-      }
-      state.outputs = [];
-      state.visibleOutputs = [];
+    function clearCurrentPreview() {
       state.selectedOutput = null;
-      state.selectedOutputPaths.clear();
-      state.outputFolder = "all";
-      state.activeBatchId = "";
       $("result-image").removeAttribute("src");
       $("result-image").style.display = "none";
       $("empty").style.display = "grid";
       $("output-label").textContent = "No output";
       $("use-selected-source").disabled = true;
-      renderGallery();
-      const body = await response.json().catch(() => ({}));
-      toast(`Cleared ${body.removed || 0} files.`);
+      for (const node of document.querySelectorAll(".thumb")) {
+        node.classList.remove("selected");
+      }
+      updateStripButtons();
+      toast("Preview cleared.");
     }
 
     function readFileDataUrl(file) {
@@ -1810,7 +1805,7 @@
       const blob = await response.blob();
       const file = new File([blob], state.selectedOutput.name || "output.png", { type: blob.type || "image/png" });
       await setSourceFile(file);
-      toast("Selected image set as source.");
+      toast("Current image set as source.");
     }
 
     function showResult(output) {
@@ -1865,59 +1860,90 @@
       return folder ? folder : "Outputs";
     }
 
+    function outputCreatedMs(output) {
+      const value = Number(output?.created || 0);
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      return value > 100000000000 ? value : value * 1000;
+    }
+
+    function outputDateKey(output) {
+      const created = outputCreatedMs(output);
+      if (!created) return "Unknown Date";
+      const date = new Date(created);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function sortedViewerOutputs() {
+      const outputs = [...state.outputs, ...state.localOutputs];
+      outputs.sort((a, b) => outputCreatedMs(b) - outputCreatedMs(a));
+      return outputs;
+    }
+
     function makeBatchId(prefix) {
       return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
     }
 
-    function workflowOutputs() {
-      let outputs = [...state.outputs];
-      if (state.galleryMode === "current") {
-        outputs = state.activeBatchId ? outputs.filter((output) => outputBatchId(output) === state.activeBatchId) : [];
-      } else if (state.galleryMode === "variants") {
-        outputs = outputs.filter((output) => ["zimage", "gemini"].includes(outputBatchType(output)));
-      } else if (state.galleryMode === "parts") {
-        outputs = outputs.filter((output) => outputBatchType(output) === "parts");
+    function syncOutputViewOptions(outputs) {
+      const select = $("output-folder");
+      const dates = [...new Set(outputs.map(outputDateKey))].sort().reverse();
+      const folders = [...new Set(outputs.map(outputFolder).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const validViews = new Set([
+        "recent",
+        ...dates.map((date) => `date:${date}`),
+        ...folders.map((folder) => `folder:${folder}`),
+      ]);
+      if (!validViews.has(state.outputView)) {
+        state.outputView = "recent";
       }
+      select.innerHTML = "";
+      const recentOption = document.createElement("option");
+      recentOption.value = "recent";
+      recentOption.textContent = `Recent (${outputs.length})`;
+      select.appendChild(recentOption);
+      for (const date of dates) {
+        const count = outputs.filter((output) => outputDateKey(output) === date).length;
+        const option = document.createElement("option");
+        option.value = `date:${date}`;
+        option.textContent = `${date} (${count})`;
+        select.appendChild(option);
+      }
+      for (const folder of folders) {
+        const count = outputs.filter((output) => outputFolder(output) === folder).length;
+        const option = document.createElement("option");
+        option.value = `folder:${folder}`;
+        option.textContent = `Folder: ${folderLabel(folder)} (${count})`;
+        select.appendChild(option);
+      }
+      select.value = state.outputView;
+      select.disabled = outputs.length === 0;
+    }
 
-      if (state.galleryMode === "current") {
-        outputs.sort((a, b) => outputItemIndex(a) - outputItemIndex(b));
+    function stripOutputs() {
+      const outputs = sortedViewerOutputs();
+      syncOutputViewOptions(outputs);
+      if (state.outputView === "recent") return outputs;
+      if (state.outputView.startsWith("date:")) {
+        const date = state.outputView.slice(5);
+        return outputs.filter((output) => outputDateKey(output) === date);
+      }
+      if (state.outputView.startsWith("folder:")) {
+        const folder = state.outputView.slice(7);
+        return outputs.filter((output) => outputFolder(output) === folder);
       }
       return outputs;
     }
 
-    function syncFolderOptions(outputs) {
-      const select = $("output-folder");
-      const folders = [...new Set(outputs.map(outputFolder))].sort((a, b) => folderLabel(a).localeCompare(folderLabel(b)));
-      if (state.outputFolder !== "all" && !folders.includes(state.outputFolder)) {
-        state.outputFolder = "all";
+    function currentOutputViewLabel() {
+      if (state.viewerSource === "manual" && state.outputView === "recent") {
+        return state.manualFolderName || "Chosen Folder";
       }
-      select.innerHTML = "";
-      const allOption = document.createElement("option");
-      allOption.value = "all";
-      allOption.textContent = `All folders (${outputs.length})`;
-      select.appendChild(allOption);
-      for (const folder of folders) {
-        const count = outputs.filter((output) => outputFolder(output) === folder).length;
-        const option = document.createElement("option");
-        option.value = folder;
-        option.textContent = `${folderLabel(folder)} (${count})`;
-        select.appendChild(option);
-      }
-      select.value = state.outputFolder;
-      select.disabled = folders.length < 2;
-    }
-
-    function stripOutputs() {
-      const outputs = workflowOutputs();
-      syncFolderOptions(outputs);
-      if (state.outputFolder === "all") return outputs;
-      return outputs.filter((output) => outputFolder(output) === state.outputFolder);
-    }
-
-    function setGalleryMode(mode) {
-      state.galleryMode = mode;
-      state.outputFolder = "all";
-      renderGallery();
+      if (state.outputView === "recent") return "Recent";
+      if (state.outputView.startsWith("date:")) return state.outputView.slice(5);
+      if (state.outputView.startsWith("folder:")) return folderLabel(state.outputView.slice(7));
+      return "Outputs";
     }
 
     function selectFromVisible(offset) {
@@ -1928,10 +1954,6 @@
     }
 
     function updateStripButtons() {
-      for (const [mode, id] of [["recent", "strip-recent"], ["current", "strip-current"], ["variants", "strip-variants"], ["parts", "strip-parts"]]) {
-        $(id).classList.toggle("active", state.galleryMode === mode);
-      }
-      $("strip-current").disabled = !state.activeBatchId;
       $("strip-prev").disabled = state.visibleOutputs.length < 2;
       $("strip-next").disabled = state.visibleOutputs.length < 2;
       updateSelectionUi();
@@ -1943,10 +1965,13 @@
 
     function updateSelectionUi() {
       const selected = visibleSelectedOutputs();
+      const managedSelected = selected.filter((output) => output.managed !== false);
       $("selection-count").textContent = `${selected.length} selected`;
-      $("select-visible").disabled = state.visibleOutputs.length === 0;
+      $("select-visible").disabled = !state.selectedOutput;
+      $("select-all-visible").disabled = state.visibleOutputs.length === 0;
       $("clear-selection").disabled = selected.length === 0;
-      $("delete-selected").disabled = selected.length === 0;
+      $("move-selected").disabled = managedSelected.length === 0;
+      $("delete-selected").disabled = managedSelected.length === 0;
       for (const node of document.querySelectorAll(".thumb")) {
         const checked = state.selectedOutputPaths.has(node.dataset.key);
         node.classList.toggle("checked", checked);
@@ -1967,6 +1992,13 @@
     }
 
     function selectVisibleOutputs() {
+      if (!state.selectedOutput) return;
+      const key = outputKey(state.selectedOutput);
+      if (key) state.selectedOutputPaths.add(key);
+      updateSelectionUi();
+    }
+
+    function selectAllVisibleOutputs() {
       for (const output of state.visibleOutputs) {
         const key = outputKey(output);
         if (key) state.selectedOutputPaths.add(key);
@@ -1981,24 +2013,53 @@
       updateSelectionUi();
     }
 
+    async function moveSelectedOutputs() {
+      const selected = visibleSelectedOutputs();
+      const managed = selected.filter((output) => output.managed !== false);
+      if (!managed.length) return;
+      const folder = window.prompt("Move selected images to folder", "");
+      if (folder === null) return;
+      const response = await fetch("/api/outputs/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder, paths: managed.map((output) => output.relative_path || output.path) }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast(body.detail || "Could not move selected outputs.");
+        return;
+      }
+      for (const output of managed) state.selectedOutputPaths.delete(outputKey(output));
+      state.viewerSource = "outputs";
+      state.outputs = body.outputs || [];
+      state.outputView = body.folder ? `folder:${body.folder}` : "recent";
+      renderGallery();
+      if (state.visibleOutputs[0]) showResult(state.visibleOutputs[0]);
+      toast(`Moved ${body.moved || 0} images to ${body.folder || "folder"}.`);
+    }
+
     async function deleteSelectedOutputs() {
       const selected = visibleSelectedOutputs();
-      if (!selected.length) return;
-      const noun = selected.length === 1 ? "image" : "images";
-      if (!window.confirm(`Delete ${selected.length} selected ${noun} and matching metadata from this output set?`)) return;
+      const managed = selected.filter((output) => output.managed !== false);
+      if (!managed.length) return;
+      const noun = managed.length === 1 ? "image" : "images";
+      if (!window.confirm(`Delete ${managed.length} selected ${noun} and matching metadata from Nymphs outputs?`)) return;
       const response = await fetch("/api/outputs/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paths: selected.map((output) => output.relative_path || output.path) }),
+        body: JSON.stringify({ paths: managed.map((output) => output.relative_path || output.path) }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         toast(body.detail || "Could not delete selected outputs.");
         return;
       }
-      for (const output of selected) state.selectedOutputPaths.delete(outputKey(output));
+      for (const output of managed) state.selectedOutputPaths.delete(outputKey(output));
       state.outputs = body.outputs || [];
-      const removedKeys = new Set(selected.map(outputKey));
+      if (state.viewerSource === "manual") {
+        state.viewerSource = "outputs";
+      }
+      const removedKeys = new Set(managed.map(outputKey));
       if (state.selectedOutput && removedKeys.has(outputKey(state.selectedOutput))) {
         state.selectedOutput = null;
         $("result-image").removeAttribute("src");
@@ -2011,16 +2072,70 @@
       toast(`Deleted ${body.removed || 0} ${noun}.`);
     }
 
+    function clearManualFolderOutputs() {
+      for (const url of state.localObjectUrls) URL.revokeObjectURL(url);
+      state.localObjectUrls = [];
+      state.localOutputs = [];
+      state.manualFolderName = "";
+    }
+
+    function localFolderName(files) {
+      const first = files.find((file) => file.webkitRelativePath);
+      if (!first) return "Chosen Folder";
+      return first.webkitRelativePath.split("/")[0] || "Chosen Folder";
+    }
+
+    function handleFolderPicked(event) {
+      const files = Array.from(event.target.files || []).filter((file) => file.type.startsWith("image/"));
+      clearManualFolderOutputs();
+      state.selectedOutputPaths.clear();
+      if (!files.length) {
+        event.target.value = "";
+        toast("No images found in that folder.");
+        renderGallery();
+        return;
+      }
+      state.manualFolderName = localFolderName(files);
+      state.localOutputs = files.map((file, index) => {
+        const url = URL.createObjectURL(file);
+        state.localObjectUrls.push(url);
+        const relativePath = file.webkitRelativePath || file.name;
+        return {
+          name: file.name,
+          path: `manual:${index}:${relativePath}`,
+          relative_path: `manual:${index}:${relativePath}`,
+          url,
+          folder: state.manualFolderName,
+          item_label: file.name,
+          created: (file.lastModified || Date.now()) / 1000,
+          managed: false,
+          file,
+        };
+      });
+      state.viewerSource = "outputs";
+      state.outputView = `folder:${state.manualFolderName}`;
+      event.target.value = "";
+      renderGallery();
+      if (state.visibleOutputs[0]) showResult(state.visibleOutputs[0]);
+      toast(`Loaded ${state.localOutputs.length} images from ${state.manualFolderName}.`);
+    }
+
+    function scrollGalleryWithWheel(event) {
+      const gallery = $("gallery");
+      if (!gallery || gallery.scrollWidth <= gallery.clientWidth) return;
+      const dominantY = Math.abs(event.deltaY) >= Math.abs(event.deltaX);
+      const delta = dominantY ? event.deltaY : event.deltaX;
+      if (!delta) return;
+      const multiplier = event.deltaMode === 1 ? 32 : event.deltaMode === 2 ? gallery.clientWidth : 1;
+      event.preventDefault();
+      gallery.scrollLeft += delta * multiplier;
+    }
+
     function renderGallery() {
       const gallery = $("gallery");
       gallery.innerHTML = "";
       state.visibleOutputs = stripOutputs();
-      const currentOutput = state.visibleOutputs[0] || null;
-      const label =
-        state.galleryMode === "current" && currentOutput ? outputBatchLabel(currentOutput) :
-        state.galleryMode === "variants" ? "Variants" :
-        state.galleryMode === "parts" ? "Parts" :
-        "Recent";
+      const label = currentOutputViewLabel();
       $("strip-label").textContent = state.visibleOutputs.length ? `${label} (${state.visibleOutputs.length})` : `${label} (0)`;
       for (const output of state.visibleOutputs) {
         const node = document.createElement("div");
@@ -2061,7 +2176,7 @@
         const response = await fetch("/api/outputs?limit=80", { cache: "no-store" });
         const body = await response.json();
         state.outputs = body.outputs || [];
-        const outputKeys = new Set(state.outputs.map(outputKey));
+        const outputKeys = new Set([...state.outputs, ...state.localOutputs].map(outputKey));
         for (const key of [...state.selectedOutputPaths]) {
           if (!outputKeys.has(key)) state.selectedOutputPaths.delete(key);
         }
@@ -2141,7 +2256,9 @@
         }
         await refreshOutputs(false);
         state.activeBatchId = batchId;
-        setGalleryMode("current");
+        state.viewerSource = "outputs";
+        state.outputView = "recent";
+        renderGallery();
         const batchOutputs = state.visibleOutputs;
         if (batchOutputs[0]) showResult(batchOutputs[0]);
         stopProgress(true, count > 1 ? "Variants ready." : "Image ready.");
@@ -2187,7 +2304,9 @@
         if (body.outputs?.[0]) {
           state.outputs = [...body.outputs, ...state.outputs.filter((item) => !body.outputs.some((out) => out.path === item.path))];
           state.activeBatchId = body.batch_id || batchId;
-          setGalleryMode("current");
+          state.viewerSource = "outputs";
+          state.outputView = "recent";
+          renderGallery();
           showResult(state.visibleOutputs[0] || body.outputs[0]);
         }
         stopProgress(true, variantCount > 1 ? "Gemini variants ready." : "Gemini image ready.");
@@ -2325,7 +2444,9 @@
         if (body.outputs?.[0]) {
           state.outputs = [...body.outputs, ...state.outputs.filter((item) => !body.outputs.some((out) => out.path === item.path))];
           state.activeBatchId = body.batch_id || batchId;
-          setGalleryMode("current");
+          state.viewerSource = "outputs";
+          state.outputView = "recent";
+          renderGallery();
           showResult(state.visibleOutputs[0] || body.outputs[0]);
         }
         stopProgress(true, "Parts extracted.");
@@ -2450,18 +2571,19 @@
       $("open-source-images").onclick = openImagesFolder;
       $("refresh-gallery").onclick = () => refreshOutputs();
       $("open-outputs").onclick = openImagesFolder;
-      $("clear-outputs").onclick = clearOutputs;
+      $("clear-outputs").onclick = clearCurrentPreview;
       $("stop-backend").onclick = stopRuntime;
       $("strip-prev").onclick = () => selectFromVisible(-1);
       $("strip-next").onclick = () => selectFromVisible(1);
-      $("strip-recent").onclick = () => setGalleryMode("recent");
-      $("strip-current").onclick = () => setGalleryMode("current");
-      $("strip-variants").onclick = () => setGalleryMode("variants");
-      $("strip-parts").onclick = () => setGalleryMode("parts");
-      $("output-folder").onchange = () => { state.outputFolder = $("output-folder").value; renderGallery(); };
+      $("output-folder").onchange = () => { state.outputView = $("output-folder").value; renderGallery(); };
+      $("choose-folder").onclick = () => $("folder-picker").click();
+      $("folder-picker").addEventListener("change", handleFolderPicked);
       $("select-visible").onclick = selectVisibleOutputs;
+      $("select-all-visible").onclick = selectAllVisibleOutputs;
       $("clear-selection").onclick = clearVisibleSelection;
+      $("move-selected").onclick = moveSelectedOutputs;
       $("delete-selected").onclick = deleteSelectedOutputs;
+      $("gallery").addEventListener("wheel", scrollGalleryWithWheel, { passive: false });
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
       $("parts-use-selected-source").onclick = useSelectedAsSource;

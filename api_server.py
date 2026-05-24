@@ -344,6 +344,29 @@ def _output_relative_path(path: Path) -> str:
         return path.name
 
 
+def _output_collision_path(path: Path) -> Path:
+    if not path.exists():
+        return path
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+    for index in range(1, 1000):
+        candidate = parent / f"{stem}-{index}{suffix}"
+        if not candidate.exists():
+            return candidate
+    raise HTTPException(status_code=500, detail="Could not create a unique output filename.")
+
+
+def _safe_output_folder_name(value: str) -> str:
+    folder = re.sub(r"[^A-Za-z0-9._ -]+", "-", (value or "").strip()).strip(" .-_")
+    folder = re.sub(r"\s+", " ", folder)[:80].strip()
+    if not folder:
+        raise HTTPException(status_code=400, detail="Folder name is required.")
+    if folder in {".", ".."}:
+        raise HTTPException(status_code=400, detail="Invalid folder name.")
+    return folder
+
+
 def _metadata_for(path: Path) -> dict:
     metadata_path = path.with_suffix(".json")
     if not metadata_path.is_file():
@@ -1431,6 +1454,64 @@ async def delete_outputs(request: FastAPIRequest):
             "removed": removed,
             "metadata_removed": metadata_removed,
             "removed_paths": removed_paths,
+            "outputs": _recent_outputs(),
+        }
+    )
+
+
+@app.post("/api/outputs/move", tags=["ui"])
+async def move_outputs(request: FastAPIRequest):
+    payload = await request.json()
+    requested = payload.get("paths") or payload.get("relative_paths") or []
+    if not isinstance(requested, list):
+        raise HTTPException(status_code=400, detail="paths must be a list.")
+    requested = [str(item).strip() for item in requested if str(item).strip()]
+    if not requested:
+        return JSONResponse({"status": "ok", "moved": 0, "metadata_moved": 0, "outputs": _recent_outputs()})
+    if len(requested) > 200:
+        raise HTTPException(status_code=400, detail="Too many outputs selected.")
+
+    root = SETTINGS.output_dir.resolve()
+    folder = _safe_output_folder_name(str(payload.get("folder") or payload.get("folder_name") or ""))
+    destination_dir = (root / folder).resolve()
+    if root not in destination_dir.parents:
+        raise HTTPException(status_code=400, detail="Invalid output folder.")
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+    moved = 0
+    metadata_moved = 0
+    moved_paths: list[str] = []
+    for item in dict.fromkeys(requested):
+        path = _safe_output_path(item)
+        metadata_path = path.with_suffix(".json")
+        target = _output_collision_path(destination_dir / path.name)
+        try:
+            path.rename(target)
+            moved += 1
+            moved_paths.append(_output_relative_path(target))
+        except Exception:
+            continue
+        if metadata_path.is_file():
+            metadata_target = _output_collision_path(target.with_suffix(".json"))
+            try:
+                metadata_path.rename(metadata_target)
+                metadata_moved += 1
+            except Exception:
+                pass
+        parent = path.parent
+        while parent != root and root in parent.parents:
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
+    return JSONResponse(
+        {
+            "status": "ok",
+            "folder": folder,
+            "moved": moved,
+            "metadata_moved": metadata_moved,
+            "moved_paths": moved_paths,
             "outputs": _recent_outputs(),
         }
     )
