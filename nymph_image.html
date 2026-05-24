@@ -640,7 +640,13 @@
 
     .folder-menu {
       position: relative;
-      min-width: 0;
+      width: 34px;
+      height: 28px;
+      flex: 0 0 34px;
+      display: inline-grid;
+      place-items: center;
+      align-self: center;
+      min-width: 34px;
     }
 
     .folder-menu summary {
@@ -648,6 +654,8 @@
       height: 28px;
       display: grid;
       place-items: center;
+      margin: 0;
+      padding: 0;
       border: 1px solid var(--line-strong);
       border-radius: 5px;
       background: rgba(15, 26, 28, 0.85);
@@ -688,8 +696,10 @@
     .strip-select-actions {
       display: flex;
       align-items: center;
+      flex-wrap: nowrap;
       gap: 6px;
       min-width: 0;
+      white-space: nowrap;
     }
 
     .strip-select-actions button {
@@ -1040,12 +1050,12 @@
           <span id="output-label">No output</span>
         </div>
         <div class="model-line"><span>Selected</span> <span id="selected-model-text">checking</span></div>
-        <div class="progress-line" hidden>
+        <div class="progress-line">
           <span class="progress-stage" id="progress-stage">Idle</span>
           <span id="progress-detail">Waiting for prompt.</span>
           <span id="progress-percent">0%</span>
         </div>
-        <div class="bar" hidden><span id="progress-bar"></span></div>
+        <div class="bar"><span id="progress-bar"></span></div>
         <div class="strip-head">
           <div class="strip-title"><span>Browse</span><span id="strip-label">Outputs</span></div>
           <div class="strip-controls">
