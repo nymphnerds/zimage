@@ -395,19 +395,12 @@ hf_repo_blob_bytes() {
 hf_repo_incomplete_count() {
   local repo_id="$1"
   local repo_dir
-  local repo_path
-  local lock_dir
-  local count=0
-  repo_path="${repo_id//\//--}"
   repo_dir="$(hf_repo_cache_dir "${repo_id}")"
-  lock_dir="${NYMPHS3D_HF_CACHE_DIR}/.locks/models--${repo_path}"
-  if [[ -d "${repo_dir}/blobs" ]]; then
-    count=$(( count + $(find "${repo_dir}/blobs" -type f \( -name '*.incomplete' -o -name '*.lock' -o -name '*.tmp' -o -name '*.part' \) 2>/dev/null | wc -l | tr -d ' ') ))
+  if [[ ! -d "${repo_dir}/blobs" ]]; then
+    echo 0
+    return
   fi
-  if [[ -d "${lock_dir}" ]]; then
-    count=$(( count + $(find "${lock_dir}" -type f \( -name '*.lock' -o -name '*.tmp' -o -name '*.part' \) 2>/dev/null | wc -l | tr -d ' ') ))
-  fi
-  echo "${count}"
+  find "${repo_dir}/blobs" -type f -name '*.incomplete' 2>/dev/null | wc -l | tr -d ' '
 }
 
 print_hf_download_progress() {
@@ -426,14 +419,12 @@ print_hf_download_progress() {
   if [[ "${cache_delta}" -lt 0 ]]; then
     cache_delta=0
   fi
-  if [[ "${repo_bytes}" -lt "${cache_delta}" && "${repo_bytes}" -lt 262144 && "${cache_delta}" -gt 0 ]]; then
-    repo_bytes="${cache_delta}"
+  echo "MODEL FETCH STATUS: step=${label} repo=${repo_id} status=downloading"
+  if [[ -n "${NYMPHS3D_PREFETCH_COMPONENT_HINT:-}" ]]; then
+    echo "MODEL FETCH STATUS: downloading=${NYMPHS3D_PREFETCH_COMPONENT_HINT}"
   fi
-  if [[ "${incomplete_count}" -eq 0 && "${cache_delta}" -gt 0 ]]; then
-    incomplete_count=1
-  fi
-
-  echo "MODEL FETCH STATUS: step=${label} repo=${repo_id} status=downloading this_repo_cache=$(format_bytes "${repo_bytes}") active_download_files=${incomplete_count}"
+  echo "MODEL FETCH STATUS: huggingface_cache_total=$(format_bytes "${current_cache_bytes}") downloaded_this_step=$(format_bytes "${cache_delta}") cache_dir=${NYMPHS3D_HF_CACHE_DIR}"
+  echo "MODEL FETCH STATUS: this_repo_cache=$(format_bytes "${repo_bytes}") active_download_files=${incomplete_count}"
 }
 
 run_with_hf_download_progress() {
