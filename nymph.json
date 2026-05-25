@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.80",
+  "version": "0.1.81",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -250,6 +250,35 @@
         "label": "Logs",
         "entrypoint": "logs",
         "result": "open_notepad"
+      }
+    ]
+  },
+  "overview": {
+    "body": "- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128\n- FLUX.1-dev: FLUX text-to-image generation; INT4 r32 and FP4 r32\n- FLUX.1-Kontext-dev: FLUX image edit/reference/parts extraction; INT4 r32 and FP4 r32\n- Brain: vision planning/captioning; no Qwen downloads in Nymphs Image",
+    "links": [
+      {
+        "label": "Z-Image Turbo",
+        "url": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo"
+      },
+      {
+        "label": "Z-Image Nunchaku weights",
+        "url": "https://huggingface.co/nunchaku-ai/nunchaku-z-image-turbo"
+      },
+      {
+        "label": "FLUX.1-dev",
+        "url": "https://huggingface.co/black-forest-labs/FLUX.1-dev"
+      },
+      {
+        "label": "FLUX.1-Kontext-dev",
+        "url": "https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
+      },
+      {
+        "label": "FLUX.1-dev Nunchaku weights",
+        "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-dev"
+      },
+      {
+        "label": "FLUX.1-Kontext-dev Nunchaku weights",
+        "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-kontext-dev"
       }
     ]
   },
