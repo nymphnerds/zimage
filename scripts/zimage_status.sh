@@ -14,12 +14,16 @@ downloaded_models=none
 downloaded_weights=none
 missing_weights=none
 weight_profile_selected=unknown
-weight_profiles_available=int4_r32,int4_r128,int4_r256,fp4_r32,fp4_r128
+weight_profiles_available=int4_r32,int4_r128,int4_r256,fp4_r32,fp4_r128,flux_dev_int4_r32,flux_dev_fp4_r32,flux_kontext_int4_r32,flux_kontext_fp4_r32
 weight_profiles_downloaded=none
 weight_profiles_missing=none
 weight_profile_ready=false
 zimage_ready=false
+flux_dev_int4_ready=false
+flux_dev_fp4_ready=false
 flux_dev_ready=false
+flux_kontext_int4_ready=false
+flux_kontext_fp4_ready=false
 flux_kontext_ready=false
 brain_installed=false
 brain_model_configured=false
@@ -130,23 +134,92 @@ if [[ -d "${NYMPHS3D_HF_CACHE_DIR}" ]]; then
   done < <(read_zimage_model_cache_status)
 fi
 
-weight_profiles_downloaded="${downloaded_weights}"
-weight_profiles_missing="${missing_weights}"
-
 if [[ "${base_model_downloaded}" == "true" && "${downloaded_weights}" != "none" && -n "${downloaded_weights}" ]]; then
   zimage_ready=true
 fi
 
-if hf_snapshot_has_path "black-forest-labs/FLUX.1-dev" "model_index.json" &&
-   ( hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors" ||
-     hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-fp4_r32-flux.1-dev.safetensors" ); then
+flux_dev_base_ready=false
+if hf_snapshot_has_path "black-forest-labs/FLUX.1-dev" "model_index.json"; then
+  flux_dev_base_ready=true
+fi
+if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"; then
+  flux_dev_int4_ready=true
+fi
+if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-fp4_r32-flux.1-dev.safetensors"; then
+  flux_dev_fp4_ready=true
+fi
+if [[ "${flux_dev_base_ready}" == "true" &&
+      ( "${flux_dev_int4_ready}" == "true" || "${flux_dev_fp4_ready}" == "true" ) ]]; then
   flux_dev_ready=true
 fi
 
-if hf_snapshot_has_path "black-forest-labs/FLUX.1-Kontext-dev" "model_index.json" &&
-   ( hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors" ||
-     hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-fp4_r32-flux.1-kontext-dev.safetensors" ); then
+flux_kontext_base_ready=false
+if hf_snapshot_has_path "black-forest-labs/FLUX.1-Kontext-dev" "model_index.json"; then
+  flux_kontext_base_ready=true
+fi
+if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"; then
+  flux_kontext_int4_ready=true
+fi
+if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-fp4_r32-flux.1-kontext-dev.safetensors"; then
+  flux_kontext_fp4_ready=true
+fi
+if [[ "${flux_kontext_base_ready}" == "true" &&
+      ( "${flux_kontext_int4_ready}" == "true" || "${flux_kontext_fp4_ready}" == "true" ) ]]; then
   flux_kontext_ready=true
+fi
+
+profile_downloaded=()
+profile_missing=()
+if [[ -n "${downloaded_weights}" && "${downloaded_weights}" != "none" ]]; then
+  IFS=',' read -ra zimage_downloaded_profiles <<< "${downloaded_weights}"
+  profile_downloaded+=("${zimage_downloaded_profiles[@]}")
+fi
+if [[ -n "${missing_weights}" && "${missing_weights}" != "none" ]]; then
+  IFS=',' read -ra zimage_missing_profiles <<< "${missing_weights}"
+  profile_missing+=("${zimage_missing_profiles[@]}")
+fi
+if [[ "${flux_dev_base_ready}" == "true" && "${flux_dev_int4_ready}" == "true" ]]; then
+  profile_downloaded+=(flux_dev_int4_r32)
+else
+  profile_missing+=(flux_dev_int4_r32)
+fi
+if [[ "${flux_dev_base_ready}" == "true" && "${flux_dev_fp4_ready}" == "true" ]]; then
+  profile_downloaded+=(flux_dev_fp4_r32)
+else
+  profile_missing+=(flux_dev_fp4_r32)
+fi
+if [[ "${flux_kontext_base_ready}" == "true" && "${flux_kontext_int4_ready}" == "true" ]]; then
+  profile_downloaded+=(flux_kontext_int4_r32)
+else
+  profile_missing+=(flux_kontext_int4_r32)
+fi
+if [[ "${flux_kontext_base_ready}" == "true" && "${flux_kontext_fp4_ready}" == "true" ]]; then
+  profile_downloaded+=(flux_kontext_fp4_r32)
+else
+  profile_missing+=(flux_kontext_fp4_r32)
+fi
+if [[ ${#profile_downloaded[@]} -gt 0 ]]; then
+  weight_profiles_downloaded="$(IFS=,; printf '%s' "${profile_downloaded[*]}")"
+else
+  weight_profiles_downloaded=none
+fi
+if [[ ${#profile_missing[@]} -gt 0 ]]; then
+  weight_profiles_missing="$(IFS=,; printf '%s' "${profile_missing[*]}")"
+else
+  weight_profiles_missing=none
+fi
+
+downloaded_model_labels=()
+if [[ -n "${downloaded_models}" && "${downloaded_models}" != "none" ]]; then
+  IFS=',' read -ra zimage_downloaded_model_labels <<< "${downloaded_models}"
+  downloaded_model_labels+=("${zimage_downloaded_model_labels[@]}")
+fi
+[[ "${flux_dev_ready}" == "true" ]] && downloaded_model_labels+=(FLUX.1-dev)
+[[ "${flux_kontext_ready}" == "true" ]] && downloaded_model_labels+=(FLUX.1-Kontext-dev)
+if [[ ${#downloaded_model_labels[@]} -gt 0 ]]; then
+  downloaded_models="$(IFS=,; printf '%s' "${downloaded_model_labels[*]}")"
+else
+  downloaded_models=none
 fi
 
 brain_root="${NYMPHS_BRAIN_INSTALL_ROOT:-$HOME/Nymphs-Brain}"

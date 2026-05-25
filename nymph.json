@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.85",
+  "version": "0.1.86",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -56,6 +56,7 @@
     "logs": "scripts/zimage_logs.sh",
     "delete_models": "scripts/zimage_delete_models.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
+    "open_flux_access": "scripts/zimage_open_flux_access.sh",
     "smoke_test": "scripts/zimage_smoke_test.sh",
     "uninstall": "scripts/zimage_uninstall.sh",
     "open_lora": "scripts/zimage_open_lora.sh",
@@ -73,6 +74,21 @@
       "start_action": "open_nymph_ui",
       "stop_action": "stop"
     },
+    "detail_primary_action": {
+      "id": "open_flux_access",
+      "label": "Accept FLUX access",
+      "entrypoint": "open_flux_access",
+      "result": "open_external_browser",
+      "heading": "NEXT STEP:",
+      "help": "FLUX access pages need accepting before Fetch Models.",
+      "show_when": {
+        "state": [
+          "model_download_needed",
+          "checking_status",
+          "status_timeout"
+        ]
+      }
+    },
     "manager_action_groups": [
       {
         "id": "model_fetch",
@@ -81,7 +97,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Agreement: by clicking Yes, you confirm you have accepted the required upstream model terms. Yes starts the fetch.",
+        "description": "Download the local image model files. FLUX model pages must be accepted on Hugging Face with the same account used for your token.",
         "links": [
           {
             "label": "Base model",
@@ -92,11 +108,11 @@
             "url": "https://huggingface.co/nunchaku-ai/nunchaku-z-image-turbo"
           },
           {
-            "label": "FLUX.1-dev",
+            "label": "Accept FLUX.1-dev access",
             "url": "https://huggingface.co/black-forest-labs/FLUX.1-dev"
           },
           {
-            "label": "FLUX.1-Kontext-dev",
+            "label": "Accept FLUX.1-Kontext-dev access",
             "url": "https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
           },
           {
@@ -169,20 +185,20 @@
             ]
           },
           {
-            "name": "license_ack",
-            "type": "hidden",
-            "label": "License/access acknowledged in popup",
-            "arg": "--license-ack",
-            "default": "yes",
-            "optional": false
-          },
-          {
             "name": "hf_token",
             "type": "secret",
             "label": "Hugging Face token",
             "secret_id": "huggingface.token",
             "env": "NYMPHS3D_HF_TOKEN",
             "optional": true
+          },
+          {
+            "name": "license_ack",
+            "type": "hidden",
+            "label": "License/access acknowledged in popup",
+            "arg": "--license-ack",
+            "default": "yes",
+            "optional": false
           }
         ],
         "submit": {
@@ -254,7 +270,7 @@
     ]
   },
   "overview": {
-    "body": "- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128\n- FLUX.1-dev: FLUX text-to-image generation; INT4 r32 and FP4 r32\n- FLUX.1-Kontext-dev: FLUX image edit/reference/parts extraction; INT4 r32 and FP4 r32\n- Brain: vision planning/captioning; no Qwen downloads in Nymphs Image",
+    "body": "- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128\n- FLUX.1-dev: FLUX text-to-image generation; INT4 r32 and FP4 r32\n- FLUX.1-Kontext-dev: FLUX image edit/reference/parts extraction; INT4 r32 and FP4 r32\n- Brain: vision planning/captioning; no Qwen downloads in Nymphs Image\n\nBefore Fetch Models, accept the FLUX Hugging Face access pages with the same account used for your token.",
     "links": [
       {
         "label": "Z-Image Turbo",
@@ -265,11 +281,11 @@
         "url": "https://huggingface.co/nunchaku-ai/nunchaku-z-image-turbo"
       },
       {
-        "label": "FLUX.1-dev",
+        "label": "Accept FLUX.1-dev access",
         "url": "https://huggingface.co/black-forest-labs/FLUX.1-dev"
       },
       {
-        "label": "FLUX.1-Kontext-dev",
+        "label": "Accept FLUX.1-Kontext-dev access",
         "url": "https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
       },
       {

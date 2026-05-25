@@ -264,7 +264,14 @@ if [[ -n "${requested_weight}" ]]; then
 fi
 
 if [[ "${fetch_flux_dev}" == "true" || "${fetch_flux_kontext}" == "true" ]] && [[ "${license_ack}" != "true" ]]; then
-  echo "FLUX downloads require --license-ack yes after accepting the upstream BFL model terms." >&2
+  cat >&2 <<'EOF'
+LICENSE ACK REQUIRED:
+FLUX.1-dev and FLUX.1-Kontext-dev are gated/non-commercial BFL models.
+Accept the Hugging Face access pages with the same account used for your token:
+https://huggingface.co/black-forest-labs/FLUX.1-dev
+https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev
+Rerun Fetch Models after selecting "Yes" in the module action popup.
+EOF
   exit 2
 fi
 
@@ -483,7 +490,17 @@ run_with_hf_download_progress() {
     print_hf_download_progress "${label}" "${repo_id}" "${start_cache_bytes}"
     echo "MODEL FETCH COMPLETE: step=${label} repo=${repo_id}"
   else
-    echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} exit_status=${status}"
+    case "${repo_id}" in
+      black-forest-labs/FLUX.1-dev)
+        echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} status=failed error=flux_access_needed next_step=Accept FLUX.1-dev access, then run Fetch Models again. link=https://huggingface.co/black-forest-labs/FLUX.1-dev"
+        ;;
+      black-forest-labs/FLUX.1-Kontext-dev)
+        echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} status=failed error=flux_access_needed next_step=Accept FLUX.1-Kontext-dev access, then run Fetch Models again. link=https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
+        ;;
+      *)
+        echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} exit_status=${status}"
+        ;;
+    esac
   fi
 
   return "${status}"
