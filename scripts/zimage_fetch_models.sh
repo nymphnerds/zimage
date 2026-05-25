@@ -433,7 +433,7 @@ print_hf_download_progress() {
     incomplete_count=1
   fi
 
-  echo "MODEL FETCH STATUS: step=${label} repo=${repo_id} status=downloading downloading=${NYMPHS3D_PREFETCH_COMPONENT_HINT:-model files} huggingface_cache_total=$(format_bytes "${current_cache_bytes}") downloaded_this_step=$(format_bytes "${cache_delta}") cache_dir=${NYMPHS3D_HF_CACHE_DIR} this_repo_cache=$(format_bytes "${repo_bytes}") active_download_files=${incomplete_count}"
+  echo "MODEL FETCH STATUS: step=${label} repo=${repo_id} status=downloading this_repo_cache=$(format_bytes "${repo_bytes}") active_download_files=${incomplete_count}"
 }
 
 run_with_hf_download_progress() {
