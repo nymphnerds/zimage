@@ -18,6 +18,14 @@ weight_profiles_available=int4_r32,int4_r128,int4_r256,fp4_r32,fp4_r128
 weight_profiles_downloaded=none
 weight_profiles_missing=none
 weight_profile_ready=false
+zimage_ready=false
+flux_dev_ready=false
+flux_kontext_ready=false
+brain_installed=false
+brain_model_configured=false
+brain_ready=false
+brain_url="${NYMPHS_BRAIN_LLM_API_BASE_URL:-http://127.0.0.1:8000/v1}"
+local_parts_ready=false
 running=false
 version=not-installed
 health=unavailable
@@ -86,6 +94,31 @@ read_zimage_model_cache_status() {
   printf 'downloaded_models=%s\n' "$([[ ${#downloaded_models[@]} -gt 0 ]] && (IFS=,; printf '%s' "${downloaded_models[*]}") || printf 'none')"
 }
 
+hf_snapshot_has_path() {
+  local repo_id="$1"
+  local required_path="$2"
+  local repo_dir="${NYMPHS3D_HF_CACHE_DIR}/models--${repo_id//\//--}"
+  local ref_file="${repo_dir}/refs/main"
+  local snapshots_dir="${repo_dir}/snapshots"
+  local snapshot=""
+  if [[ -f "${ref_file}" ]]; then
+    snapshot="$(cat "${ref_file}" 2>/dev/null || true)"
+    if [[ -n "${snapshot}" && -e "${snapshots_dir}/${snapshot}/${required_path}" ]]; then
+      return 0
+    fi
+  fi
+  [[ -d "${snapshots_dir}" ]] || return 1
+  find -L "${snapshots_dir}" -mindepth 2 -maxdepth 3 -path "*/${required_path}" -print -quit 2>/dev/null | grep -q .
+}
+
+hf_snapshot_has_file() {
+  local repo_id="$1"
+  local filename="$2"
+  local snapshots_dir="${NYMPHS3D_HF_CACHE_DIR}/models--${repo_id//\//--}/snapshots"
+  [[ -d "${snapshots_dir}" ]] || return 1
+  find -L "${snapshots_dir}" -mindepth 2 -maxdepth 2 -type f -name "${filename}" -print -quit 2>/dev/null | grep -q .
+}
+
 if [[ -d "${NYMPHS3D_HF_CACHE_DIR}" ]]; then
   while IFS='=' read -r key value; do
     case "${key}" in
@@ -99,6 +132,40 @@ fi
 
 weight_profiles_downloaded="${downloaded_weights}"
 weight_profiles_missing="${missing_weights}"
+
+if [[ "${base_model_downloaded}" == "true" && "${downloaded_weights}" != "none" && -n "${downloaded_weights}" ]]; then
+  zimage_ready=true
+fi
+
+if hf_snapshot_has_path "black-forest-labs/FLUX.1-dev" "model_index.json" &&
+   hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"; then
+  flux_dev_ready=true
+fi
+
+if hf_snapshot_has_path "black-forest-labs/FLUX.1-Kontext-dev" "model_index.json" &&
+   hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"; then
+  flux_kontext_ready=true
+fi
+
+brain_root="${NYMPHS_BRAIN_INSTALL_ROOT:-$HOME/Nymphs-Brain}"
+if [[ -f "${brain_root}/.nymph-module-version" ]]; then
+  brain_installed=true
+fi
+
+if [[ -f "${brain_root}/bin/lms-start" ]]; then
+  configured_brain_model="$(sed -n 's/^MODEL_KEY="\([^"]*\)".*/\1/p' "${brain_root}/bin/lms-start" | head -n 1)"
+  if [[ -n "${configured_brain_model}" && "${configured_brain_model}" != "none" ]]; then
+    brain_model_configured=true
+  fi
+fi
+
+if [[ "${brain_installed}" == "true" && "${brain_model_configured}" == "true" ]]; then
+  brain_ready=true
+fi
+
+if [[ "${flux_kontext_ready}" == "true" && "${brain_ready}" == "true" ]]; then
+  local_parts_ready=true
+fi
 
 if [[ -f "${marker}" ]]; then
   installed=true
@@ -175,7 +242,7 @@ elif [[ "${env_ready}" == "true" ]]; then
   if (
     cd "${ZIMAGE_INSTALL_ROOT}"
     export Z_IMAGE_NUNCHAKU_PRECISION="${status_check_precision}"
-    "$(zimage_python)" -m py_compile api_server.py model_manager.py nunchaku_compat.py scripts/prefetch_model.py >/dev/null 2>&1
+    "$(zimage_python)" -m py_compile api_server.py brain_client.py image_providers.py model_manager.py nunchaku_compat.py scripts/prefetch_model.py >/dev/null 2>&1
     "$(zimage_python)" scripts/prefetch_model.py --local-files-only >/dev/null 2>&1
   ); then
     models_ready=true
@@ -222,6 +289,14 @@ data_present=${data_present}
 version=${version}
 env_ready=${env_ready}
 models_ready=${models_ready}
+zimage_ready=${zimage_ready}
+flux_dev_ready=${flux_dev_ready}
+flux_kontext_ready=${flux_kontext_ready}
+brain_installed=${brain_installed}
+brain_model_configured=${brain_model_configured}
+brain_ready=${brain_ready}
+brain_url=${brain_url}
+local_parts_ready=${local_parts_ready}
 base_model_downloaded=${base_model_downloaded}
 downloaded_models=${downloaded_models}
 downloaded_weights=${downloaded_weights}

@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.75",
+  "version": "0.1.76",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -81,7 +81,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Install sets up the backend only. Fetch Models downloads the actual AI model files.\nEvery fetch downloads the large required base model first: Tongyi-MAI/Z-Image-Turbo.\nThen it downloads your selected Nunchaku-compatible Blender weight. Choose All weights only if you want Blender to switch between every preset later.\nr32 is light/default. r128 is balanced or portrait-friendly. r256 is highest quality and INT4-only. RTX 50 users should fetch fp4_r128 or All weights.",
+        "description": "Install sets up the backend only. Fetch Models downloads the actual Z-Image model files.\nZ-Image Turbo is the fast local default for normal prompts.\nBrain owns local vision models such as Qwen Vision for LoRA captioning and parts planning.\nFor FLUX.1-dev or FLUX.1-Kontext-dev, use the separate FLUX fetch action because those model families require BFL terms review.",
         "links": [
           {
             "label": "Base model",
@@ -143,6 +143,83 @@
         ],
         "submit": {
           "label": "Fetch Models"
+        }
+      },
+      {
+        "id": "flux_model_fetch",
+        "title": "FLUX Fetch",
+        "layout": "compact",
+        "entrypoint": "fetch_models",
+        "result": "show_logs",
+        "visibility": "installed",
+        "description": "Fetch local FLUX model files only after reviewing the upstream BFL terms.\nFLUX.1-dev is local text-to-image.\nFLUX.1-Kontext-dev is local image editing and source-image part extraction.\nLocal parts planning requires Brain with a vision-capable model, such as Qwen Vision.\nNymphs Image only downloads the FLUX image side.",
+        "links": [
+          {
+            "label": "FLUX.1-dev terms",
+            "url": "https://huggingface.co/black-forest-labs/FLUX.1-dev"
+          },
+          {
+            "label": "FLUX.1-Kontext-dev terms",
+            "url": "https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
+          },
+          {
+            "label": "Nunchaku FLUX.1-dev weights",
+            "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-dev"
+          },
+          {
+            "label": "Nunchaku FLUX.1-Kontext-dev weights",
+            "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-kontext-dev"
+          }
+        ],
+        "fields": [
+          {
+            "name": "flux_download",
+            "type": "select",
+            "label": "Download",
+            "arg": "--model",
+            "default": "local_parts_flux_16gb",
+            "options": [
+              {
+                "label": "Local Parts FLUX",
+                "value": "local_parts_flux_16gb",
+                "description": "Download FLUX Kontext INT4 r32 for part extraction. Brain handles the vision planner."
+              },
+              {
+                "label": "Local Image Stack",
+                "value": "local_image_stack_16gb",
+                "description": "Download Z-Image, FLUX dev, and FLUX Kontext. Brain handles local vision models."
+              },
+              {
+                "label": "FLUX.1-dev",
+                "value": "flux_dev_int4_r32",
+                "description": "Download local FLUX text-to-image model files"
+              },
+              {
+                "label": "FLUX.1-Kontext",
+                "value": "flux_kontext_int4_r32",
+                "description": "Download local FLUX image editing and parts extraction model files"
+              }
+            ]
+          },
+          {
+            "name": "license_ack",
+            "type": "hidden",
+            "label": "License/access acknowledged in popup",
+            "arg": "--license-ack",
+            "default": "yes",
+            "optional": false
+          },
+          {
+            "name": "hf_token",
+            "type": "secret",
+            "label": "Hugging Face token",
+            "secret_id": "huggingface.token",
+            "env": "NYMPHS3D_HF_TOKEN",
+            "optional": true
+          }
+        ],
+        "submit": {
+          "label": "Fetch FLUX"
         }
       }
     ],

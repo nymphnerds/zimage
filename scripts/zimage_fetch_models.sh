@@ -9,6 +9,10 @@ requested_preset=""
 requested_weight=""
 download_all_weights=false
 selected_fetch_label=""
+fetch_zimage=true
+fetch_flux_dev=false
+fetch_flux_kontext=false
+license_ack=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -89,17 +93,40 @@ while [[ $# -gt 0 ]]; do
       export NYMPHS3D_HF_TOKEN="${1#*=}"
       shift
       ;;
+    --license-ack|--license_ack)
+      if [[ $# -ge 2 && "${2:-}" != --* ]]; then
+        case "${2:-}" in
+          1|true|yes|y|on|acknowledged) license_ack=true ;;
+          *) license_ack=false ;;
+        esac
+        shift 2
+      else
+        license_ack=true
+        shift 1
+      fi
+      ;;
+    --license-ack=*|--license_ack=*)
+      case "${1#*=}" in
+        1|true|yes|y|on|acknowledged) license_ack=true ;;
+        *) license_ack=false ;;
+      esac
+      shift
+      ;;
     -h|--help)
       cat <<'EOF'
 Usage:
   zimage_fetch_models.sh --model svdq-int4_r128-z-image-turbo.safetensors
   zimage_fetch_models.sh --model all
+  zimage_fetch_models.sh --model flux_dev_int4_r32 --license-ack yes
+  zimage_fetch_models.sh --model flux_kontext_int4_r32 --license-ack yes
+  zimage_fetch_models.sh --model local_parts_flux_16gb --license-ack yes
+  zimage_fetch_models.sh --model local_image_stack_16gb --license-ack yes
   zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
   zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
 
-Downloads the base Z-Image Turbo model files and the selected Nunchaku
-quantized weight. Use --model all to download every published compatible
-weight so Blender can switch between its Model Choice presets later.
+Downloads local Nymphs Image model files. Z-Image Turbo is the fast default.
+FLUX.1-dev is local text-to-image. FLUX.1-Kontext-dev is local image editing
+and parts extraction. Brain owns local vision/planner model downloads.
 
 Friendly presets:
   RTX 20/30/40 + fast     -> int4 r32
@@ -116,6 +143,10 @@ Published Z-Image Turbo quantized weights for the Nunchaku runtime:
   svdq-fp4_r128-z-image-turbo.safetensors
 
 Use --precision auto only with ranks that exist for both INT4 and FP4.
+
+BFL FLUX.1-dev and FLUX.1-Kontext-dev are gated/non-commercial model families.
+Use --license-ack yes only after accepting and complying with the upstream
+model terms for your use.
 EOF
       exit 0
       ;;
@@ -162,9 +193,42 @@ if [[ -n "${requested_weight}" ]]; then
       Z_IMAGE_NUNCHAKU_RANK="128"
       selected_fetch_label="svdq-fp4_r128-z-image-turbo.safetensors"
       ;;
+    flux_dev_int4_r32|flux-dev-int4-r32)
+      fetch_zimage=false
+      fetch_flux_dev=true
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="FLUX.1-dev INT4 r32"
+      ;;
+    flux_kontext_int4_r32|flux-kontext-int4-r32)
+      fetch_zimage=false
+      fetch_flux_kontext=true
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="FLUX.1-Kontext-dev INT4 r32"
+      ;;
+    qwen3_vl_8b_q4_vision|qwen3-vl-8b-q4-vision)
+      echo "Brain owns local vision model downloads. Use Brain to fetch/configure Qwen or another vision-capable model." >&2
+      exit 2
+      ;;
+    local_parts_flux_16gb|local-parts-flux-16gb|local_parts_stack_16gb|local-parts-stack-16gb)
+      fetch_zimage=false
+      fetch_flux_kontext=true
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="Local Parts FLUX side 16GB"
+      ;;
+    local_image_stack_16gb|local-image-stack-16gb)
+      fetch_zimage=true
+      fetch_flux_dev=true
+      fetch_flux_kontext=true
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="Local Image Stack 16GB"
+      ;;
     *)
-      echo "Unsupported Z-Image Turbo quantized weight: ${requested_weight}." >&2
-      echo "Expected one of the svdq-int4/fp4 Z-Image Turbo safetensors filenames listed in --help." >&2
+      echo "Unsupported Nymphs Image model selection: ${requested_weight}." >&2
+      echo "Run --help for supported Z-Image and FLUX options." >&2
       exit 2
       ;;
   esac
@@ -173,6 +237,11 @@ if [[ -n "${requested_weight}" ]]; then
     export Z_IMAGE_NUNCHAKU_PRECISION
     export Z_IMAGE_NUNCHAKU_RANK
   fi
+fi
+
+if [[ "${fetch_flux_dev}" == "true" || "${fetch_flux_kontext}" == "true" ]] && [[ "${license_ack}" != "true" ]]; then
+  echo "FLUX downloads require --license-ack yes after accepting the upstream BFL model terms." >&2
+  exit 2
 fi
 
 if [[ -n "${requested_gpu_family}" || -n "${requested_preset}" ]]; then
@@ -446,6 +515,45 @@ PY
   )
 }
 
+prefetch_hf_snapshot_model() {
+  local model_id="$1"
+  local profile="${2:-full}"
+  (
+    cd "${ZIMAGE_INSTALL_ROOT}"
+    "$(zimage_python)" scripts/prefetch_model.py --model-id "${model_id}" --profile "${profile}"
+  )
+}
+
+prefetch_hf_file() {
+  local repo_id="$1"
+  local filename="$2"
+  (
+    cd "${ZIMAGE_INSTALL_ROOT}"
+    HF_REPO_ID="${repo_id}" HF_FILENAME="${filename}" "$(zimage_python)" - <<'PY'
+import os
+from huggingface_hub import hf_hub_download
+
+repo_id = os.environ["HF_REPO_ID"]
+filename = os.environ["HF_FILENAME"]
+cache_dir = os.getenv("NYMPHS3D_HF_CACHE_DIR") or None
+token = os.getenv("NYMPHS3D_HF_TOKEN") or None
+print(f"HF file prefetch: {repo_id}/{filename}", flush=True)
+path = hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=cache_dir, token=token)
+print(f"HF file ready: {path}", flush=True)
+PY
+  )
+}
+
+prefetch_flux_dev() {
+  prefetch_hf_snapshot_model "black-forest-labs/FLUX.1-dev" "full"
+  prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"
+}
+
+prefetch_flux_kontext() {
+  prefetch_hf_snapshot_model "black-forest-labs/FLUX.1-Kontext-dev" "full"
+  prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"
+}
+
 save_zimage_generation_preset() {
   mkdir -p "${ZIMAGE_CONFIG_DIR}"
   {
@@ -465,29 +573,52 @@ echo "nunchaku_weight_repo=${Z_IMAGE_NUNCHAKU_MODEL_REPO}"
 echo "nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}"
 echo "nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}"
 echo "download_all_weights=${download_all_weights}"
+echo "fetch_zimage=${fetch_zimage}"
+echo "fetch_flux_dev=${fetch_flux_dev}"
+echo "fetch_flux_kontext=${fetch_flux_kontext}"
 echo "hf_cache_dir=${NYMPHS3D_HF_CACHE_DIR}"
 
-echo "model_fetch_plan=1 required base model (${Z_IMAGE_MODEL_ID}), then selected Blender/Nunchaku weight"
+echo "model_fetch_plan=${selected_fetch_label:-Z-Image selected model files}"
 
-export NYMPHS3D_PREFETCH_COMPONENT_HINT="required large base Z-Image Turbo model files"
-run_with_hf_download_progress \
-  "1/2 required base model" \
-  "${Z_IMAGE_MODEL_ID}" \
-  prefetch_zimage_base_model
-unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+if [[ "${fetch_zimage}" == "true" ]]; then
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="required large base Z-Image Turbo model files"
+  run_with_hf_download_progress \
+    "Z-Image required base model" \
+    "${Z_IMAGE_MODEL_ID}" \
+    prefetch_zimage_base_model
+  unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 
-if [[ "${download_all_weights}" == "true" ]]; then
-  export ZIMAGE_FETCH_ALL_WEIGHTS=1
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published Nunchaku-compatible Blender weights"
-else
-  unset ZIMAGE_FETCH_ALL_WEIGHTS
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Nunchaku-compatible Blender weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}"
+  if [[ "${download_all_weights}" == "true" ]]; then
+    export ZIMAGE_FETCH_ALL_WEIGHTS=1
+    export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published Nunchaku-compatible Blender weights"
+  else
+    unset ZIMAGE_FETCH_ALL_WEIGHTS
+    export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Nunchaku-compatible Blender weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}"
+  fi
+  run_with_hf_download_progress \
+    "Z-Image selected Blender weight" \
+    "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
+    prefetch_zimage_nunchaku_weight
+  unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 fi
-run_with_hf_download_progress \
-  "2/2 selected Blender weight" \
-  "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
-  prefetch_zimage_nunchaku_weight
-unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+
+if [[ "${fetch_flux_dev}" == "true" ]]; then
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-dev base model and Nunchaku INT4 r32 transformer"
+  run_with_hf_download_progress \
+    "FLUX.1-dev INT4 r32" \
+    "black-forest-labs/FLUX.1-dev" \
+    prefetch_flux_dev
+  unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+fi
+
+if [[ "${fetch_flux_kontext}" == "true" ]]; then
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-Kontext-dev base model and Nunchaku INT4 r32 transformer"
+  run_with_hf_download_progress \
+    "FLUX.1-Kontext-dev INT4 r32" \
+    "black-forest-labs/FLUX.1-Kontext-dev" \
+    prefetch_flux_kontext
+  unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+fi
 
 save_zimage_generation_preset
 echo "Z-Image generation preset saved: precision=${Z_IMAGE_NUNCHAKU_PRECISION} rank=${Z_IMAGE_NUNCHAKU_RANK} file=${ZIMAGE_PRESET_FILE}"

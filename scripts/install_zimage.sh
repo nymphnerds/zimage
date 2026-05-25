@@ -179,7 +179,9 @@ install -m 644 "${MODULE_ROOT}/nymph.json" "${STAGING_ROOT}/nymph.json"
 install -m 644 "${MODULE_ROOT}/api_server.py" "${STAGING_ROOT}/api_server.py"
 install -m 644 "${MODULE_ROOT}/nymph_image.html" "${STAGING_ROOT}/nymph_image.html"
 install -m 644 "${MODULE_ROOT}/shared_image_parts.py" "${STAGING_ROOT}/shared_image_parts.py"
+install -m 644 "${MODULE_ROOT}/brain_client.py" "${STAGING_ROOT}/brain_client.py"
 install -m 644 "${MODULE_ROOT}/config.py" "${STAGING_ROOT}/config.py"
+install -m 644 "${MODULE_ROOT}/image_providers.py" "${STAGING_ROOT}/image_providers.py"
 install -m 644 "${MODULE_ROOT}/image_store.py" "${STAGING_ROOT}/image_store.py"
 install -m 644 "${MODULE_ROOT}/model_manager.py" "${STAGING_ROOT}/model_manager.py"
 install -m 644 "${MODULE_ROOT}/nunchaku_compat.py" "${STAGING_ROOT}/nunchaku_compat.py"
@@ -269,7 +271,7 @@ fi
 
 (
   cd "${STAGING_ROOT}"
-  "${VENV_PYTHON}" -m py_compile api_server.py config.py image_store.py model_manager.py nunchaku_compat.py progress_state.py schemas.py scripts/prefetch_model.py scripts/run_nunchaku_zimage_test.py
+  "${VENV_PYTHON}" -m py_compile api_server.py brain_client.py config.py image_providers.py image_store.py model_manager.py nunchaku_compat.py progress_state.py schemas.py scripts/prefetch_model.py scripts/run_nunchaku_zimage_test.py
   "${VENV_PYTHON}" - <<'PY'
 from diffusers.pipelines.z_image.pipeline_z_image import ZImagePipeline
 from diffusers.pipelines.z_image.pipeline_z_image_img2img import ZImageImg2ImgPipeline

@@ -26,8 +26,10 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
+from brain_client import brain_chat_image, brain_status
 from config import get_settings
 from image_store import save_image_and_metadata
+from image_providers import ImageServiceCoordinator
 from model_manager import ModelManager
 from progress_state import reset as progress_reset
 from progress_state import snapshot as progress_snapshot
@@ -45,6 +47,7 @@ VERSION = "0.1.0"
 WORKER_ID = uuid.uuid4().hex[:6]
 SETTINGS = get_settings()
 MODEL_MANAGER = ModelManager(SETTINGS)
+IMAGE_COORDINATOR = ImageServiceCoordinator(SETTINGS, MODEL_MANAGER)
 NYMPH_UI_PATH = Path(__file__).resolve().parent / "nymph_image.html"
 NYMPH_UI_ASSET_PATH = Path(__file__).resolve().parent / "ui"
 PACKAGED_PROMPT_PRESET_PATH = Path(__file__).resolve().parent / "prompt_presets"
@@ -869,9 +872,14 @@ def _gemini_generate_worker(payload: dict) -> dict:
 
 
 def _part_plan_worker(payload: dict) -> dict:
-    api_key = _resolve_openrouter_api_key(payload)
+    planner_provider = str(payload.get("planner_provider") or payload.get("provider") or "gemini").strip().lower()
+    gemini_planners = {"", "gemini", "gemini_flash"}
+    brain_planners = {"local_vlm", "brain", "brain_vision", "qwen3_vl_gguf", "qwen"}
+    if planner_provider not in gemini_planners and planner_provider not in brain_planners:
+        raise ValueError(f"Unsupported parts planner provider: {planner_provider}")
+    api_key = _resolve_openrouter_api_key(payload) if planner_provider in gemini_planners else ""
     source_image = (payload.get("source_image") or "").strip()
-    if not api_key:
+    if planner_provider in gemini_planners and not api_key:
         raise ValueError("Enter an OpenRouter API key or save one in the Manager.")
     if not source_image:
         raise ValueError("Choose a source image first.")
@@ -884,7 +892,11 @@ def _part_plan_worker(payload: dict) -> dict:
         eye_part=bool(payload.get("eye_part")),
     )
     progress_update(status="processing", stage="planning_parts", detail="Planning character parts", progress_percent=12.0)
-    response_text, detail = _openrouter_text_from_image(api_key, planner_model, source_image, prompt)
+    if planner_provider in brain_planners:
+        response_text = brain_chat_image(source_image, prompt, temperature=0.1, max_tokens=1800)
+        detail = {"provider": "brain"}
+    else:
+        response_text, detail = _openrouter_text_from_image(api_key, planner_model, source_image, prompt)
     plan = _normalize_part_plan(_extract_json_payload(response_text), max_parts=max_parts)
     plan = _shared_parts().ensure_required_part_plan_entries(
         plan,
@@ -892,7 +904,7 @@ def _part_plan_worker(payload: dict) -> dict:
         include_eye_part=bool(payload.get("eye_part")),
     )
     metadata = {
-        "provider": "Gemini Flash",
+        "provider": "Brain Vision" if planner_provider in brain_planners else "Gemini Flash",
         "mode": "part_plan",
         "planner_model": planner_model,
         "parts": plan["parts"],
@@ -910,6 +922,10 @@ def _part_plan_worker(payload: dict) -> dict:
 def _part_extract_worker(payload: dict) -> dict:
     source_image = (payload.get("source_image") or "").strip()
     parts = payload.get("parts")
+    raw_extractor_provider = str(payload.get("extractor_provider") or payload.get("provider") or "gemini").strip().lower()
+    extractor_provider = "gemini" if raw_extractor_provider in {"", "gemini", "gemini_flash"} else IMAGE_COORDINATOR.normalize_provider(raw_extractor_provider, "img2img")
+    if extractor_provider not in {"gemini", "flux_kontext"}:
+        raise ValueError(f"Unsupported parts extractor provider: {raw_extractor_provider}")
     if not source_image:
         raise ValueError("Choose a source image first.")
     if not isinstance(parts, list) or not parts:
@@ -918,6 +934,9 @@ def _part_extract_worker(payload: dict) -> dict:
     outputs = []
     total = len(parts)
     batch_id = str(payload.get("batch_id") or f"parts-{uuid.uuid4().hex[:8]}").strip()
+    source_pil = None
+    if extractor_provider == "flux_kontext":
+        source_pil = _decode_base64_image(source_image)
     for index, part in enumerate(parts, start=1):
         name = part.get("display_name") or part.get("id") or f"Part {index}"
         progress_update(
@@ -938,7 +957,80 @@ def _part_extract_worker(payload: dict) -> dict:
             "item_index": index,
             "item_total": total,
         }
-        outputs.extend(_gemini_request_image(item_payload, _part_extraction_prompt(part, payload), label))
+        prompt = _part_extraction_prompt(part, payload)
+        if extractor_provider == "flux_kontext":
+            request = _normalize_request(
+                GenerateRequest(
+                    mode="img2img",
+                    provider="flux_kontext",
+                    prompt=prompt,
+                    image=source_image,
+                    width=int(payload.get("width") or 1024),
+                    height=int(payload.get("height") or 1024),
+                    steps=int(payload.get("steps") or 20),
+                    guidance_scale=float(payload.get("guidance_scale") or 2.5),
+                    strength=float(payload.get("strength") or 0.75),
+                    seed=int(payload["seed"]) if str(payload.get("seed") or "").strip().isdigit() else None,
+                    batch_id=batch_id,
+                    batch_label=item_payload["batch_label"],
+                    batch_type=item_payload["batch_type"],
+                    item_label=name,
+                    item_index=index,
+                    item_total=total,
+                )
+            )
+            init_image = _resize_init_image(source_pil, request.width, request.height)
+            image, model_id = IMAGE_COORDINATOR.generate_image_to_image(
+                request,
+                init_image,
+                progress_callback=lambda current, step_total, part_index=index: progress_update(
+                    status="processing",
+                    stage="extracting_parts",
+                    detail=f"Extracting {part_index}/{total}: {name} step {current}/{step_total}",
+                    progress_current=part_index - 1,
+                    progress_total=total,
+                    progress_percent=((part_index - 1) / total) * 100.0,
+                ),
+            )
+            metadata = {
+                "provider": "FLUX.1-Kontext-dev",
+                "mode": "parts_extract",
+                "model_id": model_id,
+                "part": part,
+                "source_image": "[image data omitted]",
+                "prompt": prompt,
+                "width": request.width,
+                "height": request.height,
+                "steps": request.steps,
+                "guidance_scale": request.guidance_scale,
+                "strength": request.strength,
+                "seed": request.seed,
+                **_batch_metadata(item_payload, default_type="parts", default_label="Image Parts", default_item_label=name),
+            }
+            output_path, metadata_path = save_image_and_metadata(
+                image,
+                SETTINGS.output_dir,
+                mode="parts",
+                prompt=f"{label} {name}",
+                metadata=metadata,
+            )
+            outputs.append(
+                {
+                    "name": output_path.name,
+                    "path": str(output_path),
+                    "url": _output_url(output_path),
+                    "metadata_path": str(metadata_path),
+                    "batch_id": metadata.get("batch_id", ""),
+                    "batch_label": metadata.get("batch_label", ""),
+                    "batch_type": metadata.get("batch_type", ""),
+                    "item_label": metadata.get("item_label", ""),
+                    "item_index": metadata.get("item_index"),
+                    "item_total": metadata.get("item_total"),
+                    "metadata": metadata,
+                }
+            )
+        else:
+            outputs.extend(_gemini_request_image(item_payload, prompt, label))
     progress_update(
         status="idle",
         stage="complete",
@@ -957,15 +1049,8 @@ def _resize_init_image(image: Image.Image, width: int, height: int) -> Image.Ima
     return image.resize((width, height), Image.Resampling.LANCZOS)
 
 
-def _normalize_provider(provider: str | None) -> str:
-    normalized = (provider or "zimage").strip().lower().replace("_", "-")
-    if normalized in {"", "zimage", "z-image"}:
-        return "zimage"
-    raise ValueError(f"Unknown image provider: {provider}. This build supports provider=zimage.")
-
-
 def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
-    provider = _normalize_provider(payload.provider)
+    provider = IMAGE_COORDINATOR.normalize_provider(payload.provider, payload.mode)
     width = _coerce_dimension(payload.width, maximum=SETTINGS.max_width, label="width")
     height = _coerce_dimension(payload.height, maximum=SETTINGS.max_height, label="height")
     steps = payload.steps or SETTINGS.default_steps
@@ -982,12 +1067,18 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
         raise ValueError("steps must be greater than zero.")
     if payload.mode == "img2img" and not payload.image:
         raise ValueError("img2img mode requires an input image.")
-    if payload.mode == "img2img" and not MODEL_MANAGER.supports_img2img(payload.model_id):
+    if provider == "zimage" and payload.mode == "img2img" and not MODEL_MANAGER.supports_img2img(payload.model_id):
         raise ValueError("Current runtime supports txt2img only.")
+    if provider == "flux_dev" and payload.mode != "txt2img":
+        raise ValueError("provider=flux_dev supports txt2img only.")
+    if provider == "flux_kontext" and payload.mode != "img2img":
+        raise ValueError("provider=flux_kontext requires img2img mode and an input image.")
     if not 0.0 < strength <= 1.0:
         raise ValueError("strength must be between 0 and 1.")
     if lora_scale is not None and lora_scale < 0.0:
         raise ValueError("lora_scale must be zero or greater.")
+    if provider != "zimage" and lora_path is not None:
+        raise ValueError("FLUX LoRA support is not enabled yet. Clear the LoRA before using a FLUX provider.")
     if nunchaku_rank is not None and nunchaku_rank not in {32, 128, 256}:
         raise ValueError("nunchaku_rank must be 32, 128, or 256.")
     if nunchaku_precision is not None and nunchaku_precision not in {"auto", "int4", "fp4"}:
@@ -1146,9 +1237,12 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             raise ValueError("Selected model is not loaded yet. Load the selected Z-Image model before generating.")
         if requested_precision is not None and requested_precision != configured_precision:
             raise ValueError("Selected model is not loaded yet. Load the selected Z-Image model before generating.")
-    _log_stage("model.load.begin", model_id=payload.model_id or SETTINGS.default_model_id)
-    model_id = MODEL_MANAGER.ensure_model(payload.model_id)
-    _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
+    if payload.provider == "zimage":
+        _log_stage("model.load.begin", model_id=payload.model_id or SETTINGS.default_model_id)
+        model_id = MODEL_MANAGER.ensure_model(payload.model_id)
+        _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
+    else:
+        model_id = payload.model_id or ("black-forest-labs/FLUX.1-Kontext-dev" if payload.provider == "flux_kontext" else "black-forest-labs/FLUX.1-dev")
 
     def _denoise_progress(current: int, total: int, label: str) -> None:
         total = max(1, int(total or 1))
@@ -1172,22 +1266,28 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             progress_total=3,
             progress_percent=33.0,
         )
-        _log_stage("txt2img.call.begin")
-        image, model_id = MODEL_MANAGER.generate_text_to_image(
-            prompt=payload.prompt,
-            negative_prompt=payload.negative_prompt,
-            width=payload.width,
-            height=payload.height,
-            steps=payload.steps,
-            guidance_scale=payload.guidance_scale,
-            seed=payload.seed,
-            model_id=model_id,
-            nunchaku_rank=payload.nunchaku_rank,
-            nunchaku_precision=payload.nunchaku_precision,
-            lora_path=payload.lora_path,
-            lora_scale=payload.lora_scale,
-            progress_callback=lambda current, total: _denoise_progress(current, total, "Nunchaku txt2img"),
-        )
+        _log_stage("txt2img.call.begin", provider=payload.provider or "zimage")
+        if payload.provider == "zimage":
+            image, model_id = MODEL_MANAGER.generate_text_to_image(
+                prompt=payload.prompt,
+                negative_prompt=payload.negative_prompt,
+                width=payload.width,
+                height=payload.height,
+                steps=payload.steps,
+                guidance_scale=payload.guidance_scale,
+                seed=payload.seed,
+                model_id=model_id,
+                nunchaku_rank=payload.nunchaku_rank,
+                nunchaku_precision=payload.nunchaku_precision,
+                lora_path=payload.lora_path,
+                lora_scale=payload.lora_scale,
+                progress_callback=lambda current, total: _denoise_progress(current, total, "Nunchaku txt2img"),
+            )
+        else:
+            image, model_id = IMAGE_COORDINATOR.generate_text_to_image(
+                payload,
+                progress_callback=lambda current, total: _denoise_progress(current, total, "FLUX txt2img"),
+            )
         _log_stage("txt2img.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
     else:
         init_image = _decode_base64_image(payload.image or "")
@@ -1200,24 +1300,31 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             progress_total=3,
             progress_percent=33.0,
         )
-        _log_stage("img2img.call.begin")
-        image, model_id = MODEL_MANAGER.generate_image_to_image(
-            prompt=payload.prompt,
-            negative_prompt=payload.negative_prompt,
-            image=init_image,
-            width=payload.width,
-            height=payload.height,
-            steps=payload.steps,
-            guidance_scale=payload.guidance_scale,
-            strength=payload.strength,
-            seed=payload.seed,
-            model_id=model_id,
-            nunchaku_rank=payload.nunchaku_rank,
-            nunchaku_precision=payload.nunchaku_precision,
-            lora_path=payload.lora_path,
-            lora_scale=payload.lora_scale,
-            progress_callback=lambda current, total: _denoise_progress(current, total, "Nunchaku img2img"),
-        )
+        _log_stage("img2img.call.begin", provider=payload.provider or "zimage")
+        if payload.provider == "zimage":
+            image, model_id = MODEL_MANAGER.generate_image_to_image(
+                prompt=payload.prompt,
+                negative_prompt=payload.negative_prompt,
+                image=init_image,
+                width=payload.width,
+                height=payload.height,
+                steps=payload.steps,
+                guidance_scale=payload.guidance_scale,
+                strength=payload.strength,
+                seed=payload.seed,
+                model_id=model_id,
+                nunchaku_rank=payload.nunchaku_rank,
+                nunchaku_precision=payload.nunchaku_precision,
+                lora_path=payload.lora_path,
+                lora_scale=payload.lora_scale,
+                progress_callback=lambda current, total: _denoise_progress(current, total, "Nunchaku img2img"),
+            )
+        else:
+            image, model_id = IMAGE_COORDINATOR.generate_image_to_image(
+                payload,
+                init_image,
+                progress_callback=lambda current, total: _denoise_progress(current, total, "FLUX Kontext"),
+            )
         _log_stage("img2img.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
 
     progress_update(
@@ -1253,8 +1360,8 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         **_batch_metadata(
             payload.model_dump() if hasattr(payload, "model_dump") else payload.dict(),
             default_type="zimage",
-            default_label="Z-Image Variants",
-            default_item_label=payload.item_label or "Z-Image",
+            default_label="Image Variants",
+            default_item_label=payload.item_label or payload.provider or "Z-Image",
         ),
     }
     _log_stage("save.begin", output_dir=SETTINGS.output_dir)
@@ -1322,38 +1429,9 @@ async def nymph_ui():
 async def server_info():
     supported_modes = MODEL_MANAGER.supported_modes()
     supports_lora = MODEL_MANAGER.supports_lora()
-    provider_defaults = {
-        "width": 1024,
-        "height": 1024,
-        "steps": SETTINGS.default_steps,
-        "guidance_scale": SETTINGS.default_guidance_scale,
-        "strength": SETTINGS.default_strength,
-    }
-    providers = {
-        "zimage": {
-            "label": "Z-Image Turbo",
-            "ready": True,
-            "loaded": MODEL_MANAGER.loaded_model_id is not None,
-            "model_id": SETTINGS.default_model_id,
-            "loaded_model_id": MODEL_MANAGER.loaded_model_id,
-            "modes": supported_modes,
-            "supports_txt2img": True,
-            "supports_img2img": "img2img" in supported_modes,
-            "supports_reference_edit": False,
-            "supports_lora": supports_lora,
-            "supports_parts_extract": False,
-            "defaults": provider_defaults,
-            "lora_family": "zimage",
-            "memory_mode": MODEL_MANAGER.loaded_runtime or SETTINGS.runtime,
-        }
-    }
+    providers = IMAGE_COORDINATOR.providers_info(supported_modes, supports_lora)
     vision_providers = {
-        "qwen3_vl_gguf": {
-            "label": "Qwen3-VL Vision",
-            "ready": False,
-            "loaded": False,
-            "tasks": ["caption", "parts_plan"],
-        }
+        "brain": brain_status()
     }
     return ServerInfoResponse(
         backend="Nymphs2D2",
@@ -1730,6 +1808,45 @@ async def gemini_generate(request: FastAPIRequest):
         progress_update(status="error", stage="failed", detail=detail)
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Gemini generation failed: {detail}") from exc
+
+
+@app.post("/api/vision/caption", tags=["vision"])
+async def vision_caption(request: FastAPIRequest):
+    payload = await request.json()
+    image = (payload.get("image") or payload.get("source_image") or "").strip()
+    prompt = (payload.get("prompt") or "Write one concise caption for this image.").strip()
+    if not image:
+        raise HTTPException(status_code=400, detail="Choose an image first.")
+    try:
+        text = await run_in_threadpool(
+            brain_chat_image,
+            image,
+            prompt,
+            temperature=float(payload.get("temperature") or 0.1),
+            max_tokens=int(payload.get("max_tokens") or 240),
+        )
+        return JSONResponse({"status": "ok", "provider": "brain", "caption": text})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        detail = str(exc) or exc.__class__.__name__
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Vision caption failed: {detail}") from exc
+
+
+@app.post("/api/vision/parts-plan", tags=["vision"])
+async def vision_parts_plan(request: FastAPIRequest):
+    payload = await request.json()
+    payload = {**payload, "planner_provider": "brain"}
+    try:
+        return JSONResponse(await run_in_threadpool(_part_plan_worker, payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        detail = str(exc) or exc.__class__.__name__
+        progress_update(status="error", stage="failed", detail=detail)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Vision part planning failed: {detail}") from exc
 
 
 @app.post("/api/parts/plan", tags=["gemini"])

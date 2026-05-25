@@ -1002,6 +1002,16 @@
         <div class="grid">
           <div class="model-choice-row wide">
             <div class="field">
+              <label for="image-provider">Provider</label>
+              <select id="image-provider">
+                <option value="zimage">Z-Image Turbo</option>
+                <option value="flux_dev">FLUX.1-dev</option>
+                <option value="flux_kontext">FLUX.1-Kontext</option>
+              </select>
+            </div>
+          </div>
+          <div class="model-choice-row wide">
+            <div class="field">
               <label for="z-model-choice">Model Choice</label>
               <select id="z-model-choice">
                 <option value="auto_r32">Z-Image Nunchaku r32</option>
@@ -1153,10 +1163,24 @@
               </div>
             </div>
             <div class="field wide">
-              <label for="planner-model">Planner</label>
+              <label for="planner-provider">Planner Provider</label>
+              <select id="planner-provider">
+                <option value="gemini">Gemini</option>
+                <option value="brain">Brain Vision</option>
+              </select>
+            </div>
+            <div class="field wide">
+              <label for="planner-model">Planner Model</label>
               <select id="planner-model">
                 <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="google/gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+              </select>
+            </div>
+            <div class="field wide">
+              <label for="extractor-provider">Extractor</label>
+              <select id="extractor-provider">
+                <option value="gemini">Gemini Flash</option>
+                <option value="flux_kontext">FLUX.1-Kontext local</option>
               </select>
             </div>
             <div class="field"><label for="max-parts">Max</label><input id="max-parts" type="number" min="1" max="16" value="8"></div>
@@ -2744,49 +2768,63 @@
         return;
       }
       const useGuide = $("z-use-guide").checked;
+      const provider = $("image-provider").value || "zimage";
       if (useGuide && !state.sourceDataUrl) {
         toast("Choose a source image for Image to Image.");
         return;
       }
+      if (provider === "flux_dev" && useGuide) {
+        toast("FLUX.1-dev is text only. Clear Image to Image or choose FLUX.1-Kontext.");
+        return;
+      }
+      if (provider === "flux_kontext" && !useGuide) {
+        toast("FLUX.1-Kontext needs a source image. Enable Image to Image first.");
+        return;
+      }
       setBusy(true);
       startProgress();
-      try {
-        await ensureSelectedZModelReady();
-      } catch (err) {
-        stopProgress(false);
-        setBusy(false);
-        toast(err.message || "Load the selected Z-Image model first.");
-        return;
+      if (provider === "zimage") {
+        try {
+          await ensureSelectedZModelReady();
+        } catch (err) {
+          stopProgress(false);
+          setBusy(false);
+          toast(err.message || "Load the selected Z-Image model first.");
+          return;
+        }
       }
       const count = Math.max(1, Math.min(parseInt($("variants").value || "1", 10), 8));
       const outputs = [];
-      const batchId = makeBatchId("zimage");
+      const batchId = makeBatchId(provider);
       try {
         for (let index = 0; index < count; index++) {
           const payload = {
             mode: useGuide ? "img2img" : "txt2img",
+            provider,
             prompt,
             width: parseInt($("width").value || "1024", 10),
             height: parseInt($("height").value || "1024", 10),
             steps: parseInt($("steps").value || "9", 10),
             guidance_scale: parseFloat($("guidance").value || "0"),
             seed: activeSeed(index),
-            model_id: zModelSelection().model_id,
-            nunchaku_rank: zModelSelection().nunchaku_rank,
-            nunchaku_precision: zModelSelection().nunchaku_precision,
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
             batch_id: batchId,
-            batch_label: "Z-Image Variants",
-            batch_type: "zimage",
-            item_label: `Z ${index + 1}`,
+            batch_label: provider === "zimage" ? "Z-Image Variants" : "FLUX Variants",
+            batch_type: provider,
+            item_label: `${provider === "zimage" ? "Z" : "FLUX"} ${index + 1}`,
             item_index: index + 1,
             item_total: count,
           };
+          if (provider === "zimage") {
+            payload.model_id = zModelSelection().model_id;
+            payload.nunchaku_rank = zModelSelection().nunchaku_rank;
+            payload.nunchaku_precision = zModelSelection().nunchaku_precision;
+          }
           const guidanceValue = parseFloat($("guidance").value || "0");
           const negativePrompt = $("negative-prompt").value.trim();
           if (guidanceValue > 1 && negativePrompt) payload.negative_prompt = negativePrompt;
-          if ($("z-use-lora").checked) {
+          if (provider === "zimage" && $("z-use-lora").checked) {
             payload.lora_path = $("z-lora-path").value.trim();
             payload.lora_scale = parseFloat($("z-lora-strength").value || "1");
             if (!payload.lora_path) throw new Error("Paste a Z-Image LoRA path first.");
@@ -2798,7 +2836,7 @@
           });
           if (!response.ok) {
             const body = await response.json().catch(() => ({}));
-            throw new Error(body.detail || `Z-Image failed with HTTP ${response.status}.`);
+            throw new Error(body.detail || `Image generation failed with HTTP ${response.status}.`);
           }
           outputs.push(await response.json());
         }
@@ -2944,6 +2982,7 @@
           body: JSON.stringify({
             api_key: $("api-key").value.trim(),
             source_image: state.partsSourceDataUrl,
+            planner_provider: $("planner-provider").value,
             planner_model: $("planner-model").value,
             max_parts: parseInt($("max-parts").value || "8", 10),
             guidance: $("part-guidance").value,
@@ -2986,6 +3025,7 @@
             image_size: $("image-size").value,
             source_image: state.partsSourceDataUrl,
             guide_image: state.partsSourceDataUrl,
+            extractor_provider: $("extractor-provider").value,
             parts,
             guidance: $("part-guidance").value,
             style_lock: $("style-lock").checked,
