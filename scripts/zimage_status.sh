@@ -14,7 +14,7 @@ downloaded_models=none
 downloaded_weights=none
 missing_weights=none
 weight_profile_selected=unknown
-weight_profiles_available=int4_r32,int4_r128,int4_r256,fp4_r32,fp4_r128,flux_dev_int4_r32,flux_dev_fp4_r32,flux_kontext_int4_r32,flux_kontext_fp4_r32
+weight_profiles_available=zimage_int4_r32,zimage_int4_r128,zimage_int4_r256,zimage_fp4_r32,zimage_fp4_r128,flux_dev_int4_r32,flux_dev_fp4_r32,flux_kontext_int4_r32,flux_kontext_fp4_r32
 weight_profiles_downloaded=none
 weight_profiles_missing=none
 weight_profile_ready=false
@@ -172,11 +172,15 @@ profile_downloaded=()
 profile_missing=()
 if [[ -n "${downloaded_weights}" && "${downloaded_weights}" != "none" ]]; then
   IFS=',' read -ra zimage_downloaded_profiles <<< "${downloaded_weights}"
-  profile_downloaded+=("${zimage_downloaded_profiles[@]}")
+  for zimage_profile in "${zimage_downloaded_profiles[@]}"; do
+    profile_downloaded+=("zimage_${zimage_profile}")
+  done
 fi
 if [[ -n "${missing_weights}" && "${missing_weights}" != "none" ]]; then
   IFS=',' read -ra zimage_missing_profiles <<< "${missing_weights}"
-  profile_missing+=("${zimage_missing_profiles[@]}")
+  for zimage_profile in "${zimage_missing_profiles[@]}"; do
+    profile_missing+=("zimage_${zimage_profile}")
+  done
 fi
 if [[ "${flux_dev_base_ready}" == "true" && "${flux_dev_int4_ready}" == "true" ]]; then
   profile_downloaded+=(flux_dev_int4_r32)
@@ -356,8 +360,9 @@ elif [[ "${data_present}" == "true" ]]; then
   detail="Z-Image preserved data remains, but runtime files are not installed."
 fi
 
-weight_profile_selected="${status_check_precision}_r${Z_IMAGE_NUNCHAKU_RANK}"
-if [[ ",${downloaded_weights}," == *",${weight_profile_selected},"* ]]; then
+zimage_weight_profile_selected="${status_check_precision}_r${Z_IMAGE_NUNCHAKU_RANK}"
+weight_profile_selected="zimage_${zimage_weight_profile_selected}"
+if [[ ",${downloaded_weights}," == *",${zimage_weight_profile_selected},"* ]]; then
   weight_profile_ready=true
 else
   weight_profile_ready=false
