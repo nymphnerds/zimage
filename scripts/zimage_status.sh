@@ -18,7 +18,6 @@ weight_profiles_available=int4_r32,int4_r128,int4_r256,fp4_r32,fp4_r128
 weight_profiles_downloaded=none
 weight_profiles_missing=none
 weight_profile_ready=false
-model_notes="- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128 || - FLUX.1-dev: FLUX text-to-image generation; INT4 r32 and FP4 r32 || - FLUX.1-Kontext-dev: FLUX image edit/reference/parts extraction; INT4 r32 and FP4 r32 || - Brain: vision planning/captioning; no Qwen downloads in Nymphs Image"
 zimage_ready=false
 flux_dev_ready=false
 flux_kontext_ready=false
@@ -282,7 +281,6 @@ if [[ ",${downloaded_weights}," == *",${weight_profile_selected},"* ]]; then
 else
   weight_profile_ready=false
 fi
-detail="${detail} ${model_notes// || / }"
 
 cat <<EOF
 id=zimage
@@ -309,7 +307,6 @@ weight_profile_selected=${weight_profile_selected}
 weight_profiles_available=${weight_profiles_available}
 weight_profiles_downloaded=${weight_profiles_downloaded}
 weight_profiles_missing=${weight_profiles_missing}
-model_notes=${model_notes}
 weight_profile_ready=${weight_profile_ready}
 running=${running}
 state=${state}
