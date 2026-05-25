@@ -307,6 +307,10 @@ if [[ "${env_ready}" == "true" &&
     health=ok
   fi
   detail="Runtime and cached model files are ready."
+  if [[ "${flux_dev_ready}" != "true" || "${flux_kontext_ready}" != "true" ]]; then
+    health=model-download-needed
+    detail="FLUX access/model files need downloading. Accept the FLUX access pages, then use Fetch Models."
+  fi
 elif [[ "${env_ready}" == "true" &&
         "${base_model_downloaded}" == "true" &&
         ( "${downloaded_weights}" == "none" || -z "${downloaded_weights}" ) ]]; then
@@ -340,6 +344,10 @@ elif [[ "${installed}" == "true" ]]; then
     state=needs_attention
     health=degraded
     detail="Z-Image runtime files are installed, but the Python runtime is missing."
+  elif [[ "${flux_dev_ready}" != "true" || "${flux_kontext_ready}" != "true" ]]; then
+    state=model_download_needed
+    health=model-download-needed
+    detail="FLUX access/model files need downloading. Accept the FLUX access pages, then use Fetch Models."
   elif [[ "${models_ready}" == "false" ]]; then
     state=model_download_needed
     health=model-download-needed
