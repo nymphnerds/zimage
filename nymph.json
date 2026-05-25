@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.78",
+  "version": "0.1.79",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -81,7 +81,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Install sets up the backend only. Fetch Models downloads the selected local model files.",
+        "description": "Agreement: by clicking Yes, you confirm you have accepted the required upstream model terms. Yes starts the fetch.",
         "links": [
           {
             "label": "Base model",

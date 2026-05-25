@@ -282,6 +282,7 @@ if [[ ",${downloaded_weights}," == *",${weight_profile_selected},"* ]]; then
 else
   weight_profile_ready=false
 fi
+detail="${detail} ${model_cache_detail// || / }"
 
 cat <<EOF
 id=zimage
