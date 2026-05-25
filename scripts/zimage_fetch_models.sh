@@ -12,6 +12,10 @@ selected_fetch_label=""
 fetch_zimage=true
 fetch_flux_dev=false
 fetch_flux_kontext=false
+fetch_flux_dev_all_precisions=false
+fetch_flux_kontext_all_precisions=false
+FLUX_DEV_PRECISION="int4"
+FLUX_KONTEXT_PRECISION="int4"
 license_ack=false
 
 while [[ $# -gt 0 ]]; do
@@ -116,15 +120,15 @@ while [[ $# -gt 0 ]]; do
       cat <<'EOF'
 Usage:
   zimage_fetch_models.sh --model svdq-int4_r128-z-image-turbo.safetensors
-  zimage_fetch_models.sh --model all
   zimage_fetch_models.sh --model all_models --license-ack yes
+  zimage_fetch_models.sh --model flux_dev_int4_r32 --license-ack yes
   zimage_fetch_models.sh --model flux_kontext_int4_r32 --license-ack yes
   zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
   zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
 
 Downloads local Nymphs Image model files. Z-Image Turbo is the fast default.
-FLUX.1-Kontext-dev INT4 r32 is the parts extraction model. Brain owns local
-vision/planner model downloads.
+FLUX.1-dev is text-to-image. FLUX.1-Kontext-dev is image edit and parts extraction.
+Brain owns local vision/planner model downloads.
 
 Friendly presets:
   RTX 20/30/40 + fast     -> int4 r32
@@ -169,11 +173,13 @@ if [[ -n "${requested_weight}" ]]; then
     all_models|all-models|all_image_models|all-image-models)
       download_all_weights=true
       fetch_zimage=true
-      fetch_flux_dev=false
+      fetch_flux_dev=true
       fetch_flux_kontext=true
+      fetch_flux_dev_all_precisions=true
+      fetch_flux_kontext_all_precisions=true
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="All Z-Image Turbo weights plus FLUX.1-Kontext-dev INT4 r32"
+      selected_fetch_label="All Z-Image Turbo weights plus FLUX.1-dev and FLUX.1-Kontext-dev INT4/FP4 r32"
       ;;
     svdq-int4_r32-z-image-turbo.safetensors|int4_r32|int4:32)
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
@@ -200,12 +206,37 @@ if [[ -n "${requested_weight}" ]]; then
       Z_IMAGE_NUNCHAKU_RANK="128"
       selected_fetch_label="svdq-fp4_r128-z-image-turbo.safetensors"
       ;;
+    flux_dev_int4_r32|flux-dev-int4-r32)
+      fetch_zimage=false
+      fetch_flux_dev=true
+      FLUX_DEV_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="FLUX.1-dev INT4 r32"
+      ;;
+    flux_dev_fp4_r32|flux-dev-fp4-r32)
+      fetch_zimage=false
+      fetch_flux_dev=true
+      FLUX_DEV_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="FLUX.1-dev FP4 r32"
+      ;;
     flux_kontext_int4_r32|flux-kontext-int4-r32)
       fetch_zimage=false
       fetch_flux_kontext=true
+      FLUX_KONTEXT_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
       selected_fetch_label="FLUX.1-Kontext-dev INT4 r32"
+      ;;
+    flux_kontext_fp4_r32|flux-kontext-fp4-r32)
+      fetch_zimage=false
+      fetch_flux_kontext=true
+      FLUX_KONTEXT_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="FLUX.1-Kontext-dev FP4 r32"
       ;;
     qwen3_vl_8b_q4_vision|qwen3-vl-8b-q4-vision)
       echo "Brain owns local vision model downloads. Use Brain to fetch/configure Qwen or another vision-capable model." >&2
@@ -214,6 +245,7 @@ if [[ -n "${requested_weight}" ]]; then
     local_parts_flux_16gb|local-parts-flux-16gb|local_parts_stack_16gb|local-parts-stack-16gb)
       fetch_zimage=false
       fetch_flux_kontext=true
+      FLUX_KONTEXT_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
       selected_fetch_label="FLUX.1-Kontext-dev INT4 r32"
@@ -538,12 +570,22 @@ PY
 
 prefetch_flux_dev() {
   prefetch_hf_snapshot_model "black-forest-labs/FLUX.1-dev" "full"
-  prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"
+  if [[ "${fetch_flux_dev_all_precisions}" == "true" ]]; then
+    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"
+    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-fp4_r32-flux.1-dev.safetensors"
+  else
+    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-${FLUX_DEV_PRECISION}_r32-flux.1-dev.safetensors"
+  fi
 }
 
 prefetch_flux_kontext() {
   prefetch_hf_snapshot_model "black-forest-labs/FLUX.1-Kontext-dev" "full"
-  prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"
+  if [[ "${fetch_flux_kontext_all_precisions}" == "true" ]]; then
+    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"
+    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-fp4_r32-flux.1-kontext-dev.safetensors"
+  else
+    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-${FLUX_KONTEXT_PRECISION}_r32-flux.1-kontext-dev.safetensors"
+  fi
 }
 
 save_zimage_generation_preset() {
@@ -595,18 +637,18 @@ if [[ "${fetch_zimage}" == "true" ]]; then
 fi
 
 if [[ "${fetch_flux_dev}" == "true" ]]; then
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-dev base model and Nunchaku INT4 r32 transformer"
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-dev base model and Nunchaku r32 transformer"
   run_with_hf_download_progress \
-    "FLUX.1-dev INT4 r32" \
+    "FLUX.1-dev r32" \
     "black-forest-labs/FLUX.1-dev" \
     prefetch_flux_dev
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 fi
 
 if [[ "${fetch_flux_kontext}" == "true" ]]; then
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-Kontext-dev base model and Nunchaku INT4 r32 transformer"
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-Kontext-dev base model and Nunchaku r32 transformer"
   run_with_hf_download_progress \
-    "FLUX.1-Kontext-dev INT4 r32" \
+    "FLUX.1-Kontext-dev r32" \
     "black-forest-labs/FLUX.1-Kontext-dev" \
     prefetch_flux_kontext
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT

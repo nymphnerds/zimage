@@ -18,6 +18,7 @@ weight_profiles_available=int4_r32,int4_r128,int4_r256,fp4_r32,fp4_r128
 weight_profiles_downloaded=none
 weight_profiles_missing=none
 weight_profile_ready=false
+model_cache_detail="- Z-Image Turbo: fast normal generation; weights INT4 r32/r128/r256 and FP4 r32/r128 || - FLUX.1-dev: FLUX text-to-image generation; weights INT4 r32 and FP4 r32 || - FLUX.1-Kontext-dev: FLUX image edit/reference and parts extraction; weights INT4 r32 and FP4 r32 || - Brain: vision planning/captioning; no Qwen downloads in Nymphs Image"
 zimage_ready=false
 flux_dev_ready=false
 flux_kontext_ready=false
@@ -138,12 +139,14 @@ if [[ "${base_model_downloaded}" == "true" && "${downloaded_weights}" != "none" 
 fi
 
 if hf_snapshot_has_path "black-forest-labs/FLUX.1-dev" "model_index.json" &&
-   hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"; then
+   ( hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors" ||
+     hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-fp4_r32-flux.1-dev.safetensors" ); then
   flux_dev_ready=true
 fi
 
 if hf_snapshot_has_path "black-forest-labs/FLUX.1-Kontext-dev" "model_index.json" &&
-   hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"; then
+   ( hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors" ||
+     hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-fp4_r32-flux.1-kontext-dev.safetensors" ); then
   flux_kontext_ready=true
 fi
 
@@ -305,6 +308,7 @@ weight_profile_selected=${weight_profile_selected}
 weight_profiles_available=${weight_profiles_available}
 weight_profiles_downloaded=${weight_profiles_downloaded}
 weight_profiles_missing=${weight_profiles_missing}
+model_cache_detail=${model_cache_detail}
 weight_profile_ready=${weight_profile_ready}
 running=${running}
 state=${state}

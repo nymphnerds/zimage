@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.77",
+  "version": "0.1.78",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -81,7 +81,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Install sets up the backend only. Fetch Models downloads the actual AI model files.\nEvery fetch downloads the large required base model first: Tongyi-MAI/Z-Image-Turbo.\nThen it downloads your selected Nunchaku-compatible Blender weight. Choose All weights only if you want Blender to switch between every preset later.\nr32 is light/default. r128 is balanced or portrait-friendly. r256 is highest quality and INT4-only. RTX 50 users should fetch fp4_r128 or All weights.\nFLUX.1-Kontext-dev INT4 r32 is the image-edit model used for parts extraction; Brain handles vision planning.",
+        "description": "Install sets up the backend only. Fetch Models downloads the selected local model files.",
         "links": [
           {
             "label": "Base model",
@@ -90,6 +90,22 @@
           {
             "label": "Quantized weights",
             "url": "https://huggingface.co/nunchaku-ai/nunchaku-z-image-turbo"
+          },
+          {
+            "label": "FLUX.1-dev",
+            "url": "https://huggingface.co/black-forest-labs/FLUX.1-dev"
+          },
+          {
+            "label": "FLUX.1-Kontext-dev",
+            "url": "https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
+          },
+          {
+            "label": "Nunchaku FLUX.1-dev weights",
+            "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-dev"
+          },
+          {
+            "label": "Nunchaku FLUX.1-Kontext-dev weights",
+            "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-kontext-dev"
           }
         ],
         "fields": [
@@ -101,14 +117,9 @@
             "default": "svdq-int4_r32-z-image-turbo.safetensors",
             "options": [
               {
-                "label": "All Z-Image Turbo weights",
-                "value": "all",
-                "description": "Download every published compatible weight so Blender can switch presets later"
-              },
-              {
                 "label": "All Models",
                 "value": "all_models",
-                "description": "Download every Z-Image Turbo weight plus FLUX.1-Kontext-dev INT4 r32"
+                "description": "Download all listed local image model files"
               },
               {
                 "label": "Z-Image Turbo INT4 r32",
@@ -136,9 +147,24 @@
                 "description": "FP4 r128 - recommended RTX 50"
               },
               {
+                "label": "FLUX.1-dev INT4 r32",
+                "value": "flux_dev_int4_r32",
+                "description": "FLUX.1-dev INT4 r32"
+              },
+              {
+                "label": "FLUX.1-dev FP4 r32",
+                "value": "flux_dev_fp4_r32",
+                "description": "FLUX.1-dev FP4 r32"
+              },
+              {
                 "label": "FLUX.1-Kontext-dev INT4 r32",
                 "value": "flux_kontext_int4_r32",
-                "description": "FLUX image-edit model for parts extraction. Brain handles the planner."
+                "description": "FLUX.1-Kontext-dev INT4 r32"
+              },
+              {
+                "label": "FLUX.1-Kontext-dev FP4 r32",
+                "value": "flux_kontext_fp4_r32",
+                "description": "FLUX.1-Kontext-dev FP4 r32"
               }
             ]
           },
