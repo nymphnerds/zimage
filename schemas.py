@@ -10,6 +10,7 @@ GenerationMode = Literal["txt2img", "img2img"]
 
 class GenerateRequest(BaseModel):
     mode: GenerationMode = "txt2img"
+    provider: str | None = None
     prompt: str = Field(..., min_length=1)
     negative_prompt: str = ""
     image: str | None = None
@@ -74,4 +75,6 @@ class ServerInfoResponse(BaseModel):
     dtype: str
     output_dir: str
     supported_modes: list[str]
+    providers: dict[str, Any] = Field(default_factory=dict)
+    vision_providers: dict[str, Any] = Field(default_factory=dict)
     extra: dict[str, Any] = Field(default_factory=dict)

@@ -957,7 +957,15 @@ def _resize_init_image(image: Image.Image, width: int, height: int) -> Image.Ima
     return image.resize((width, height), Image.Resampling.LANCZOS)
 
 
+def _normalize_provider(provider: str | None) -> str:
+    normalized = (provider or "zimage").strip().lower().replace("_", "-")
+    if normalized in {"", "zimage", "z-image"}:
+        return "zimage"
+    raise ValueError(f"Unknown image provider: {provider}. This build supports provider=zimage.")
+
+
 def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
+    provider = _normalize_provider(payload.provider)
     width = _coerce_dimension(payload.width, maximum=SETTINGS.max_width, label="width")
     height = _coerce_dimension(payload.height, maximum=SETTINGS.max_height, label="height")
     steps = payload.steps or SETTINGS.default_steps
@@ -991,6 +999,7 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
         update={
             "width": width,
             "height": height,
+            "provider": provider,
             "steps": steps,
             "guidance_scale": guidance_scale,
             "strength": strength,
@@ -1113,6 +1122,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
     started_at = perf_counter()
     _log_stage(
         "generate.begin",
+        provider=payload.provider or "zimage",
         mode=payload.mode,
         steps=payload.steps,
         width=payload.width,
@@ -1224,6 +1234,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         "backend": "Nymphs2D2",
         "version": VERSION,
         "worker_id": WORKER_ID,
+        "provider": payload.provider or "zimage",
         "runtime": MODEL_MANAGER.loaded_runtime or SETTINGS.runtime,
         "mode": payload.mode,
         "model_id": model_id,
@@ -1310,6 +1321,40 @@ async def nymph_ui():
 @app.get("/server_info", response_model=ServerInfoResponse, tags=["status"])
 async def server_info():
     supported_modes = MODEL_MANAGER.supported_modes()
+    supports_lora = MODEL_MANAGER.supports_lora()
+    provider_defaults = {
+        "width": 1024,
+        "height": 1024,
+        "steps": SETTINGS.default_steps,
+        "guidance_scale": SETTINGS.default_guidance_scale,
+        "strength": SETTINGS.default_strength,
+    }
+    providers = {
+        "zimage": {
+            "label": "Z-Image Turbo",
+            "ready": True,
+            "loaded": MODEL_MANAGER.loaded_model_id is not None,
+            "model_id": SETTINGS.default_model_id,
+            "loaded_model_id": MODEL_MANAGER.loaded_model_id,
+            "modes": supported_modes,
+            "supports_txt2img": True,
+            "supports_img2img": "img2img" in supported_modes,
+            "supports_reference_edit": False,
+            "supports_lora": supports_lora,
+            "supports_parts_extract": False,
+            "defaults": provider_defaults,
+            "lora_family": "zimage",
+            "memory_mode": MODEL_MANAGER.loaded_runtime or SETTINGS.runtime,
+        }
+    }
+    vision_providers = {
+        "qwen3_vl_gguf": {
+            "label": "Qwen3-VL Vision",
+            "ready": False,
+            "loaded": False,
+            "tasks": ["caption", "parts_plan"],
+        }
+    }
     return ServerInfoResponse(
         backend="Nymphs2D2",
         version=VERSION,
@@ -1320,6 +1365,8 @@ async def server_info():
         dtype=SETTINGS.dtype,
         output_dir=str(SETTINGS.output_dir),
         supported_modes=supported_modes,
+        providers=providers,
+        vision_providers=vision_providers,
         extra={
             "max_width": SETTINGS.max_width,
             "max_height": SETTINGS.max_height,
@@ -1327,7 +1374,7 @@ async def server_info():
             "configured_runtime": SETTINGS.runtime,
             "configured_nunchaku_rank": SETTINGS.nunchaku_rank,
             "configured_nunchaku_precision": SETTINGS.nunchaku_precision,
-            "supports_lora": MODEL_MANAGER.supports_lora(),
+            "supports_lora": supports_lora,
             "nunchaku_rank": SETTINGS.nunchaku_rank,
             "nunchaku_precision": SETTINGS.nunchaku_precision,
             **MODEL_MANAGER.loaded_runtime_extra,
