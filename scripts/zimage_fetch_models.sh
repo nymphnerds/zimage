@@ -117,16 +117,14 @@ while [[ $# -gt 0 ]]; do
 Usage:
   zimage_fetch_models.sh --model svdq-int4_r128-z-image-turbo.safetensors
   zimage_fetch_models.sh --model all
-  zimage_fetch_models.sh --model flux_dev_int4_r32 --license-ack yes
+  zimage_fetch_models.sh --model all_models --license-ack yes
   zimage_fetch_models.sh --model flux_kontext_int4_r32 --license-ack yes
-  zimage_fetch_models.sh --model local_parts_flux_16gb --license-ack yes
-  zimage_fetch_models.sh --model local_image_stack_16gb --license-ack yes
   zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
   zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
 
 Downloads local Nymphs Image model files. Z-Image Turbo is the fast default.
-FLUX.1-dev is local text-to-image. FLUX.1-Kontext-dev is local image editing
-and parts extraction. Brain owns local vision/planner model downloads.
+FLUX.1-Kontext-dev INT4 r32 is the parts extraction model. Brain owns local
+vision/planner model downloads.
 
 Friendly presets:
   RTX 20/30/40 + fast     -> int4 r32
@@ -168,6 +166,15 @@ if [[ -n "${requested_weight}" ]]; then
       download_all_weights=true
       selected_fetch_label="all published Z-Image Turbo Nunchaku-compatible weights"
       ;;
+    all_models|all-models|all_image_models|all-image-models)
+      download_all_weights=true
+      fetch_zimage=true
+      fetch_flux_dev=false
+      fetch_flux_kontext=true
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="All Z-Image Turbo weights plus FLUX.1-Kontext-dev INT4 r32"
+      ;;
     svdq-int4_r32-z-image-turbo.safetensors|int4_r32|int4:32)
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
@@ -193,13 +200,6 @@ if [[ -n "${requested_weight}" ]]; then
       Z_IMAGE_NUNCHAKU_RANK="128"
       selected_fetch_label="svdq-fp4_r128-z-image-turbo.safetensors"
       ;;
-    flux_dev_int4_r32|flux-dev-int4-r32)
-      fetch_zimage=false
-      fetch_flux_dev=true
-      Z_IMAGE_NUNCHAKU_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="FLUX.1-dev INT4 r32"
-      ;;
     flux_kontext_int4_r32|flux-kontext-int4-r32)
       fetch_zimage=false
       fetch_flux_kontext=true
@@ -216,15 +216,7 @@ if [[ -n "${requested_weight}" ]]; then
       fetch_flux_kontext=true
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="Local Parts FLUX side 16GB"
-      ;;
-    local_image_stack_16gb|local-image-stack-16gb)
-      fetch_zimage=true
-      fetch_flux_dev=true
-      fetch_flux_kontext=true
-      Z_IMAGE_NUNCHAKU_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="Local Image Stack 16GB"
+      selected_fetch_label="FLUX.1-Kontext-dev INT4 r32"
       ;;
     *)
       echo "Unsupported Nymphs Image model selection: ${requested_weight}." >&2
