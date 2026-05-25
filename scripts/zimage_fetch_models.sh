@@ -179,7 +179,7 @@ if [[ -n "${requested_weight}" ]]; then
       fetch_flux_kontext_all_precisions=true
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="All Z-Image Turbo weights plus FLUX.1-dev and FLUX.1-Kontext-dev INT4/FP4 r32"
+      selected_fetch_label="All Models (very large): Z-Image Turbo weights plus FLUX.1-dev and FLUX.1-Kontext-dev INT4/FP4 r32"
       ;;
     svdq-int4_r32-z-image-turbo.safetensors|int4_r32|int4:32)
       Z_IMAGE_NUNCHAKU_PRECISION="int4"

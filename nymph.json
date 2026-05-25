@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.88",
+  "version": "0.1.89",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -97,7 +97,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Download the local image model files. FLUX model pages must be accepted on Hugging Face with the same account used for your token.",
+        "description": "Download local image model files. Z-Image is the normal small fetch; FLUX base models are very large and require accepted Hugging Face access.",
         "links": [
           {
             "label": "Base model",
@@ -133,54 +133,54 @@
             "default": "svdq-int4_r32-z-image-turbo.safetensors",
             "options": [
               {
-                "label": "All Models",
+                "label": "All Models (very large)",
                 "value": "all_models",
-                "description": "Download all listed local image model files"
+                "description": "Downloads Z-Image plus FLUX.1-dev and FLUX.1-Kontext-dev; tens of GB"
               },
               {
                 "label": "Z-Image Turbo INT4 r32",
                 "value": "svdq-int4_r32-z-image-turbo.safetensors",
-                "description": "INT4 r32 - fastest, lowest VRAM"
+                "description": "Z-Image only; fastest, lowest VRAM"
               },
               {
                 "label": "Z-Image Turbo INT4 r128",
                 "value": "svdq-int4_r128-z-image-turbo.safetensors",
-                "description": "INT4 r128 - recommended RTX 20/30/40"
+                "description": "Z-Image only; recommended RTX 20/30/40"
               },
               {
                 "label": "Z-Image Turbo INT4 r256",
                 "value": "svdq-int4_r256-z-image-turbo.safetensors",
-                "description": "INT4 r256 - highest quality, more VRAM"
+                "description": "Z-Image only; highest quality, more VRAM"
               },
               {
                 "label": "Z-Image Turbo FP4 r32",
                 "value": "svdq-fp4_r32-z-image-turbo.safetensors",
-                "description": "FP4 r32 - fastest RTX 50 option"
+                "description": "Z-Image only; fastest RTX 50 option"
               },
               {
                 "label": "Z-Image Turbo FP4 r128",
                 "value": "svdq-fp4_r128-z-image-turbo.safetensors",
-                "description": "FP4 r128 - recommended RTX 50"
+                "description": "Z-Image only; recommended RTX 50"
               },
               {
                 "label": "FLUX.1-dev INT4 r32",
                 "value": "flux_dev_int4_r32",
-                "description": "FLUX.1-dev INT4 r32"
+                "description": "Very large FLUX text-to-image model; requires accepted FLUX.1-dev access"
               },
               {
                 "label": "FLUX.1-dev FP4 r32",
                 "value": "flux_dev_fp4_r32",
-                "description": "FLUX.1-dev FP4 r32"
+                "description": "Very large FLUX text-to-image model; requires accepted FLUX.1-dev access"
               },
               {
                 "label": "FLUX.1-Kontext-dev INT4 r32",
                 "value": "flux_kontext_int4_r32",
-                "description": "FLUX.1-Kontext-dev INT4 r32"
+                "description": "Very large FLUX edit/parts model; requires accepted FLUX.1-Kontext-dev access"
               },
               {
                 "label": "FLUX.1-Kontext-dev FP4 r32",
                 "value": "flux_kontext_fp4_r32",
-                "description": "FLUX.1-Kontext-dev FP4 r32"
+                "description": "Very large FLUX edit/parts model; requires accepted FLUX.1-Kontext-dev access"
               }
             ]
           },
