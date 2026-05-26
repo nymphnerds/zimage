@@ -930,22 +930,6 @@ def _part_extract_worker(payload: dict) -> dict:
         raise ValueError("Choose a source image first.")
     if not isinstance(parts, list) or not parts:
         raise ValueError("Plan and select at least one part first.")
-    if extractor_provider == "qwen_edit":
-        skipped = [
-            part
-            for part in parts
-            if str(part.get("id") or "").lower() == "anatomy_base"
-            or str(part.get("category") or "").lower() == "anatomy_base"
-        ]
-        if skipped:
-            parts = [
-                part
-                for part in parts
-                if str(part.get("id") or "").lower() != "anatomy_base"
-                and str(part.get("category") or "").lower() != "anatomy_base"
-            ]
-        if not parts:
-            raise ValueError("Qwen Image Edit local is for visible parts only. Anatomy Base needs a separate base reconstruction path.")
     payload = {**payload, "guide_image": source_image}
     outputs = []
     total = len(parts)
