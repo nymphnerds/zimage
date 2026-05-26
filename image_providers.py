@@ -7,11 +7,16 @@ from threading import Lock
 from PIL import Image
 
 
-FLUX_DEV_MODEL_ID = "black-forest-labs/FLUX.1-dev"
-FLUX_KONTEXT_MODEL_ID = "black-forest-labs/FLUX.1-Kontext-dev"
-FLUX_DEV_WEIGHT_REPO = "nunchaku-tech/nunchaku-flux.1-dev"
-FLUX_KONTEXT_WEIGHT_REPO = "nunchaku-tech/nunchaku-flux.1-kontext-dev"
-FLUX_RANK = 32
+QWEN_EDIT_MODEL_ID = "Qwen/Qwen-Image-Edit-2511"
+QWEN_EDIT_WEIGHT_REPO = "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511"
+QWEN_EDIT_WEIGHT_FILES = [
+    "nunchaku_qwen_image_edit_2511_balance_int4.safetensors",
+    "nunchaku_qwen_image_edit_2511_ultimate_speed_int4.safetensors",
+    "nunchaku_qwen_image_edit_2511_best_quality_int4.safetensors",
+    "nunchaku_qwen_image_edit_2511_balance_fp4.safetensors",
+    "nunchaku_qwen_image_edit_2511_ultimate_speed_fp4.safetensors",
+    "nunchaku_qwen_image_edit_2511_best_quality_fp4.safetensors",
+]
 
 
 def _repo_cache_root(cache_dir: Path | None, repo_id: str) -> Path | None:
@@ -86,17 +91,10 @@ def _get_precision(settings) -> str:
         return "int4"
 
 
-def _flux_weight_filename(model_name: str, settings) -> str:
-    precision = _get_precision(settings)
-    return f"svdq-{precision}_r{FLUX_RANK}-{model_name}.safetensors"
-
-
-def _flux_transformer_class():
+def _qwen_transformer_class():
     import nunchaku
 
-    return getattr(nunchaku, "NunchakuFluxTransformer2dModel", None) or getattr(
-        nunchaku, "NunchakuFluxTransformer2DModelV2"
-    )
+    return getattr(nunchaku, "NunchakuQwenImageTransformer2DModel")
 
 
 class ImageServiceCoordinator:
@@ -104,54 +102,43 @@ class ImageServiceCoordinator:
         self.settings = settings
         self.zimage_manager = zimage_manager
         self._lock = Lock()
-        self._flux_dev = None
-        self._flux_kontext = None
-        self._flux_dev_model_id = None
-        self._flux_kontext_model_id = None
+        self._qwen_edit = None
+        self._qwen_edit_model_id = None
 
     @staticmethod
     def normalize_provider(provider: str | None, mode: str = "txt2img") -> str:
         normalized = (provider or "zimage").strip().lower().replace("_", "-")
         if normalized in {"", "zimage", "z-image"}:
             return "zimage"
-        if normalized in {"flux", "flux-dev", "flux-txt2img"}:
-            return "flux_kontext" if mode == "img2img" else "flux_dev"
-        if normalized in {"flux-kontext", "flux-edit", "flux-img2img", "kontext"}:
-            return "flux_kontext"
+        if normalized in {"qwen", "qwen-edit", "qwen-img2img", "qwen-image-edit"}:
+            return "qwen_edit"
         raise ValueError(f"Unknown image provider: {provider}.")
 
     def unload_all(self, keep: str | None = None) -> None:
         if keep != "zimage" and hasattr(self.zimage_manager, "_unload_pipelines"):
             self.zimage_manager._unload_pipelines()
-        if keep != "flux_dev":
-            self._flux_dev = None
-            self._flux_dev_model_id = None
-        if keep != "flux_kontext":
-            self._flux_kontext = None
-            self._flux_kontext_model_id = None
+        if keep != "qwen_edit":
+            self._qwen_edit = None
+            self._qwen_edit_model_id = None
         _empty_cuda_cache()
 
-    def _flux_dev_ready(self) -> bool:
-        filename = _flux_weight_filename("flux.1-dev", self.settings)
-        return _snapshot_ready(
-            self.settings.hf_cache_dir,
-            FLUX_DEV_MODEL_ID,
-            ["model_index.json"],
-        ) and _hf_file_ready(self.settings.hf_cache_dir, FLUX_DEV_WEIGHT_REPO, filename)
+    def _qwen_edit_weight_file(self) -> str | None:
+        for filename in QWEN_EDIT_WEIGHT_FILES:
+            if _hf_file_ready(self.settings.hf_cache_dir, QWEN_EDIT_WEIGHT_REPO, filename):
+                return filename
+        return None
 
-    def _flux_kontext_ready(self) -> bool:
-        filename = _flux_weight_filename("flux.1-kontext-dev", self.settings)
+    def _qwen_edit_ready(self) -> bool:
         return _snapshot_ready(
             self.settings.hf_cache_dir,
-            FLUX_KONTEXT_MODEL_ID,
+            QWEN_EDIT_MODEL_ID,
             ["model_index.json"],
-        ) and _hf_file_ready(self.settings.hf_cache_dir, FLUX_KONTEXT_WEIGHT_REPO, filename)
+        ) and self._qwen_edit_weight_file() is not None
 
     def providers_info(self, supported_modes: list[str], supports_lora: bool) -> dict:
         runtime = self.zimage_manager.loaded_runtime or self.settings.runtime
         zimage_loaded = self.zimage_manager.loaded_model_id is not None
-        flux_dev_filename = _flux_weight_filename("flux.1-dev", self.settings)
-        flux_kontext_filename = _flux_weight_filename("flux.1-kontext-dev", self.settings)
+        qwen_edit_filename = self._qwen_edit_weight_file()
         return {
             "zimage": {
                 "label": "Z-Image Turbo",
@@ -175,107 +162,64 @@ class ImageServiceCoordinator:
                 "lora_family": "zimage",
                 "memory_mode": runtime,
             },
-            "flux_dev": {
-                "label": "FLUX.1-dev",
-                "ready": self._flux_dev_ready(),
-                "loaded": self._flux_dev is not None,
-                "model_id": FLUX_DEV_MODEL_ID,
-                "weight_repo": FLUX_DEV_WEIGHT_REPO,
-                "weight_file": flux_dev_filename,
-                "modes": ["txt2img"],
-                "supports_txt2img": True,
-                "supports_img2img": False,
-                "supports_reference_edit": False,
-                "supports_lora": False,
-                "supports_parts_extract": False,
-                "defaults": {"width": 1024, "height": 1024, "steps": 20, "guidance_scale": 3.5},
-                "lora_family": "flux",
-                "memory_mode": "single_provider",
-            },
-            "flux_kontext": {
-                "label": "FLUX.1-Kontext-dev",
-                "ready": self._flux_kontext_ready(),
-                "loaded": self._flux_kontext is not None,
-                "model_id": FLUX_KONTEXT_MODEL_ID,
-                "weight_repo": FLUX_KONTEXT_WEIGHT_REPO,
-                "weight_file": flux_kontext_filename,
+            "qwen_edit": {
+                "label": "Qwen Image Edit 2511",
+                "ready": self._qwen_edit_ready(),
+                "loaded": self._qwen_edit is not None,
+                "model_id": QWEN_EDIT_MODEL_ID,
+                "weight_repo": QWEN_EDIT_WEIGHT_REPO,
+                "weight_file": qwen_edit_filename,
                 "modes": ["img2img", "reference_edit", "parts_extract"],
                 "supports_txt2img": False,
                 "supports_img2img": True,
                 "supports_reference_edit": True,
                 "supports_lora": False,
                 "supports_parts_extract": True,
-                "defaults": {"width": 1024, "height": 1024, "steps": 20, "guidance_scale": 2.5, "strength": 0.75},
-                "lora_family": "flux",
+                "defaults": {"width": 1024, "height": 1024, "steps": 20, "guidance_scale": 1.0, "strength": 0.75},
+                "true_cfg_scale": 4.0,
+                "lora_family": None,
                 "memory_mode": "single_provider",
             },
         }
 
-    def _load_flux_dev(self):
-        if not self._flux_dev_ready():
-            raise RuntimeError("Fetch FLUX.1-dev before generating with provider=flux_dev.")
-        if self._flux_dev is not None:
-            return self._flux_dev
-        self.unload_all(keep="flux_dev")
-        import torch
-        from diffusers import FluxPipeline
+    def _load_qwen_edit(self):
+        if not self._qwen_edit_ready():
+            raise RuntimeError("Fetch Qwen Image Edit 2511 before generating with provider=qwen_edit.")
+        if self._qwen_edit is not None:
+            return self._qwen_edit
+        self.unload_all(keep="qwen_edit")
+        from diffusers import QwenImageEditPlusPipeline
+        from nunchaku.utils import get_gpu_memory
 
-        transformer_cls = _flux_transformer_class()
-        filename = _flux_weight_filename("flux.1-dev", self.settings)
-        weight_path = _hf_cached_file(self.settings.hf_cache_dir, FLUX_DEV_WEIGHT_REPO, filename)
+        transformer_cls = _qwen_transformer_class()
+        filename = self._qwen_edit_weight_file()
+        weight_path = _hf_cached_file(self.settings.hf_cache_dir, QWEN_EDIT_WEIGHT_REPO, filename or "")
         if weight_path is None:
-            raise RuntimeError("Fetch FLUX.1-dev before generating with provider=flux_dev.")
+            raise RuntimeError("Fetch Qwen Image Edit 2511 before generating with provider=qwen_edit.")
         transformer = transformer_cls.from_pretrained(
             str(weight_path),
             torch_dtype=_torch_dtype(self.settings),
         )
-        pipe = FluxPipeline.from_pretrained(
-            FLUX_DEV_MODEL_ID,
+        pipe = QwenImageEditPlusPipeline.from_pretrained(
+            QWEN_EDIT_MODEL_ID,
             transformer=transformer,
             torch_dtype=_torch_dtype(self.settings),
             cache_dir=str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
             local_files_only=True,
             token=self.settings.hf_token,
         )
-        if self.settings.device == "cuda" and hasattr(pipe, "enable_sequential_cpu_offload"):
+        if self.settings.device == "cuda" and get_gpu_memory() <= 18:
+            if hasattr(transformer, "set_offload"):
+                transformer.set_offload(True, use_pin_memory=False, num_blocks_on_gpu=1)
+            if hasattr(pipe, "_exclude_from_cpu_offload"):
+                pipe._exclude_from_cpu_offload.append("transformer")
             pipe.enable_sequential_cpu_offload()
+        elif self.settings.device == "cuda" and hasattr(pipe, "enable_model_cpu_offload"):
+            pipe.enable_model_cpu_offload()
         elif self.settings.device:
             pipe = pipe.to(self.settings.device)
-        self._flux_dev = pipe
-        self._flux_dev_model_id = FLUX_DEV_MODEL_ID
-        return pipe
-
-    def _load_flux_kontext(self):
-        if not self._flux_kontext_ready():
-            raise RuntimeError("Fetch FLUX.1-Kontext-dev before generating with provider=flux_kontext.")
-        if self._flux_kontext is not None:
-            return self._flux_kontext
-        self.unload_all(keep="flux_kontext")
-        from diffusers import FluxKontextPipeline
-
-        transformer_cls = _flux_transformer_class()
-        filename = _flux_weight_filename("flux.1-kontext-dev", self.settings)
-        weight_path = _hf_cached_file(self.settings.hf_cache_dir, FLUX_KONTEXT_WEIGHT_REPO, filename)
-        if weight_path is None:
-            raise RuntimeError("Fetch FLUX.1-Kontext-dev before generating with provider=flux_kontext.")
-        transformer = transformer_cls.from_pretrained(
-            str(weight_path),
-            torch_dtype=_torch_dtype(self.settings),
-        )
-        pipe = FluxKontextPipeline.from_pretrained(
-            FLUX_KONTEXT_MODEL_ID,
-            transformer=transformer,
-            torch_dtype=_torch_dtype(self.settings),
-            cache_dir=str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
-            local_files_only=True,
-            token=self.settings.hf_token,
-        )
-        if self.settings.device == "cuda" and hasattr(pipe, "enable_sequential_cpu_offload"):
-            pipe.enable_sequential_cpu_offload()
-        elif self.settings.device:
-            pipe = pipe.to(self.settings.device)
-        self._flux_kontext = pipe
-        self._flux_kontext_model_id = FLUX_KONTEXT_MODEL_ID
+        self._qwen_edit = pipe
+        self._qwen_edit_model_id = QWEN_EDIT_MODEL_ID
         return pipe
 
     def _build_generator(self, seed: int | None):
@@ -289,37 +233,20 @@ class ImageServiceCoordinator:
         return generator
 
     def generate_text_to_image(self, payload, progress_callback=None):
-        with self._lock:
-            pipe = self._load_flux_dev()
-            steps = int(payload.steps or 20)
-            kwargs = {
-                "prompt": payload.prompt,
-                "width": payload.width,
-                "height": payload.height,
-                "num_inference_steps": steps,
-                "guidance_scale": payload.guidance_scale if payload.guidance_scale is not None else 3.5,
-                "generator": self._build_generator(payload.seed),
-            }
-            if progress_callback is not None:
-                def _on_step_end(_pipeline, step_index, _timestep, callback_kwargs):
-                    progress_callback(int(step_index) + 1, steps)
-                    return callback_kwargs
-
-                kwargs["callback_on_step_end"] = _on_step_end
-            result = pipe(**kwargs)
-            return result.images[0], FLUX_DEV_MODEL_ID
+        raise RuntimeError("Qwen Image Edit supports img2img/reference editing only. Use Z-Image for txt2img.")
 
     def generate_image_to_image(self, payload, image: Image.Image, progress_callback=None):
         with self._lock:
-            pipe = self._load_flux_kontext()
+            pipe = self._load_qwen_edit()
             steps = int(payload.steps or 20)
             kwargs = {
                 "prompt": payload.prompt,
-                "image": image,
-                "width": payload.width,
-                "height": payload.height,
+                "image": [image],
                 "num_inference_steps": steps,
-                "guidance_scale": payload.guidance_scale if payload.guidance_scale is not None else 2.5,
+                "guidance_scale": payload.guidance_scale if payload.guidance_scale is not None else 1.0,
+                "true_cfg_scale": 4.0,
+                "negative_prompt": payload.negative_prompt or " ",
+                "num_images_per_prompt": 1,
                 "generator": self._build_generator(payload.seed),
             }
             if progress_callback is not None:
@@ -329,4 +256,4 @@ class ImageServiceCoordinator:
 
                 kwargs["callback_on_step_end"] = _on_step_end
             result = pipe(**kwargs)
-            return result.images[0], FLUX_KONTEXT_MODEL_ID
+            return result.images[0], QWEN_EDIT_MODEL_ID

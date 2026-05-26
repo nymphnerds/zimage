@@ -10,12 +10,10 @@ requested_weight=""
 download_all_weights=false
 selected_fetch_label=""
 fetch_zimage=true
-fetch_flux_dev=false
-fetch_flux_kontext=false
-fetch_flux_dev_all_precisions=false
-fetch_flux_kontext_all_precisions=false
-FLUX_DEV_PRECISION="int4"
-FLUX_KONTEXT_PRECISION="int4"
+fetch_qwen_edit=false
+QWEN_EDIT_MODEL_ID="Qwen/Qwen-Image-Edit-2511"
+QWEN_EDIT_WEIGHT_REPO="QuantFunc/Nunchaku-Qwen-Image-EDIT-2511"
+QWEN_EDIT_WEIGHT_FILE=""
 license_ack=false
 
 while [[ $# -gt 0 ]]; do
@@ -120,15 +118,14 @@ while [[ $# -gt 0 ]]; do
       cat <<'EOF'
 Usage:
   zimage_fetch_models.sh --model svdq-int4_r128-z-image-turbo.safetensors
-  zimage_fetch_models.sh --model all_models --license-ack yes
-  zimage_fetch_models.sh --model flux_dev_int4_r32 --license-ack yes
-  zimage_fetch_models.sh --model flux_kontext_int4_r32 --license-ack yes
+  zimage_fetch_models.sh --model local_image_stack_qwen_2511_int4
+  zimage_fetch_models.sh --model qwen_edit_2511_balance_int4
   zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
   zimage_fetch_models.sh [--precision auto|int4|fp4] [--rank 32|128|256] [--hf_token TOKEN]
 
 Downloads local Nymphs Image model files. Z-Image Turbo is the fast default.
-FLUX.1-dev is text-to-image. FLUX.1-Kontext-dev is image edit and parts extraction.
-Brain owns local vision/planner model downloads.
+Qwen Image Edit 2511 is local image edit, reference edit, and parts extraction.
+Brain owns Qwen vision/planner model downloads.
 
 Friendly presets:
   RTX 20/30/40 + fast     -> int4 r32
@@ -146,9 +143,7 @@ Published Z-Image Turbo quantized weights for the Nunchaku runtime:
 
 Use --precision auto only with ranks that exist for both INT4 and FP4.
 
-BFL FLUX.1-dev and FLUX.1-Kontext-dev are gated/non-commercial model families.
-Use --license-ack yes only after accepting and complying with the upstream
-model terms for your use.
+Qwen vision/VLM models are fetched and configured in Brain, not Nymphs Image.
 EOF
       exit 0
       ;;
@@ -170,16 +165,13 @@ if [[ -n "${requested_weight}" ]]; then
       download_all_weights=true
       selected_fetch_label="all published Z-Image Turbo Nunchaku-compatible weights"
       ;;
-    all_models|all-models|all_image_models|all-image-models)
-      download_all_weights=true
+    local_image_stack_qwen_2511_int4|local-image-stack-qwen-2511-int4|all_models|all-models|all_image_models|all-image-models)
       fetch_zimage=true
-      fetch_flux_dev=true
-      fetch_flux_kontext=true
-      fetch_flux_dev_all_precisions=true
-      fetch_flux_kontext_all_precisions=true
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_balance_int4.safetensors"
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="All Models (very large): Z-Image Turbo weights plus FLUX.1-dev and FLUX.1-Kontext-dev INT4/FP4 r32"
+      selected_fetch_label="Local Image Stack: Z-Image Turbo INT4 r32 plus Qwen Image Edit 2511 balanced INT4"
       ;;
     svdq-int4_r32-z-image-turbo.safetensors|int4_r32|int4:32)
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
@@ -206,53 +198,49 @@ if [[ -n "${requested_weight}" ]]; then
       Z_IMAGE_NUNCHAKU_RANK="128"
       selected_fetch_label="svdq-fp4_r128-z-image-turbo.safetensors"
       ;;
-    flux_dev_int4_r32|flux-dev-int4-r32)
+    qwen_edit_2511_ultimate_speed_int4|qwen-edit-2511-ultimate-speed-int4)
       fetch_zimage=false
-      fetch_flux_dev=true
-      FLUX_DEV_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="FLUX.1-dev INT4 r32"
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_ultimate_speed_int4.safetensors"
+      selected_fetch_label="Qwen Image Edit 2511 ultimate speed INT4"
       ;;
-    flux_dev_fp4_r32|flux-dev-fp4-r32)
+    qwen_edit_2511_balance_int4|qwen-edit-2511-balance-int4)
       fetch_zimage=false
-      fetch_flux_dev=true
-      FLUX_DEV_PRECISION="fp4"
-      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
-      Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="FLUX.1-dev FP4 r32"
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_balance_int4.safetensors"
+      selected_fetch_label="Qwen Image Edit 2511 balanced INT4"
       ;;
-    flux_kontext_int4_r32|flux-kontext-int4-r32)
+    qwen_edit_2511_best_quality_int4|qwen-edit-2511-best-quality-int4)
       fetch_zimage=false
-      fetch_flux_kontext=true
-      FLUX_KONTEXT_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="FLUX.1-Kontext-dev INT4 r32"
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_best_quality_int4.safetensors"
+      selected_fetch_label="Qwen Image Edit 2511 best quality INT4"
       ;;
-    flux_kontext_fp4_r32|flux-kontext-fp4-r32)
+    qwen_edit_2511_ultimate_speed_fp4|qwen-edit-2511-ultimate-speed-fp4)
       fetch_zimage=false
-      fetch_flux_kontext=true
-      FLUX_KONTEXT_PRECISION="fp4"
-      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
-      Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="FLUX.1-Kontext-dev FP4 r32"
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_ultimate_speed_fp4.safetensors"
+      selected_fetch_label="Qwen Image Edit 2511 ultimate speed FP4"
+      ;;
+    qwen_edit_2511_balance_fp4|qwen-edit-2511-balance-fp4)
+      fetch_zimage=false
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_balance_fp4.safetensors"
+      selected_fetch_label="Qwen Image Edit 2511 balanced FP4"
+      ;;
+    qwen_edit_2511_best_quality_fp4|qwen-edit-2511-best-quality-fp4)
+      fetch_zimage=false
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_best_quality_fp4.safetensors"
+      selected_fetch_label="Qwen Image Edit 2511 best quality FP4"
       ;;
     qwen3_vl_8b_q4_vision|qwen3-vl-8b-q4-vision)
       echo "Brain owns local vision model downloads. Use Brain to fetch/configure Qwen or another vision-capable model." >&2
       exit 2
       ;;
-    local_parts_flux_16gb|local-parts-flux-16gb|local_parts_stack_16gb|local-parts-stack-16gb)
-      fetch_zimage=false
-      fetch_flux_kontext=true
-      FLUX_KONTEXT_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_PRECISION="int4"
-      Z_IMAGE_NUNCHAKU_RANK="32"
-      selected_fetch_label="FLUX.1-Kontext-dev INT4 r32"
-      ;;
     *)
       echo "Unsupported Nymphs Image model selection: ${requested_weight}." >&2
-      echo "Run --help for supported Z-Image and FLUX options." >&2
+      echo "Run --help for supported Z-Image and Qwen options." >&2
       exit 2
       ;;
   esac
@@ -261,18 +249,6 @@ if [[ -n "${requested_weight}" ]]; then
     export Z_IMAGE_NUNCHAKU_PRECISION
     export Z_IMAGE_NUNCHAKU_RANK
   fi
-fi
-
-if [[ "${fetch_flux_dev}" == "true" || "${fetch_flux_kontext}" == "true" ]] && [[ "${license_ack}" != "true" ]]; then
-  cat >&2 <<'EOF'
-LICENSE ACK REQUIRED:
-FLUX.1-dev and FLUX.1-Kontext-dev are gated/non-commercial BFL models.
-Accept the Hugging Face access pages with the same account used for your token:
-https://huggingface.co/black-forest-labs/FLUX.1-dev
-https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev
-Rerun Fetch Models after selecting "Yes" in the module action popup.
-EOF
-  exit 2
 fi
 
 if [[ -n "${requested_gpu_family}" || -n "${requested_preset}" ]]; then
@@ -490,17 +466,7 @@ run_with_hf_download_progress() {
     print_hf_download_progress "${label}" "${repo_id}" "${start_cache_bytes}"
     echo "MODEL FETCH COMPLETE: step=${label} repo=${repo_id}"
   else
-    case "${repo_id}" in
-      black-forest-labs/FLUX.1-dev)
-        echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} status=failed error=flux_access_needed next_step=Accept FLUX.1-dev access, then run Fetch Models again. link=https://huggingface.co/black-forest-labs/FLUX.1-dev"
-        ;;
-      black-forest-labs/FLUX.1-Kontext-dev)
-        echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} status=failed error=flux_access_needed next_step=Accept FLUX.1-Kontext-dev access, then run Fetch Models again. link=https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
-        ;;
-      *)
-        echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} exit_status=${status}"
-        ;;
-    esac
+    echo "MODEL FETCH FAILED: step=${label} repo=${repo_id} exit_status=${status}"
   fi
 
   return "${status}"
@@ -584,24 +550,12 @@ PY
   )
 }
 
-prefetch_flux_dev() {
-  prefetch_hf_snapshot_model "black-forest-labs/FLUX.1-dev" "full"
-  if [[ "${fetch_flux_dev_all_precisions}" == "true" ]]; then
-    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"
-    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-fp4_r32-flux.1-dev.safetensors"
-  else
-    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-${FLUX_DEV_PRECISION}_r32-flux.1-dev.safetensors"
-  fi
+prefetch_qwen_edit_base() {
+  prefetch_hf_snapshot_model "${QWEN_EDIT_MODEL_ID}" "full"
 }
 
-prefetch_flux_kontext() {
-  prefetch_hf_snapshot_model "black-forest-labs/FLUX.1-Kontext-dev" "full"
-  if [[ "${fetch_flux_kontext_all_precisions}" == "true" ]]; then
-    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"
-    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-fp4_r32-flux.1-kontext-dev.safetensors"
-  else
-    prefetch_hf_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-${FLUX_KONTEXT_PRECISION}_r32-flux.1-kontext-dev.safetensors"
-  fi
+prefetch_qwen_edit_weight() {
+  prefetch_hf_file "${QWEN_EDIT_WEIGHT_REPO}" "${QWEN_EDIT_WEIGHT_FILE}"
 }
 
 save_zimage_generation_preset() {
@@ -624,8 +578,12 @@ echo "nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}"
 echo "nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}"
 echo "download_all_weights=${download_all_weights}"
 echo "fetch_zimage=${fetch_zimage}"
-echo "fetch_flux_dev=${fetch_flux_dev}"
-echo "fetch_flux_kontext=${fetch_flux_kontext}"
+echo "fetch_qwen_edit=${fetch_qwen_edit}"
+if [[ "${fetch_qwen_edit}" == "true" ]]; then
+  echo "qwen_edit_model=${QWEN_EDIT_MODEL_ID}"
+  echo "qwen_edit_weight_repo=${QWEN_EDIT_WEIGHT_REPO}"
+  echo "qwen_edit_weight_file=${QWEN_EDIT_WEIGHT_FILE}"
+fi
 echo "hf_cache_dir=${NYMPHS3D_HF_CACHE_DIR}"
 
 echo "model_fetch_plan=${selected_fetch_label:-Z-Image selected model files}"
@@ -652,21 +610,23 @@ if [[ "${fetch_zimage}" == "true" ]]; then
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 fi
 
-if [[ "${fetch_flux_dev}" == "true" ]]; then
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-dev base model and Nunchaku r32 transformer"
+if [[ "${fetch_qwen_edit}" == "true" ]]; then
+  if [[ -z "${QWEN_EDIT_WEIGHT_FILE}" ]]; then
+    echo "Qwen Image Edit weight file was not selected." >&2
+    exit 2
+  fi
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="Qwen Image Edit 2511 base model files"
   run_with_hf_download_progress \
-    "FLUX.1-dev r32" \
-    "black-forest-labs/FLUX.1-dev" \
-    prefetch_flux_dev
+    "Qwen Image Edit 2511 base" \
+    "${QWEN_EDIT_MODEL_ID}" \
+    prefetch_qwen_edit_base
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT
-fi
 
-if [[ "${fetch_flux_kontext}" == "true" ]]; then
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="FLUX.1-Kontext-dev base model and Nunchaku r32 transformer"
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Qwen Image Edit 2511 Nunchaku transformer: ${QWEN_EDIT_WEIGHT_FILE}"
   run_with_hf_download_progress \
-    "FLUX.1-Kontext-dev r32" \
-    "black-forest-labs/FLUX.1-Kontext-dev" \
-    prefetch_flux_kontext
+    "Qwen Image Edit 2511 weight" \
+    "${QWEN_EDIT_WEIGHT_REPO}" \
+    prefetch_qwen_edit_weight
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 fi
 

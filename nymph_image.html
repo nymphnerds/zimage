@@ -1005,8 +1005,7 @@
               <label for="image-provider">Provider</label>
               <select id="image-provider">
                 <option value="zimage">Z-Image Turbo</option>
-                <option value="flux_dev">FLUX.1-dev</option>
-                <option value="flux_kontext">FLUX.1-Kontext</option>
+                <option value="qwen_edit">Qwen Image Edit 2511</option>
               </select>
             </div>
           </div>
@@ -1180,7 +1179,7 @@
               <label for="extractor-provider">Extractor</label>
               <select id="extractor-provider">
                 <option value="gemini">Gemini Flash</option>
-                <option value="flux_kontext">FLUX.1-Kontext local</option>
+                <option value="qwen_edit">Qwen Image Edit local</option>
               </select>
             </div>
             <div class="field"><label for="max-parts">Max</label><input id="max-parts" type="number" min="1" max="16" value="8"></div>
@@ -2773,12 +2772,8 @@
         toast("Choose a source image for Image to Image.");
         return;
       }
-      if (provider === "flux_dev" && useGuide) {
-        toast("FLUX.1-dev is text only. Clear Image to Image or choose FLUX.1-Kontext.");
-        return;
-      }
-      if (provider === "flux_kontext" && !useGuide) {
-        toast("FLUX.1-Kontext needs a source image. Enable Image to Image first.");
+      if (provider === "qwen_edit" && !useGuide) {
+        toast("Qwen Image Edit needs a source image. Enable Image to Image first.");
         return;
       }
       setBusy(true);
@@ -2810,9 +2805,9 @@
             strength: parseFloat($("strength").value || "0.55"),
             image: useGuide ? state.sourceDataUrl : null,
             batch_id: batchId,
-            batch_label: provider === "zimage" ? "Z-Image Variants" : "FLUX Variants",
+            batch_label: provider === "zimage" ? "Z-Image Variants" : "Qwen Edit Variants",
             batch_type: provider,
-            item_label: `${provider === "zimage" ? "Z" : "FLUX"} ${index + 1}`,
+            item_label: `${provider === "zimage" ? "Z" : "Qwen"} ${index + 1}`,
             item_index: index + 1,
             item_total: count,
           };

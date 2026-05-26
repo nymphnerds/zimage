@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.89",
+  "version": "0.1.90",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -56,7 +56,6 @@
     "logs": "scripts/zimage_logs.sh",
     "delete_models": "scripts/zimage_delete_models.sh",
     "fetch_models": "scripts/zimage_fetch_models.sh",
-    "open_flux_access": "scripts/zimage_open_flux_access.sh",
     "smoke_test": "scripts/zimage_smoke_test.sh",
     "uninstall": "scripts/zimage_uninstall.sh",
     "open_lora": "scripts/zimage_open_lora.sh",
@@ -74,21 +73,6 @@
       "start_action": "open_nymph_ui",
       "stop_action": "stop"
     },
-    "detail_primary_action": {
-      "id": "open_flux_access",
-      "label": "Accept FLUX access",
-      "entrypoint": "open_flux_access",
-      "result": "open_external_browser",
-      "heading": "NEXT STEP:",
-      "help": "FLUX access pages need accepting before Fetch Models.",
-      "show_when": {
-        "state": [
-          "model_download_needed",
-          "checking_status",
-          "status_timeout"
-        ]
-      }
-    },
     "manager_action_groups": [
       {
         "id": "model_fetch",
@@ -97,7 +81,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Download local image model files. Z-Image is the normal small fetch; FLUX base models are very large and require accepted Hugging Face access.",
+        "description": "Download local image model files. Z-Image Turbo is the fast generation model. Qwen Image Edit 2511 is the local image edit and parts-extraction candidate; Brain owns Qwen vision/planning models.",
         "links": [
           {
             "label": "Base model",
@@ -108,20 +92,12 @@
             "url": "https://huggingface.co/nunchaku-ai/nunchaku-z-image-turbo"
           },
           {
-            "label": "Accept FLUX.1-dev access",
-            "url": "https://huggingface.co/black-forest-labs/FLUX.1-dev"
+            "label": "Qwen Image Edit 2511",
+            "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511"
           },
           {
-            "label": "Accept FLUX.1-Kontext-dev access",
-            "url": "https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
-          },
-          {
-            "label": "Nunchaku FLUX.1-dev weights",
-            "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-dev"
-          },
-          {
-            "label": "Nunchaku FLUX.1-Kontext-dev weights",
-            "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-kontext-dev"
+            "label": "Qwen 2511 Nunchaku weights",
+            "url": "https://huggingface.co/QuantFunc/Nunchaku-Qwen-Image-EDIT-2511"
           }
         ],
         "fields": [
@@ -133,9 +109,9 @@
             "default": "svdq-int4_r32-z-image-turbo.safetensors",
             "options": [
               {
-                "label": "All Models (very large)",
-                "value": "all_models",
-                "description": "Downloads Z-Image plus FLUX.1-dev and FLUX.1-Kontext-dev; tens of GB"
+                "label": "Local Image Stack - Z-Image r32 + Qwen Edit balanced INT4",
+                "value": "local_image_stack_qwen_2511_int4",
+                "description": "Downloads the fast Z-Image default plus Qwen Image Edit 2511 balanced INT4"
               },
               {
                 "label": "Z-Image Turbo INT4 r32",
@@ -163,24 +139,34 @@
                 "description": "Z-Image only; recommended RTX 50"
               },
               {
-                "label": "FLUX.1-dev INT4 r32",
-                "value": "flux_dev_int4_r32",
-                "description": "Very large FLUX text-to-image model; requires accepted FLUX.1-dev access"
+                "label": "Qwen Image Edit 2511 ultimate speed INT4",
+                "value": "qwen_edit_2511_ultimate_speed_int4",
+                "description": "Lowest VRAM Qwen edit/extraction weight"
               },
               {
-                "label": "FLUX.1-dev FP4 r32",
-                "value": "flux_dev_fp4_r32",
-                "description": "Very large FLUX text-to-image model; requires accepted FLUX.1-dev access"
+                "label": "Qwen Image Edit 2511 balanced INT4",
+                "value": "qwen_edit_2511_balance_int4",
+                "description": "Recommended broad Qwen edit/extraction weight"
               },
               {
-                "label": "FLUX.1-Kontext-dev INT4 r32",
-                "value": "flux_kontext_int4_r32",
-                "description": "Very large FLUX edit/parts model; requires accepted FLUX.1-Kontext-dev access"
+                "label": "Qwen Image Edit 2511 best quality INT4",
+                "value": "qwen_edit_2511_best_quality_int4",
+                "description": "Higher quality Qwen edit/extraction weight; uses more VRAM"
               },
               {
-                "label": "FLUX.1-Kontext-dev FP4 r32",
-                "value": "flux_kontext_fp4_r32",
-                "description": "Very large FLUX edit/parts model; requires accepted FLUX.1-Kontext-dev access"
+                "label": "Qwen Image Edit 2511 ultimate speed FP4",
+                "value": "qwen_edit_2511_ultimate_speed_fp4",
+                "description": "RTX 50 / Blackwell-oriented Qwen edit/extraction weight"
+              },
+              {
+                "label": "Qwen Image Edit 2511 balanced FP4",
+                "value": "qwen_edit_2511_balance_fp4",
+                "description": "RTX 50 / Blackwell-oriented balanced Qwen edit/extraction weight"
+              },
+              {
+                "label": "Qwen Image Edit 2511 best quality FP4",
+                "value": "qwen_edit_2511_best_quality_fp4",
+                "description": "RTX 50 / Blackwell-oriented quality Qwen edit/extraction weight"
               }
             ]
           },
@@ -191,14 +177,6 @@
             "secret_id": "huggingface.token",
             "env": "NYMPHS3D_HF_TOKEN",
             "optional": true
-          },
-          {
-            "name": "license_ack",
-            "type": "hidden",
-            "label": "License/access acknowledged in popup",
-            "arg": "--license-ack",
-            "default": "yes",
-            "optional": false
           }
         ],
         "submit": {
@@ -270,7 +248,7 @@
     ]
   },
   "overview": {
-    "body": "- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128\n- FLUX.1-dev: FLUX text-to-image generation; INT4 r32 and FP4 r32\n- FLUX.1-Kontext-dev: FLUX image edit/reference/parts extraction; INT4 r32 and FP4 r32\n- Brain: vision planning/captioning; no Qwen downloads in Nymphs Image\n\nBefore Fetch Models, accept the FLUX Hugging Face access pages with the same account used for your token.",
+    "body": "- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128\n- Qwen Image Edit 2511: local image edit, reference editing, and parts extraction\n- Brain: Qwen vision planning/captioning; Brain owns the vision/VLM model downloads\n\nFetch Models can download Z-Image generation weights, Qwen Image Edit weights, or the recommended local image stack.",
     "links": [
       {
         "label": "Z-Image Turbo",
@@ -281,20 +259,12 @@
         "url": "https://huggingface.co/nunchaku-ai/nunchaku-z-image-turbo"
       },
       {
-        "label": "Accept FLUX.1-dev access",
-        "url": "https://huggingface.co/black-forest-labs/FLUX.1-dev"
+        "label": "Qwen Image Edit 2511",
+        "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511"
       },
       {
-        "label": "Accept FLUX.1-Kontext-dev access",
-        "url": "https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev"
-      },
-      {
-        "label": "FLUX.1-dev Nunchaku weights",
-        "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-dev"
-      },
-      {
-        "label": "FLUX.1-Kontext-dev Nunchaku weights",
-        "url": "https://huggingface.co/nunchaku-tech/nunchaku-flux.1-kontext-dev"
+        "label": "Qwen 2511 Nunchaku weights",
+        "url": "https://huggingface.co/QuantFunc/Nunchaku-Qwen-Image-EDIT-2511"
       }
     ]
   },

@@ -14,17 +14,18 @@ downloaded_models=none
 downloaded_weights=none
 missing_weights=none
 weight_profile_selected=unknown
-weight_profiles_available=zimage_int4_r32,zimage_int4_r128,zimage_int4_r256,zimage_fp4_r32,zimage_fp4_r128,flux_dev_int4_r32,flux_dev_fp4_r32,flux_kontext_int4_r32,flux_kontext_fp4_r32
+weight_profiles_available=zimage_int4_r32,zimage_int4_r128,zimage_int4_r256,zimage_fp4_r32,zimage_fp4_r128,qwen_edit_2511_ultimate_speed_int4,qwen_edit_2511_balance_int4,qwen_edit_2511_best_quality_int4,qwen_edit_2511_ultimate_speed_fp4,qwen_edit_2511_balance_fp4,qwen_edit_2511_best_quality_fp4
 weight_profiles_downloaded=none
 weight_profiles_missing=none
 weight_profile_ready=false
 zimage_ready=false
-flux_dev_int4_ready=false
-flux_dev_fp4_ready=false
-flux_dev_ready=false
-flux_kontext_int4_ready=false
-flux_kontext_fp4_ready=false
-flux_kontext_ready=false
+qwen_edit_2511_ultimate_speed_int4_ready=false
+qwen_edit_2511_balance_int4_ready=false
+qwen_edit_2511_best_quality_int4_ready=false
+qwen_edit_2511_ultimate_speed_fp4_ready=false
+qwen_edit_2511_balance_fp4_ready=false
+qwen_edit_2511_best_quality_fp4_ready=false
+qwen_edit_ready=false
 brain_installed=false
 brain_model_configured=false
 brain_ready=false
@@ -138,34 +139,36 @@ if [[ "${base_model_downloaded}" == "true" && "${downloaded_weights}" != "none" 
   zimage_ready=true
 fi
 
-flux_dev_base_ready=false
-if hf_snapshot_has_path "black-forest-labs/FLUX.1-dev" "model_index.json"; then
-  flux_dev_base_ready=true
+qwen_edit_base_ready=false
+if hf_snapshot_has_path "Qwen/Qwen-Image-Edit-2511" "model_index.json"; then
+  qwen_edit_base_ready=true
 fi
-if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-int4_r32-flux.1-dev.safetensors"; then
-  flux_dev_int4_ready=true
+if hf_snapshot_has_file "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511" "nunchaku_qwen_image_edit_2511_ultimate_speed_int4.safetensors"; then
+  qwen_edit_2511_ultimate_speed_int4_ready=true
 fi
-if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-dev" "svdq-fp4_r32-flux.1-dev.safetensors"; then
-  flux_dev_fp4_ready=true
+if hf_snapshot_has_file "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511" "nunchaku_qwen_image_edit_2511_balance_int4.safetensors"; then
+  qwen_edit_2511_balance_int4_ready=true
 fi
-if [[ "${flux_dev_base_ready}" == "true" &&
-      ( "${flux_dev_int4_ready}" == "true" || "${flux_dev_fp4_ready}" == "true" ) ]]; then
-  flux_dev_ready=true
+if hf_snapshot_has_file "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511" "nunchaku_qwen_image_edit_2511_best_quality_int4.safetensors"; then
+  qwen_edit_2511_best_quality_int4_ready=true
 fi
-
-flux_kontext_base_ready=false
-if hf_snapshot_has_path "black-forest-labs/FLUX.1-Kontext-dev" "model_index.json"; then
-  flux_kontext_base_ready=true
+if hf_snapshot_has_file "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511" "nunchaku_qwen_image_edit_2511_ultimate_speed_fp4.safetensors"; then
+  qwen_edit_2511_ultimate_speed_fp4_ready=true
 fi
-if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-int4_r32-flux.1-kontext-dev.safetensors"; then
-  flux_kontext_int4_ready=true
+if hf_snapshot_has_file "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511" "nunchaku_qwen_image_edit_2511_balance_fp4.safetensors"; then
+  qwen_edit_2511_balance_fp4_ready=true
 fi
-if hf_snapshot_has_file "nunchaku-tech/nunchaku-flux.1-kontext-dev" "svdq-fp4_r32-flux.1-kontext-dev.safetensors"; then
-  flux_kontext_fp4_ready=true
+if hf_snapshot_has_file "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511" "nunchaku_qwen_image_edit_2511_best_quality_fp4.safetensors"; then
+  qwen_edit_2511_best_quality_fp4_ready=true
 fi
-if [[ "${flux_kontext_base_ready}" == "true" &&
-      ( "${flux_kontext_int4_ready}" == "true" || "${flux_kontext_fp4_ready}" == "true" ) ]]; then
-  flux_kontext_ready=true
+if [[ "${qwen_edit_base_ready}" == "true" &&
+      ( "${qwen_edit_2511_ultimate_speed_int4_ready}" == "true" ||
+        "${qwen_edit_2511_balance_int4_ready}" == "true" ||
+        "${qwen_edit_2511_best_quality_int4_ready}" == "true" ||
+        "${qwen_edit_2511_ultimate_speed_fp4_ready}" == "true" ||
+        "${qwen_edit_2511_balance_fp4_ready}" == "true" ||
+        "${qwen_edit_2511_best_quality_fp4_ready}" == "true" ) ]]; then
+  qwen_edit_ready=true
 fi
 
 profile_downloaded=()
@@ -182,25 +185,35 @@ if [[ -n "${missing_weights}" && "${missing_weights}" != "none" ]]; then
     profile_missing+=("zimage_${zimage_profile}")
   done
 fi
-if [[ "${flux_dev_base_ready}" == "true" && "${flux_dev_int4_ready}" == "true" ]]; then
-  profile_downloaded+=(flux_dev_int4_r32)
+if [[ "${qwen_edit_base_ready}" == "true" && "${qwen_edit_2511_ultimate_speed_int4_ready}" == "true" ]]; then
+  profile_downloaded+=(qwen_edit_2511_ultimate_speed_int4)
 else
-  profile_missing+=(flux_dev_int4_r32)
+  profile_missing+=(qwen_edit_2511_ultimate_speed_int4)
 fi
-if [[ "${flux_dev_base_ready}" == "true" && "${flux_dev_fp4_ready}" == "true" ]]; then
-  profile_downloaded+=(flux_dev_fp4_r32)
+if [[ "${qwen_edit_base_ready}" == "true" && "${qwen_edit_2511_balance_int4_ready}" == "true" ]]; then
+  profile_downloaded+=(qwen_edit_2511_balance_int4)
 else
-  profile_missing+=(flux_dev_fp4_r32)
+  profile_missing+=(qwen_edit_2511_balance_int4)
 fi
-if [[ "${flux_kontext_base_ready}" == "true" && "${flux_kontext_int4_ready}" == "true" ]]; then
-  profile_downloaded+=(flux_kontext_int4_r32)
+if [[ "${qwen_edit_base_ready}" == "true" && "${qwen_edit_2511_best_quality_int4_ready}" == "true" ]]; then
+  profile_downloaded+=(qwen_edit_2511_best_quality_int4)
 else
-  profile_missing+=(flux_kontext_int4_r32)
+  profile_missing+=(qwen_edit_2511_best_quality_int4)
 fi
-if [[ "${flux_kontext_base_ready}" == "true" && "${flux_kontext_fp4_ready}" == "true" ]]; then
-  profile_downloaded+=(flux_kontext_fp4_r32)
+if [[ "${qwen_edit_base_ready}" == "true" && "${qwen_edit_2511_ultimate_speed_fp4_ready}" == "true" ]]; then
+  profile_downloaded+=(qwen_edit_2511_ultimate_speed_fp4)
 else
-  profile_missing+=(flux_kontext_fp4_r32)
+  profile_missing+=(qwen_edit_2511_ultimate_speed_fp4)
+fi
+if [[ "${qwen_edit_base_ready}" == "true" && "${qwen_edit_2511_balance_fp4_ready}" == "true" ]]; then
+  profile_downloaded+=(qwen_edit_2511_balance_fp4)
+else
+  profile_missing+=(qwen_edit_2511_balance_fp4)
+fi
+if [[ "${qwen_edit_base_ready}" == "true" && "${qwen_edit_2511_best_quality_fp4_ready}" == "true" ]]; then
+  profile_downloaded+=(qwen_edit_2511_best_quality_fp4)
+else
+  profile_missing+=(qwen_edit_2511_best_quality_fp4)
 fi
 if [[ ${#profile_downloaded[@]} -gt 0 ]]; then
   weight_profiles_downloaded="$(IFS=,; printf '%s' "${profile_downloaded[*]}")"
@@ -218,8 +231,7 @@ if [[ -n "${downloaded_models}" && "${downloaded_models}" != "none" ]]; then
   IFS=',' read -ra zimage_downloaded_model_labels <<< "${downloaded_models}"
   downloaded_model_labels+=("${zimage_downloaded_model_labels[@]}")
 fi
-[[ "${flux_dev_ready}" == "true" ]] && downloaded_model_labels+=(FLUX.1-dev)
-[[ "${flux_kontext_ready}" == "true" ]] && downloaded_model_labels+=(FLUX.1-Kontext-dev)
+[[ "${qwen_edit_ready}" == "true" ]] && downloaded_model_labels+=(Qwen-Image-Edit-2511)
 if [[ ${#downloaded_model_labels[@]} -gt 0 ]]; then
   downloaded_models="$(IFS=,; printf '%s' "${downloaded_model_labels[*]}")"
 else
@@ -242,7 +254,7 @@ if [[ "${brain_installed}" == "true" && "${brain_model_configured}" == "true" ]]
   brain_ready=true
 fi
 
-if [[ "${flux_kontext_ready}" == "true" && "${brain_ready}" == "true" ]]; then
+if [[ "${qwen_edit_ready}" == "true" && "${brain_ready}" == "true" ]]; then
   local_parts_ready=true
 fi
 
@@ -311,9 +323,8 @@ if [[ "${env_ready}" == "true" &&
     health=ok
   fi
   detail="Runtime and cached model files are ready."
-  if [[ "${flux_dev_ready}" != "true" || "${flux_kontext_ready}" != "true" ]]; then
-    health=model-download-needed
-    detail="FLUX access/model files need downloading. Accept the FLUX access pages, then use Fetch Models."
+  if [[ "${qwen_edit_ready}" != "true" ]]; then
+    detail="Runtime and Z-Image files are ready. Qwen Image Edit is not fetched yet; use Fetch Models for local editing and parts extraction."
   fi
 elif [[ "${env_ready}" == "true" &&
         "${base_model_downloaded}" == "true" &&
@@ -348,10 +359,6 @@ elif [[ "${installed}" == "true" ]]; then
     state=needs_attention
     health=degraded
     detail="Z-Image runtime files are installed, but the Python runtime is missing."
-  elif [[ "${flux_dev_ready}" != "true" || "${flux_kontext_ready}" != "true" ]]; then
-    state=model_download_needed
-    health=model-download-needed
-    detail="FLUX access/model files need downloading. Accept the FLUX access pages, then use Fetch Models."
   elif [[ "${models_ready}" == "false" ]]; then
     state=model_download_needed
     health=model-download-needed
@@ -378,8 +385,14 @@ version=${version}
 env_ready=${env_ready}
 models_ready=${models_ready}
 zimage_ready=${zimage_ready}
-flux_dev_ready=${flux_dev_ready}
-flux_kontext_ready=${flux_kontext_ready}
+qwen_edit_ready=${qwen_edit_ready}
+qwen_edit_base_ready=${qwen_edit_base_ready}
+qwen_edit_2511_ultimate_speed_int4_ready=${qwen_edit_2511_ultimate_speed_int4_ready}
+qwen_edit_2511_balance_int4_ready=${qwen_edit_2511_balance_int4_ready}
+qwen_edit_2511_best_quality_int4_ready=${qwen_edit_2511_best_quality_int4_ready}
+qwen_edit_2511_ultimate_speed_fp4_ready=${qwen_edit_2511_ultimate_speed_fp4_ready}
+qwen_edit_2511_balance_fp4_ready=${qwen_edit_2511_balance_fp4_ready}
+qwen_edit_2511_best_quality_fp4_ready=${qwen_edit_2511_best_quality_fp4_ready}
 brain_installed=${brain_installed}
 brain_model_configured=${brain_model_configured}
 brain_ready=${brain_ready}

@@ -924,7 +924,7 @@ def _part_extract_worker(payload: dict) -> dict:
     parts = payload.get("parts")
     raw_extractor_provider = str(payload.get("extractor_provider") or payload.get("provider") or "gemini").strip().lower()
     extractor_provider = "gemini" if raw_extractor_provider in {"", "gemini", "gemini_flash"} else IMAGE_COORDINATOR.normalize_provider(raw_extractor_provider, "img2img")
-    if extractor_provider not in {"gemini", "flux_kontext"}:
+    if extractor_provider not in {"gemini", "qwen_edit"}:
         raise ValueError(f"Unsupported parts extractor provider: {raw_extractor_provider}")
     if not source_image:
         raise ValueError("Choose a source image first.")
@@ -935,7 +935,7 @@ def _part_extract_worker(payload: dict) -> dict:
     total = len(parts)
     batch_id = str(payload.get("batch_id") or f"parts-{uuid.uuid4().hex[:8]}").strip()
     source_pil = None
-    if extractor_provider == "flux_kontext":
+    if extractor_provider == "qwen_edit":
         source_pil = _decode_base64_image(source_image)
     for index, part in enumerate(parts, start=1):
         name = part.get("display_name") or part.get("id") or f"Part {index}"
@@ -958,17 +958,17 @@ def _part_extract_worker(payload: dict) -> dict:
             "item_total": total,
         }
         prompt = _part_extraction_prompt(part, payload)
-        if extractor_provider == "flux_kontext":
+        if extractor_provider == "qwen_edit":
             request = _normalize_request(
                 GenerateRequest(
                     mode="img2img",
-                    provider="flux_kontext",
+                    provider="qwen_edit",
                     prompt=prompt,
                     image=source_image,
                     width=int(payload.get("width") or 1024),
                     height=int(payload.get("height") or 1024),
                     steps=int(payload.get("steps") or 20),
-                    guidance_scale=float(payload.get("guidance_scale") or 2.5),
+                    guidance_scale=float(payload.get("guidance_scale") or 1.0),
                     strength=float(payload.get("strength") or 0.75),
                     seed=int(payload["seed"]) if str(payload.get("seed") or "").strip().isdigit() else None,
                     batch_id=batch_id,
@@ -993,7 +993,7 @@ def _part_extract_worker(payload: dict) -> dict:
                 ),
             )
             metadata = {
-                "provider": "FLUX.1-Kontext-dev",
+                "provider": "Qwen Image Edit 2511",
                 "mode": "parts_extract",
                 "model_id": model_id,
                 "part": part,
@@ -1069,16 +1069,14 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
         raise ValueError("img2img mode requires an input image.")
     if provider == "zimage" and payload.mode == "img2img" and not MODEL_MANAGER.supports_img2img(payload.model_id):
         raise ValueError("Current runtime supports txt2img only.")
-    if provider == "flux_dev" and payload.mode != "txt2img":
-        raise ValueError("provider=flux_dev supports txt2img only.")
-    if provider == "flux_kontext" and payload.mode != "img2img":
-        raise ValueError("provider=flux_kontext requires img2img mode and an input image.")
+    if provider == "qwen_edit" and payload.mode != "img2img":
+        raise ValueError("provider=qwen_edit requires img2img mode and an input image.")
     if not 0.0 < strength <= 1.0:
         raise ValueError("strength must be between 0 and 1.")
     if lora_scale is not None and lora_scale < 0.0:
         raise ValueError("lora_scale must be zero or greater.")
     if provider != "zimage" and lora_path is not None:
-        raise ValueError("FLUX LoRA support is not enabled yet. Clear the LoRA before using a FLUX provider.")
+        raise ValueError("Qwen Image Edit LoRA support is not enabled yet. Clear the LoRA before using provider=qwen_edit.")
     if nunchaku_rank is not None and nunchaku_rank not in {32, 128, 256}:
         raise ValueError("nunchaku_rank must be 32, 128, or 256.")
     if nunchaku_precision is not None and nunchaku_precision not in {"auto", "int4", "fp4"}:
@@ -1242,7 +1240,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         model_id = MODEL_MANAGER.ensure_model(payload.model_id)
         _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
     else:
-        model_id = payload.model_id or ("black-forest-labs/FLUX.1-Kontext-dev" if payload.provider == "flux_kontext" else "black-forest-labs/FLUX.1-dev")
+        model_id = payload.model_id or "Qwen/Qwen-Image-Edit-2511"
 
     def _denoise_progress(current: int, total: int, label: str) -> None:
         total = max(1, int(total or 1))
@@ -1286,7 +1284,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         else:
             image, model_id = IMAGE_COORDINATOR.generate_text_to_image(
                 payload,
-                progress_callback=lambda current, total: _denoise_progress(current, total, "FLUX txt2img"),
+                progress_callback=lambda current, total: _denoise_progress(current, total, "Qwen txt2img"),
             )
         _log_stage("txt2img.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
     else:
@@ -1323,7 +1321,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             image, model_id = IMAGE_COORDINATOR.generate_image_to_image(
                 payload,
                 init_image,
-                progress_callback=lambda current, total: _denoise_progress(current, total, "FLUX Kontext"),
+                progress_callback=lambda current, total: _denoise_progress(current, total, "Qwen Image Edit"),
             )
         _log_stage("img2img.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
 
