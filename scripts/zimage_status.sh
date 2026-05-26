@@ -124,6 +124,35 @@ hf_snapshot_has_file() {
   find -L "${snapshots_dir}" -mindepth 2 -maxdepth 2 -type f -name "${filename}" -print -quit 2>/dev/null | grep -q .
 }
 
+qwen_edit_base_ready_check() {
+  local repo_id="Qwen/Qwen-Image-Edit-2511"
+  local required_paths=(
+    "model_index.json"
+    "scheduler/scheduler_config.json"
+    "processor/preprocessor_config.json"
+    "processor/tokenizer.json"
+    "processor/tokenizer_config.json"
+    "text_encoder/config.json"
+    "text_encoder/model-00001-of-00004.safetensors"
+    "text_encoder/model-00002-of-00004.safetensors"
+    "text_encoder/model-00003-of-00004.safetensors"
+    "text_encoder/model-00004-of-00004.safetensors"
+    "text_encoder/model.safetensors.index.json"
+    "tokenizer/merges.txt"
+    "tokenizer/tokenizer_config.json"
+    "tokenizer/vocab.json"
+    "vae/config.json"
+    "vae/diffusion_pytorch_model.safetensors"
+  )
+  local required_path
+  for required_path in "${required_paths[@]}"; do
+    if ! hf_snapshot_has_path "${repo_id}" "${required_path}"; then
+      return 1
+    fi
+  done
+  return 0
+}
+
 if [[ -d "${NYMPHS3D_HF_CACHE_DIR}" ]]; then
   while IFS='=' read -r key value; do
     case "${key}" in
@@ -140,7 +169,7 @@ if [[ "${base_model_downloaded}" == "true" && "${downloaded_weights}" != "none" 
 fi
 
 qwen_edit_base_ready=false
-if hf_snapshot_has_path "Qwen/Qwen-Image-Edit-2511" "model_index.json"; then
+if qwen_edit_base_ready_check; then
   qwen_edit_base_ready=true
 fi
 if hf_snapshot_has_file "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511" "nunchaku_qwen_image_edit_2511_ultimate_speed_int4.safetensors"; then

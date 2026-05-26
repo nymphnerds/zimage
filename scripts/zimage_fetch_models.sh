@@ -551,7 +551,7 @@ PY
 }
 
 prefetch_qwen_edit_base() {
-  prefetch_hf_snapshot_model "${QWEN_EDIT_MODEL_ID}" "full"
+  prefetch_hf_snapshot_model "${QWEN_EDIT_MODEL_ID}" "qwen-image-edit-nunchaku-base"
 }
 
 prefetch_qwen_edit_weight() {

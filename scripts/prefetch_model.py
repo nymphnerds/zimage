@@ -37,9 +37,19 @@ ZIMAGE_CORE_PATTERNS = [
     "vae/*",
 ]
 
+QWEN_IMAGE_EDIT_NUNCHAKU_BASE_PATTERNS = [
+    "model_index.json",
+    "scheduler/*",
+    "processor/*",
+    "text_encoder/*",
+    "tokenizer/*",
+    "vae/*",
+]
+
 PROFILE_PATTERNS = {
     "sdxl-fp16-core": SDXL_FP16_CORE_PATTERNS,
     "playground-sdxl-fp16": SDXL_FP16_CORE_PATTERNS,
+    "qwen-image-edit-nunchaku-base": QWEN_IMAGE_EDIT_NUNCHAKU_BASE_PATTERNS,
     "zimage-core": ZIMAGE_CORE_PATTERNS,
 }
 
@@ -53,6 +63,9 @@ def _default_profile(model_id: str, variant: str | None) -> str:
 
     if "tongyi-mai/z-image" in normalized_model_id:
         return "zimage-core"
+
+    if "qwen/qwen-image-edit" in normalized_model_id:
+        return "qwen-image-edit-nunchaku-base"
 
     if normalized_variant in {"fp16", "float16"} and "xl" in normalized_model_id:
         return "sdxl-fp16-core"
@@ -155,6 +168,8 @@ def _component_summary(patterns: list[str] | None) -> str | None:
             label = "model index"
         elif top_level == "scheduler":
             label = "scheduler"
+        elif top_level == "processor":
+            label = "processor"
         elif top_level == "text_encoder":
             label = "text encoder"
         elif top_level == "text_encoder_2":

@@ -17,6 +17,24 @@ QWEN_EDIT_WEIGHT_FILES = [
     "nunchaku_qwen_image_edit_2511_ultimate_speed_fp4.safetensors",
     "nunchaku_qwen_image_edit_2511_best_quality_fp4.safetensors",
 ]
+QWEN_EDIT_BASE_REQUIRED_PATHS = [
+    "model_index.json",
+    "scheduler/scheduler_config.json",
+    "processor/preprocessor_config.json",
+    "processor/tokenizer.json",
+    "processor/tokenizer_config.json",
+    "text_encoder/config.json",
+    "text_encoder/model-00001-of-00004.safetensors",
+    "text_encoder/model-00002-of-00004.safetensors",
+    "text_encoder/model-00003-of-00004.safetensors",
+    "text_encoder/model-00004-of-00004.safetensors",
+    "text_encoder/model.safetensors.index.json",
+    "tokenizer/merges.txt",
+    "tokenizer/tokenizer_config.json",
+    "tokenizer/vocab.json",
+    "vae/config.json",
+    "vae/diffusion_pytorch_model.safetensors",
+]
 
 
 def _repo_cache_root(cache_dir: Path | None, repo_id: str) -> Path | None:
@@ -132,7 +150,7 @@ class ImageServiceCoordinator:
         return _snapshot_ready(
             self.settings.hf_cache_dir,
             QWEN_EDIT_MODEL_ID,
-            ["model_index.json"],
+            QWEN_EDIT_BASE_REQUIRED_PATHS,
         ) and self._qwen_edit_weight_file() is not None
 
     def providers_info(self, supported_modes: list[str], supports_lora: bool) -> dict:
