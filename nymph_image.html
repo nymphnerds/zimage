@@ -2936,6 +2936,10 @@
       return state.parts.filter((part) => part.selected);
     }
 
+    function isAnatomyBasePart(part) {
+      return String(part?.id || "").toLowerCase() === "anatomy_base" || String(part?.category || "").toLowerCase() === "anatomy_base";
+    }
+
     function updatePartButton() {
       const count = selectedParts().length;
       $("extract-parts").textContent = `Extract (${count})`;
@@ -2949,13 +2953,19 @@
       const list = $("parts-list");
       list.innerHTML = "";
       $("parts-list-head").hidden = !state.parts.length;
+      const qwenExtractor = $("extractor-provider").value === "qwen_edit";
       for (const part of state.parts) {
+        const qwenUnsupportedBase = qwenExtractor && isAnatomyBasePart(part);
+        if (qwenUnsupportedBase) part.selected = false;
         const row = document.createElement("div");
         row.className = "part-item";
         const selected = document.createElement("input");
         selected.type = "checkbox";
-        selected.title = "Include this part when Extract runs.";
+        selected.title = qwenUnsupportedBase
+          ? "Qwen Image Edit local is for visible parts; Anatomy Base needs a separate base reconstruction path."
+          : "Include this part when Extract runs.";
         selected.checked = part.selected !== false;
+        selected.disabled = qwenUnsupportedBase;
         selected.addEventListener("change", () => {
           part.selected = selected.checked;
           updatePartButton();
@@ -2963,11 +2973,12 @@
         const label = document.createElement("div");
         label.innerHTML = `<div class="part-name"></div><div class="part-meta"></div>`;
         label.querySelector(".part-name").textContent = part.display_name || part.id || "Part";
-        label.querySelector(".part-meta").textContent = part.category || "part";
+        label.querySelector(".part-meta").textContent = qwenUnsupportedBase ? "base reconstruction needed" : (part.category || "part");
         const symmetry = document.createElement("input");
         symmetry.type = "checkbox";
         symmetry.title = "Force this extracted part to stay perfectly left-right symmetrical.";
         symmetry.checked = !!part.symmetry;
+        symmetry.disabled = qwenUnsupportedBase;
         symmetry.addEventListener("change", () => { part.symmetry = symmetry.checked; });
         row.appendChild(selected);
         row.appendChild(label);
@@ -3269,6 +3280,7 @@
       });
       $("plan-parts").onclick = planParts;
       $("extract-parts").onclick = extractParts;
+      $("extractor-provider").onchange = renderParts;
       $("parts-use-selected-source").onclick = useSelectedAsPartsSource;
       $("parts-open-images").onclick = () => $("parts-source-file").click();
       $("parts-clear-source").onclick = clearPartsSource;
