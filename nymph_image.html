@@ -1168,12 +1168,16 @@
                 <option value="brain">Brain Vision</option>
               </select>
             </div>
-            <div class="field wide">
+            <div class="field wide" id="planner-model-field">
               <label for="planner-model">Planner Model</label>
               <select id="planner-model">
                 <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="google/gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
               </select>
+            </div>
+            <div class="field wide" id="planner-brain-field" hidden>
+              <label for="planner-brain-model">Brain Model</label>
+              <input id="planner-brain-model" type="text" readonly value="Auto vision model">
             </div>
             <div class="field wide">
               <label for="extractor-provider">Extractor</label>
@@ -1396,7 +1400,10 @@
       "parts-use-selected-source": "Use the image currently shown in the big preview as the parts extraction source.",
       "parts-open-images": "Choose a local image file as the parts extraction source.",
       "parts-clear-source": "Clear the parts extraction source image.",
-      "planner-model": "Vision model used to identify extractable character parts before image edits run.",
+      "planner-provider": "Choose Gemini through OpenRouter or Brain Vision from the local Brain module for part planning.",
+      "planner-model": "Gemini vision model used to identify extractable character parts before image edits run.",
+      "planner-brain-model": "Brain Vision auto-finds and starts the local Brain vision model, then restores Brain afterward.",
+      "extractor-provider": "Choose Gemini or local Qwen Image Edit for extracting the planned parts.",
       "max-parts": "Maximum parts to include in one extraction plan. This controls cost before image edits run.",
       "style-lock": "Apply the active Style field strongly during guided part extraction.",
       "base-face": "Keep facial features on the anatomy base extraction instead of leaving the head feature-neutral.",
@@ -2110,6 +2117,13 @@
       const enabled = $("base-face").checked;
       $("base-eyes").disabled = !enabled;
       if (!enabled) $("base-eyes").checked = false;
+    }
+
+    function syncPlannerProviderUi() {
+      const provider = $("planner-provider").value || "gemini";
+      const useGemini = provider === "gemini";
+      $("planner-model-field").hidden = !useGemini;
+      $("planner-brain-field").hidden = useGemini;
     }
 
     function openTextModal(title, value, onApply, readOnly = false) {
@@ -2971,20 +2985,22 @@
       setBusy(true);
       startProgress();
       try {
+        const plannerProvider = $("planner-provider").value || "gemini";
+        const payload = {
+          api_key: $("api-key").value.trim(),
+          source_image: state.partsSourceDataUrl,
+          planner_provider: plannerProvider,
+          max_parts: parseInt($("max-parts").value || "8", 10),
+          guidance: $("part-guidance").value,
+          base_face: $("base-face").checked,
+          base_eyes: $("base-eyes").checked,
+          eye_part: $("eye-part").checked,
+        };
+        if (plannerProvider === "gemini") payload.planner_model = $("planner-model").value;
         const response = await fetch("/api/parts/plan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            api_key: $("api-key").value.trim(),
-            source_image: state.partsSourceDataUrl,
-            planner_provider: $("planner-provider").value,
-            planner_model: $("planner-model").value,
-            max_parts: parseInt($("max-parts").value || "8", 10),
-            guidance: $("part-guidance").value,
-            base_face: $("base-face").checked,
-            base_eyes: $("base-eyes").checked,
-            eye_part: $("eye-part").checked,
-          }),
+          body: JSON.stringify(payload),
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body.detail || `Part planning failed with HTTP ${response.status}.`);
@@ -3259,6 +3275,7 @@
         setPartsSourceFile(event.dataTransfer.files?.[0]);
       });
       $("base-face").onchange = syncFaceControls;
+      $("planner-provider").onchange = syncPlannerProviderUi;
       $("edit-part-guidance").onclick = () => openTextModal("Extraction Prompt", $("part-guidance").value, (value) => { $("part-guidance").value = value; });
       $("clear-part-guidance").onclick = () => { $("part-guidance").value = ""; };
       $("clear-parts").onclick = clearPartPlan;
@@ -3272,6 +3289,7 @@
       syncGuideRows();
       syncLoraRows();
       syncFaceControls();
+      syncPlannerProviderUi();
       loadPresets();
       refreshInfo();
       refreshOutputs(true);
