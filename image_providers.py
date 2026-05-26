@@ -115,6 +115,30 @@ def _qwen_transformer_class():
     return getattr(nunchaku, "NunchakuQwenImageTransformer2DModel")
 
 
+def _patch_qwen_transformer_txt_seq_lens(transformer) -> None:
+    if getattr(transformer, "_nymphs_txt_seq_lens_patch", False):
+        return
+    original_forward = transformer.forward
+
+    def forward_with_txt_seq_lens(*args, **kwargs):
+        if kwargs.get("txt_seq_lens") is None:
+            mask = kwargs.get("encoder_hidden_states_mask")
+            hidden = kwargs.get("encoder_hidden_states")
+            if mask is not None:
+                try:
+                    seq_lens = mask.sum(dim=1).detach().to("cpu").tolist()
+                    kwargs["txt_seq_lens"] = [int(value) for value in seq_lens]
+                except Exception:
+                    kwargs["txt_seq_lens"] = [int(mask.shape[-1])]
+            elif hidden is not None:
+                batch = int(hidden.shape[0]) if len(hidden.shape) > 1 else 1
+                kwargs["txt_seq_lens"] = [int(hidden.shape[1])] * batch
+        return original_forward(*args, **kwargs)
+
+    transformer.forward = forward_with_txt_seq_lens
+    transformer._nymphs_txt_seq_lens_patch = True
+
+
 class ImageServiceCoordinator:
     def __init__(self, settings, zimage_manager):
         self.settings = settings
@@ -218,6 +242,7 @@ class ImageServiceCoordinator:
             str(weight_path),
             torch_dtype=_torch_dtype(self.settings),
         )
+        _patch_qwen_transformer_txt_seq_lens(transformer)
         pipe = QwenImageEditPlusPipeline.from_pretrained(
             QWEN_EDIT_MODEL_ID,
             transformer=transformer,

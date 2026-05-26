@@ -1839,7 +1839,9 @@ async def vision_parts_plan(request: FastAPIRequest):
     try:
         return JSONResponse(await run_in_threadpool(_part_plan_worker, payload))
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        raise HTTPException(status_code=400, detail=detail) from exc
     except Exception as exc:
         detail = str(exc) or exc.__class__.__name__
         progress_update(status="error", stage="failed", detail=detail)
@@ -1853,7 +1855,9 @@ async def plan_parts(request: FastAPIRequest):
     try:
         return JSONResponse(await run_in_threadpool(_part_plan_worker, payload))
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        raise HTTPException(status_code=400, detail=detail) from exc
     except Exception as exc:
         detail = str(exc) or exc.__class__.__name__
         progress_update(status="error", stage="failed", detail=detail)
@@ -1867,7 +1871,9 @@ async def extract_parts(request: FastAPIRequest):
     try:
         return JSONResponse(await run_in_threadpool(_part_extract_worker, payload))
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        detail = str(exc)
+        progress_update(status="error", stage="failed", detail=detail)
+        raise HTTPException(status_code=400, detail=detail) from exc
     except Exception as exc:
         detail = str(exc) or exc.__class__.__name__
         progress_update(status="error", stage="failed", detail=detail)
