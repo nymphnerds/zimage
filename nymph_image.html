@@ -1300,6 +1300,7 @@
       busy: false,
       openrouterConfigured: false,
       progressTimer: null,
+      lastTaskOutputPath: "",
       userPresets: { subject: [], style: [], view: [], negative: [], part_guidance: [], saved: [], settings: [] },
       loraRuns: [],
       loraCheckpoints: {},
@@ -1621,6 +1622,11 @@
         const task = await response.json();
         const percent = Number(task.progress_percent);
         setProgress(task.stage || task.status || "Working", task.detail || "Processing.", Number.isFinite(percent) ? percent : 8);
+        const outputPath = task.last_output_path || "";
+        if (outputPath && outputPath !== state.lastTaskOutputPath) {
+          state.lastTaskOutputPath = outputPath;
+          await refreshOutputs(false);
+        }
       } catch {}
     }
 
@@ -3026,6 +3032,10 @@
       startProgress();
       try {
         const batchId = makeBatchId("parts");
+        state.lastTaskOutputPath = "";
+        state.activeBatchId = batchId;
+        state.viewerSource = "outputs";
+        state.outputView = "recent";
         const response = await fetch("/api/parts/extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

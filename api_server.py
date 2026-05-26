@@ -980,17 +980,25 @@ def _part_extract_worker(payload: dict) -> dict:
                 )
             )
             init_image = _resize_init_image(source_pil, request.width, request.height)
+
+            def _qwen_part_progress(current: int, step_total: int, part_index=index, part_name=name) -> None:
+                safe_step_total = max(1, int(step_total or 1))
+                safe_current = max(0, min(int(current or 0), safe_step_total))
+                global_current = ((part_index - 1) * safe_step_total) + safe_current
+                global_total = total * safe_step_total
+                progress_update(
+                    status="processing",
+                    stage="extracting_parts",
+                    detail=f"Extracting {part_index}/{total}: {part_name} step {safe_current}/{safe_step_total}",
+                    progress_current=global_current,
+                    progress_total=global_total,
+                    progress_percent=(global_current / global_total) * 100.0,
+                )
+
             image, model_id = IMAGE_COORDINATOR.generate_image_to_image(
                 request,
                 init_image,
-                progress_callback=lambda current, step_total, part_index=index: progress_update(
-                    status="processing",
-                    stage="extracting_parts",
-                    detail=f"Extracting {part_index}/{total}: {name} step {current}/{step_total}",
-                    progress_current=part_index - 1,
-                    progress_total=total,
-                    progress_percent=((part_index - 1) / total) * 100.0,
-                ),
+                progress_callback=_qwen_part_progress,
             )
             metadata = {
                 "provider": "Qwen Image Edit 2511",
@@ -1029,8 +1037,28 @@ def _part_extract_worker(payload: dict) -> dict:
                     "metadata": metadata,
                 }
             )
+            progress_update(
+                status="processing",
+                stage="extracting_parts",
+                detail=f"Saved {index}/{total}: {name}",
+                progress_current=index,
+                progress_total=total,
+                progress_percent=(index / total) * 100.0,
+                last_output_path=str(output_path),
+            )
         else:
+            before_count = len(outputs)
             outputs.extend(_gemini_request_image(item_payload, prompt, label))
+            if len(outputs) > before_count:
+                progress_update(
+                    status="processing",
+                    stage="extracting_parts",
+                    detail=f"Saved {index}/{total}: {name}",
+                    progress_current=index,
+                    progress_total=total,
+                    progress_percent=(index / total) * 100.0,
+                    last_output_path=outputs[-1]["path"],
+                )
     progress_update(
         status="idle",
         stage="complete",
