@@ -54,70 +54,16 @@ refresh_cuda_env() {
   return 1
 }
 
-download_cuda_keyring() {
-  local keyring_url="https://developer.download.nvidia.com/compute/cuda/repos/wsl-ubuntu/x86_64/cuda-keyring_1.1-1_all.deb"
-  local keyring_deb="${HOME}/cuda-keyring_1.1-1_all.deb"
-
-  if [[ -f "${keyring_deb}" ]]; then
-    printf '%s\n' "${keyring_deb}"
-    return 0
-  fi
-
-  if command -v wget >/dev/null 2>&1; then
-    wget -O "${keyring_deb}" "${keyring_url}"
-  elif command -v curl >/dev/null 2>&1; then
-    curl -L -o "${keyring_deb}" "${keyring_url}"
-  else
-    echo "Neither wget nor curl is available to download the NVIDIA CUDA keyring." >&2
-    return 1
-  fi
-
-  printf '%s\n' "${keyring_deb}"
-}
-
 ensure_cuda_toolkit() {
   if refresh_cuda_env; then
-    echo "CUDA compiler detected:"
+    echo "Base Runtime CUDA compiler detected:"
     nvcc --version | sed -n '1,4p'
     return 0
   fi
 
-  echo "Nunchaku is being built from the Nymphs fork and needs the CUDA compiler (nvcc)."
-
-  if ! command -v sudo >/dev/null 2>&1 ||
-     ! command -v apt-cache >/dev/null 2>&1 ||
-     ! command -v dpkg >/dev/null 2>&1; then
-    echo "nvcc is missing and automatic CUDA toolkit installation is not available." >&2
-    echo "Install CUDA Toolkit 13.0 for WSL, then retry Z-Image Turbo installation." >&2
-    exit 1
-  fi
-
-  if ! has_apt_candidate cuda-toolkit-13-0; then
-    echo "Adding NVIDIA CUDA 13.0 apt repository for WSL..."
-    sudo apt update
-    local keyring_deb
-    keyring_deb="$(download_cuda_keyring)"
-    sudo dpkg -i "${keyring_deb}"
-    sudo apt update
-  fi
-
-  if ! has_apt_candidate cuda-toolkit-13-0; then
-    echo "cuda-toolkit-13-0 is still not available from apt after adding the NVIDIA repository." >&2
-    echo "Install CUDA Toolkit 13.0 for WSL, then retry Z-Image Turbo installation." >&2
-    exit 1
-  fi
-
-  echo "Installing CUDA Toolkit 13.0 so Nunchaku can compile native CUDA extensions..."
-  sudo apt install -y cuda-toolkit-13-0
-
-  if ! refresh_cuda_env; then
-    echo "CUDA Toolkit installation completed, but nvcc was not found." >&2
-    echo "Expected /usr/local/cuda-13.0/bin/nvcc. Check the CUDA toolkit install, then retry." >&2
-    exit 1
-  fi
-
-  echo "CUDA compiler ready:"
-  nvcc --version | sed -n '1,4p'
+  echo "Nunchaku needs the Base Runtime CUDA compiler (nvcc)." >&2
+  echo "Repair or reinstall Base Runtime so /usr/local/cuda-13.0/bin/nvcc exists, then retry Z-Image Turbo installation." >&2
+  exit 1
 }
 
 ensure_python311() {
