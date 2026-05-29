@@ -64,8 +64,20 @@ export ZIMAGE_LORA_ROOT
 
 if [[ -d /usr/local/cuda-13.0 ]]; then
   export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-13.0}"
+  cuda_lib_dir="${CUDA_HOME}/lib64"
+  if [[ -d "${CUDA_HOME}/targets/x86_64-linux/lib" ]]; then
+    cuda_lib_dir="${CUDA_HOME}/targets/x86_64-linux/lib"
+  fi
+  cuda_include_dir="${CUDA_HOME}/include"
+  if [[ -d "${CUDA_HOME}/targets/x86_64-linux/include" ]]; then
+    cuda_include_dir="${CUDA_HOME}/targets/x86_64-linux/include"
+  fi
   export PATH="${CUDA_HOME}/bin:${PATH}"
-  export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
+  export LD_LIBRARY_PATH="${cuda_lib_dir}:${LD_LIBRARY_PATH:-}"
+  export LIBRARY_PATH="${cuda_lib_dir}:${LIBRARY_PATH:-}"
+  export CUDA_INCLUDE_DIRS="${cuda_include_dir}"
+  export CUDACXX="${CUDACXX:-${CUDA_HOME}/bin/nvcc}"
+  export CMAKE_PREFIX_PATH="${CUDA_HOME}:${CUDA_HOME}/targets/x86_64-linux:${CMAKE_PREFIX_PATH:-}"
 fi
 
 zimage_python() {
