@@ -34,14 +34,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       cat <<'EOF'
-Usage: zimage_delete_models.sh --scope base|weights|all --yes
+Usage: zimage_delete_models.sh --scope base|weights|qwen|all --yes
 
 Deletes local Hugging Face cache folders used by Z-Image Turbo.
 
 Scopes:
   base     Tongyi-MAI/Z-Image-Turbo cache
   weights  nunchaku-ai/nunchaku-z-image-turbo cache
-  all      both base and Nunchaku-compatible weight caches
+  qwen     Qwen/Qwen-Image-Edit-2511 and QuantFunc Qwen Nunchaku caches
+  all      base, Z-Image Nunchaku-compatible weights, and Qwen Edit caches
 
 This does not delete the runtime install, generated outputs, logs, LoRAs, or
 other modules' model caches.
@@ -56,9 +57,9 @@ EOF
 done
 
 case "${scope}" in
-  base|weights|all) ;;
+  base|weights|qwen|all) ;;
   *)
-    echo "Unsupported delete scope: ${scope}. Expected base, weights, or all." >&2
+    echo "Unsupported delete scope: ${scope}. Expected base, weights, qwen, or all." >&2
     exit 2
     ;;
 esac
@@ -105,6 +106,11 @@ fi
 
 if [[ "${scope}" == "weights" || "${scope}" == "all" ]]; then
   delete_repo_cache "Z-Image Turbo Nunchaku-compatible weights" "${Z_IMAGE_NUNCHAKU_MODEL_REPO}"
+fi
+
+if [[ "${scope}" == "qwen" || "${scope}" == "all" ]]; then
+  delete_repo_cache "Qwen Image Edit 2511 base model" "Qwen/Qwen-Image-Edit-2511"
+  delete_repo_cache "Qwen Image Edit 2511 Nunchaku-compatible weights" "QuantFunc/Nunchaku-Qwen-Image-EDIT-2511"
 fi
 
 echo "Z-Image Turbo model cache delete complete."

@@ -23,6 +23,7 @@ Expected in-distro layout:
 - outputs: `~/NymphsData/outputs/zimage`
 - logs: `~/NymphsData/logs/zimage`
 - Hugging Face cache: `~/NymphsData/cache/huggingface`
+- Hugging Face home: `~/NymphsData/cache/huggingface-home`
 
 The manager should install or update this repo as a module. It should not copy virtual environments, generated images, model weights, or cache folders into git.
 
@@ -139,6 +140,8 @@ Primary variables:
 - `Z_IMAGE_NUNCHAKU_RANK`
 - `Z_IMAGE_NUNCHAKU_PRECISION`
 - `NYMPHS3D_HF_CACHE_DIR`
+- `HF_HUB_CACHE`
+- `HF_HOME`
 - `NYMPHS3D_HF_TOKEN`
 
 Compatibility variables still accepted by the backend:

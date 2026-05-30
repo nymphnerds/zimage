@@ -165,7 +165,17 @@ class ImageServiceCoordinator:
         _empty_cuda_cache()
 
     def _qwen_edit_weight_file(self) -> str | None:
-        for filename in QWEN_EDIT_WEIGHT_FILES:
+        precision = _get_precision(self.settings)
+        other_precision = "fp4" if precision == "int4" else "int4"
+        preferred_files = [
+            f"nunchaku_qwen_image_edit_2511_balance_{precision}.safetensors",
+            f"nunchaku_qwen_image_edit_2511_ultimate_speed_{precision}.safetensors",
+            f"nunchaku_qwen_image_edit_2511_best_quality_{precision}.safetensors",
+            f"nunchaku_qwen_image_edit_2511_balance_{other_precision}.safetensors",
+            f"nunchaku_qwen_image_edit_2511_ultimate_speed_{other_precision}.safetensors",
+            f"nunchaku_qwen_image_edit_2511_best_quality_{other_precision}.safetensors",
+        ]
+        for filename in preferred_files:
             if _hf_file_ready(self.settings.hf_cache_dir, QWEN_EDIT_WEIGHT_REPO, filename):
                 return filename
         return None
