@@ -108,7 +108,9 @@ If the runtime is installed but the selected model cache is missing, status stay
 state should not be treated as a broken install.
 
 The module still owns `scripts/zimage_delete_models.sh` for local model cache
-cleanup. Outputs, logs, LoRAs, and the runtime install are preserved.
+cleanup. It supports broad scopes and exact profile deletes such as
+`--profile zimage_int4_r32`. Outputs, logs, LoRAs, and the runtime install are
+preserved.
 
 ## Important Dependency
 
@@ -173,6 +175,7 @@ scripts/zimage_status.sh
 scripts/zimage_logs.sh
 scripts/zimage_fetch_models.sh --precision auto --rank 32
 scripts/zimage_delete_models.sh --scope weights --yes
+scripts/zimage_delete_models.sh --profile zimage_int4_r32 --yes
 ```
 
 For private or gated Hugging Face downloads:
