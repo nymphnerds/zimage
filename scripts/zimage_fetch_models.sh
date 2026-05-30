@@ -8,12 +8,15 @@ requested_gpu_family=""
 requested_preset=""
 requested_weight=""
 download_all_weights=false
+download_int4_package=false
+download_fp4_package=false
 selected_fetch_label=""
 fetch_zimage=true
 fetch_qwen_edit=false
 QWEN_EDIT_MODEL_ID="Qwen/Qwen-Image-Edit-2511"
 QWEN_EDIT_WEIGHT_REPO="QuantFunc/Nunchaku-Qwen-Image-EDIT-2511"
 QWEN_EDIT_WEIGHT_FILE=""
+QWEN_EDIT_WEIGHT_FILES=()
 license_ack=false
 
 while [[ $# -gt 0 ]]; do
@@ -118,6 +121,8 @@ while [[ $# -gt 0 ]]; do
       cat <<'EOF'
 Usage:
   zimage_fetch_models.sh --model svdq-int4_r128-z-image-turbo.safetensors
+  zimage_fetch_models.sh --model complete_int4_package
+  zimage_fetch_models.sh --model complete_fp4_package
   zimage_fetch_models.sh --model local_image_stack_qwen_2511_int4
   zimage_fetch_models.sh --model qwen_edit_2511_balance_int4
   zimage_fetch_models.sh --gpu-family rtx_20_30_40|rtx_50 --preset fast|balanced|highest
@@ -140,6 +145,11 @@ Published Z-Image Turbo quantized weights for the Nunchaku runtime:
   svdq-int4_r256-z-image-turbo.safetensors
   svdq-fp4_r32-z-image-turbo.safetensors
   svdq-fp4_r128-z-image-turbo.safetensors
+
+Published Qwen Image Edit 2511 Nunchaku weights:
+  ultimate_speed INT4/FP4
+  balanced INT4/FP4
+  best_quality INT4/FP4
 
 Use --precision auto only with ranks that exist for both INT4 and FP4.
 
@@ -165,10 +175,37 @@ if [[ -n "${requested_weight}" ]]; then
       download_all_weights=true
       selected_fetch_label="all published Z-Image Turbo Nunchaku-compatible weights"
       ;;
+    complete_int4_package|complete-int4-package|int4_package|int4-package)
+      download_int4_package=true
+      fetch_zimage=true
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILES=(
+        "nunchaku_qwen_image_edit_2511_ultimate_speed_int4.safetensors"
+        "nunchaku_qwen_image_edit_2511_balance_int4.safetensors"
+        "nunchaku_qwen_image_edit_2511_best_quality_int4.safetensors"
+      )
+      Z_IMAGE_NUNCHAKU_PRECISION="int4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="Complete INT4 package: every INT4 Z-Image Turbo and Qwen Image Edit 2511 weight"
+      ;;
+    complete_fp4_package|complete-fp4-package|fp4_package|fp4-package)
+      download_fp4_package=true
+      fetch_zimage=true
+      fetch_qwen_edit=true
+      QWEN_EDIT_WEIGHT_FILES=(
+        "nunchaku_qwen_image_edit_2511_ultimate_speed_fp4.safetensors"
+        "nunchaku_qwen_image_edit_2511_balance_fp4.safetensors"
+        "nunchaku_qwen_image_edit_2511_best_quality_fp4.safetensors"
+      )
+      Z_IMAGE_NUNCHAKU_PRECISION="fp4"
+      Z_IMAGE_NUNCHAKU_RANK="32"
+      selected_fetch_label="Complete FP4 package: every FP4 Z-Image Turbo and Qwen Image Edit 2511 weight"
+      ;;
     local_image_stack_qwen_2511_int4|local-image-stack-qwen-2511-int4|all_models|all-models|all_image_models|all-image-models)
       fetch_zimage=true
       fetch_qwen_edit=true
       QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_balance_int4.safetensors"
+      QWEN_EDIT_WEIGHT_FILES=("${QWEN_EDIT_WEIGHT_FILE}")
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
       selected_fetch_label="Local Image Stack: Z-Image Turbo INT4 r32 plus Qwen Image Edit 2511 balanced INT4"
@@ -202,36 +239,42 @@ if [[ -n "${requested_weight}" ]]; then
       fetch_zimage=false
       fetch_qwen_edit=true
       QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_ultimate_speed_int4.safetensors"
+      QWEN_EDIT_WEIGHT_FILES=("${QWEN_EDIT_WEIGHT_FILE}")
       selected_fetch_label="Qwen Image Edit 2511 ultimate speed INT4"
       ;;
     qwen_edit_2511_balance_int4|qwen-edit-2511-balance-int4)
       fetch_zimage=false
       fetch_qwen_edit=true
       QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_balance_int4.safetensors"
+      QWEN_EDIT_WEIGHT_FILES=("${QWEN_EDIT_WEIGHT_FILE}")
       selected_fetch_label="Qwen Image Edit 2511 balanced INT4"
       ;;
     qwen_edit_2511_best_quality_int4|qwen-edit-2511-best-quality-int4)
       fetch_zimage=false
       fetch_qwen_edit=true
       QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_best_quality_int4.safetensors"
+      QWEN_EDIT_WEIGHT_FILES=("${QWEN_EDIT_WEIGHT_FILE}")
       selected_fetch_label="Qwen Image Edit 2511 best quality INT4"
       ;;
     qwen_edit_2511_ultimate_speed_fp4|qwen-edit-2511-ultimate-speed-fp4)
       fetch_zimage=false
       fetch_qwen_edit=true
       QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_ultimate_speed_fp4.safetensors"
+      QWEN_EDIT_WEIGHT_FILES=("${QWEN_EDIT_WEIGHT_FILE}")
       selected_fetch_label="Qwen Image Edit 2511 ultimate speed FP4"
       ;;
     qwen_edit_2511_balance_fp4|qwen-edit-2511-balance-fp4)
       fetch_zimage=false
       fetch_qwen_edit=true
       QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_balance_fp4.safetensors"
+      QWEN_EDIT_WEIGHT_FILES=("${QWEN_EDIT_WEIGHT_FILE}")
       selected_fetch_label="Qwen Image Edit 2511 balanced FP4"
       ;;
     qwen_edit_2511_best_quality_fp4|qwen-edit-2511-best-quality-fp4)
       fetch_zimage=false
       fetch_qwen_edit=true
       QWEN_EDIT_WEIGHT_FILE="nunchaku_qwen_image_edit_2511_best_quality_fp4.safetensors"
+      QWEN_EDIT_WEIGHT_FILES=("${QWEN_EDIT_WEIGHT_FILE}")
       selected_fetch_label="Qwen Image Edit 2511 best quality FP4"
       ;;
     qwen3_vl_8b_q4_vision|qwen3-vl-8b-q4-vision)
@@ -311,7 +354,7 @@ if [[ ! "${Z_IMAGE_NUNCHAKU_RANK}" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-if [[ "${download_all_weights}" != "true" ]]; then
+if [[ "${download_all_weights}" != "true" && "${download_int4_package}" != "true" && "${download_fp4_package}" != "true" ]]; then
   case "${Z_IMAGE_NUNCHAKU_PRECISION}:${Z_IMAGE_NUNCHAKU_RANK}" in
     auto:32|auto:128|int4:32|int4:128|int4:256|fp4:32|fp4:128) ;;
     auto:256)
@@ -492,6 +535,8 @@ repo_id = os.getenv("Z_IMAGE_NUNCHAKU_MODEL_REPO") or "nunchaku-ai/nunchaku-z-im
 rank = os.getenv("Z_IMAGE_NUNCHAKU_RANK") or "32"
 precision = (os.getenv("Z_IMAGE_NUNCHAKU_PRECISION") or "auto").strip().lower()
 download_all = (os.getenv("ZIMAGE_FETCH_ALL_WEIGHTS") or "").strip().lower() in {"1", "true", "yes", "on"}
+download_int4_package = (os.getenv("ZIMAGE_FETCH_INT4_PACKAGE") or "").strip().lower() in {"1", "true", "yes", "on"}
+download_fp4_package = (os.getenv("ZIMAGE_FETCH_FP4_PACKAGE") or "").strip().lower() in {"1", "true", "yes", "on"}
 cache_dir = os.getenv("NYMPHS3D_HF_CACHE_DIR") or None
 token = os.getenv("NYMPHS3D_HF_TOKEN") or None
 if download_all:
@@ -499,6 +544,17 @@ if download_all:
         "svdq-int4_r32-z-image-turbo.safetensors",
         "svdq-int4_r128-z-image-turbo.safetensors",
         "svdq-int4_r256-z-image-turbo.safetensors",
+        "svdq-fp4_r32-z-image-turbo.safetensors",
+        "svdq-fp4_r128-z-image-turbo.safetensors",
+    ]
+elif download_int4_package:
+    filenames = [
+        "svdq-int4_r32-z-image-turbo.safetensors",
+        "svdq-int4_r128-z-image-turbo.safetensors",
+        "svdq-int4_r256-z-image-turbo.safetensors",
+    ]
+elif download_fp4_package:
+    filenames = [
         "svdq-fp4_r32-z-image-turbo.safetensors",
         "svdq-fp4_r128-z-image-turbo.safetensors",
     ]
@@ -577,12 +633,14 @@ echo "nunchaku_weight_repo=${Z_IMAGE_NUNCHAKU_MODEL_REPO}"
 echo "nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}"
 echo "nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}"
 echo "download_all_weights=${download_all_weights}"
+echo "download_int4_package=${download_int4_package}"
+echo "download_fp4_package=${download_fp4_package}"
 echo "fetch_zimage=${fetch_zimage}"
 echo "fetch_qwen_edit=${fetch_qwen_edit}"
 if [[ "${fetch_qwen_edit}" == "true" ]]; then
   echo "qwen_edit_model=${QWEN_EDIT_MODEL_ID}"
   echo "qwen_edit_weight_repo=${QWEN_EDIT_WEIGHT_REPO}"
-  echo "qwen_edit_weight_file=${QWEN_EDIT_WEIGHT_FILE}"
+  echo "qwen_edit_weight_files=$(IFS=,; printf '%s' "${QWEN_EDIT_WEIGHT_FILES[*]}")"
 fi
 echo "hf_cache_dir=${NYMPHS3D_HF_CACHE_DIR}"
 
@@ -598,21 +656,32 @@ if [[ "${fetch_zimage}" == "true" ]]; then
 
   if [[ "${download_all_weights}" == "true" ]]; then
     export ZIMAGE_FETCH_ALL_WEIGHTS=1
-    export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published Nunchaku-compatible Blender weights"
+    export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published Nunchaku-compatible runtime weights"
+  elif [[ "${download_int4_package}" == "true" ]]; then
+    export ZIMAGE_FETCH_INT4_PACKAGE=1
+    export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published INT4 Nunchaku-compatible runtime weights"
+  elif [[ "${download_fp4_package}" == "true" ]]; then
+    export ZIMAGE_FETCH_FP4_PACKAGE=1
+    export NYMPHS3D_PREFETCH_COMPONENT_HINT="all published FP4 Nunchaku-compatible runtime weights"
   else
     unset ZIMAGE_FETCH_ALL_WEIGHTS
-    export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Nunchaku-compatible Blender weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}"
+    unset ZIMAGE_FETCH_INT4_PACKAGE
+    unset ZIMAGE_FETCH_FP4_PACKAGE
+    export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Nunchaku-compatible runtime weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}"
   fi
   run_with_hf_download_progress \
     "Z-Image selected Blender weight" \
     "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
     prefetch_zimage_nunchaku_weight
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+  unset ZIMAGE_FETCH_ALL_WEIGHTS
+  unset ZIMAGE_FETCH_INT4_PACKAGE
+  unset ZIMAGE_FETCH_FP4_PACKAGE
 fi
 
 if [[ "${fetch_qwen_edit}" == "true" ]]; then
-  if [[ -z "${QWEN_EDIT_WEIGHT_FILE}" ]]; then
-    echo "Qwen Image Edit weight file was not selected." >&2
+  if [[ ${#QWEN_EDIT_WEIGHT_FILES[@]} -eq 0 ]]; then
+    echo "Qwen Image Edit weight files were not selected." >&2
     exit 2
   fi
   export NYMPHS3D_PREFETCH_COMPONENT_HINT="Qwen Image Edit 2511 base model files"
@@ -622,12 +691,15 @@ if [[ "${fetch_qwen_edit}" == "true" ]]; then
     prefetch_qwen_edit_base
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 
-  export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Qwen Image Edit 2511 Nunchaku transformer: ${QWEN_EDIT_WEIGHT_FILE}"
-  run_with_hf_download_progress \
-    "Qwen Image Edit 2511 weight" \
-    "${QWEN_EDIT_WEIGHT_REPO}" \
-    prefetch_qwen_edit_weight
-  unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+  for QWEN_EDIT_WEIGHT_FILE in "${QWEN_EDIT_WEIGHT_FILES[@]}"; do
+    export QWEN_EDIT_WEIGHT_FILE
+    export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Qwen Image Edit 2511 Nunchaku transformer: ${QWEN_EDIT_WEIGHT_FILE}"
+    run_with_hf_download_progress \
+      "Qwen Image Edit 2511 weight" \
+      "${QWEN_EDIT_WEIGHT_REPO}" \
+      prefetch_qwen_edit_weight
+    unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+  done
 fi
 
 save_zimage_generation_preset

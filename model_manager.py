@@ -251,6 +251,20 @@ class ModelManager:
         )
         return rank_path, precision
 
+    def _resolve_nunchaku_rank_path(self, rank_path: str) -> str:
+        if self.settings.hf_cache_dir is None:
+            return rank_path
+        repo_id, filename = rank_path.rsplit("/", 1)
+        from huggingface_hub import hf_hub_download
+
+        path = hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            cache_dir=str(self.settings.hf_cache_dir),
+            token=self.settings.hf_token,
+        )
+        return str(path)
+
     def _load_nunchaku_transformer(self):
         try:
             from nunchaku import NunchakuZImageTransformer2DModel
@@ -259,9 +273,10 @@ class ModelManager:
 
         patch_zimage_transformer_forward(NunchakuZImageTransformer2DModel)
         rank_path, precision = self._nunchaku_rank_path()
+        local_rank_path = self._resolve_nunchaku_rank_path(rank_path)
         dtype = self._resolve_nunchaku_dtype()
-        transformer = NunchakuZImageTransformer2DModel.from_pretrained(rank_path, torch_dtype=dtype)
-        return transformer, rank_path, precision, dtype
+        transformer = NunchakuZImageTransformer2DModel.from_pretrained(local_rank_path, torch_dtype=dtype)
+        return transformer, local_rank_path, precision, dtype
 
     def _load_txt2img_pipeline(self, model_id: str, runtime: str):
         if runtime == "nunchaku":

@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.99",
+  "version": "0.1.100",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -81,7 +81,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Download local image model files. Z-Image Turbo is the fast generation model. Qwen Image Edit 2511 is the local image edit and parts-extraction candidate; Brain owns Qwen vision/planning models.",
+        "description": "Download local image model files. Choose the complete INT4 package for RTX 20/30/40-class GPUs, or the complete FP4 package for RTX 50/Blackwell GPUs. Each complete package fetches every matching Z-Image Turbo and Qwen Image Edit 2511 Nunchaku weight; individual weights remain available below. Fetch Models and Z-Image runtime startup use the same Hugging Face cache path.",
         "links": [
           {
             "label": "Base model",
@@ -106,10 +106,20 @@
             "type": "select",
             "label": "Download",
             "arg": "--model",
-            "default": "svdq-int4_r32-z-image-turbo.safetensors",
+            "default": "complete_int4_package",
             "options": [
               {
-                "label": "Local Image Stack - Z-Image r32 + Qwen Edit balanced INT4",
+                "label": "Complete INT4 package - RTX 20/30/40",
+                "value": "complete_int4_package",
+                "description": "Fetches every INT4 Z-Image Turbo weight and every INT4 Qwen Image Edit 2511 weight"
+              },
+              {
+                "label": "Complete FP4 package - RTX 50 / Blackwell",
+                "value": "complete_fp4_package",
+                "description": "Fetches every FP4 Z-Image Turbo weight and every FP4 Qwen Image Edit 2511 weight"
+              },
+              {
+                "label": "Starter INT4 stack - Z-Image r32 + Qwen Edit balanced",
                 "value": "local_image_stack_qwen_2511_int4",
                 "description": "Downloads the fast Z-Image default plus Qwen Image Edit 2511 balanced INT4"
               },
@@ -248,7 +258,7 @@
     ]
   },
   "overview": {
-    "body": "- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128\n- Qwen Image Edit 2511: local image edit, reference editing, and parts extraction\n- Brain: Qwen vision planning/captioning; Brain owns the vision/VLM model downloads\n\nFetch Models can download Z-Image generation weights, Qwen Image Edit weights, or the recommended local image stack.",
+    "body": "- Z-Image Turbo: fast normal generation; INT4 r32/r128/r256 and FP4 r32/r128\n- Qwen Image Edit 2511: local image edit, reference editing, and parts extraction; INT4 and FP4 Nunchaku weights are available\n- Complete INT4 package: best default for RTX 20/30/40-class GPUs; fetches all INT4 Z-Image and Qwen Edit weights\n- Complete FP4 package: for RTX 50/Blackwell GPUs; fetches all FP4 Z-Image and Qwen Edit weights\n- Brain: Qwen vision planning/captioning; Brain owns the vision/VLM model downloads\n\nFetch Models writes to the shared Hugging Face cache used by Z-Image startup.",
     "links": [
       {
         "label": "Z-Image Turbo",

@@ -117,7 +117,11 @@ def get_settings() -> Settings:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     hf_cache_raw = os.getenv("NYMPHS3D_HF_CACHE_DIR")
-    hf_cache_dir = Path(hf_cache_raw).expanduser() if hf_cache_raw else None
+    hf_cache_dir = Path(hf_cache_raw).expanduser() if hf_cache_raw else Path.home() / "NymphsData" / "cache" / "huggingface"
+    hf_cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("NYMPHS3D_HF_CACHE_DIR", str(hf_cache_dir))
+    os.environ.setdefault("HF_HUB_CACHE", str(hf_cache_dir))
+    os.environ.setdefault("HF_HOME", str(hf_cache_dir.parent / "huggingface-home"))
     default_model_id = _env_first("Z_IMAGE_MODEL_ID", "NYMPHS2D2_MODEL_ID", default=DEFAULT_MODEL_ID) or DEFAULT_MODEL_ID
     runtime = _normalize_runtime(_env_first("Z_IMAGE_RUNTIME", "NYMPHS2D2_RUNTIME", default=DEFAULT_RUNTIME))
 
