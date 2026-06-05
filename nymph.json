@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.102",
+  "version": "0.1.103",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -353,6 +353,7 @@
     "The backend still accepts NYMPHS2D2 compatibility environment variables during migration.",
     "v0.1.98 aligns CUDA environment setup with the Base Runtime CUDA 13 WSL targets/x86_64-linux include and library layout.",
     "v0.1.99 stops installing CUDA from the module installer; Z-Image now requires Base Runtime CUDA to be present and tells users to repair Base Runtime if nvcc is missing.",
+    "v0.1.103 pads or trims Z-Image Nunchaku LoRA low-rank tensors to the active CUDA rank slot so r32 pixel-art LoRAs no longer fail with qkv_proj_down 32-to-128 shape errors.",
     "v0.1.102 treats Nunchaku rank and precision as part of the loaded pipeline identity so switching between r32/r128/r256 cannot reuse a stale transformer with incompatible LoRA slots.",
     "Do not vendor the Nunchaku clone or model weights into this repo."
   ]
