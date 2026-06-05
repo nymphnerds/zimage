@@ -113,6 +113,26 @@ class ModelManager:
     def loaded_runtime_extra(self) -> dict:
         return dict(self._loaded_runtime_extra)
 
+    def _loaded_pipeline_matches(self, model_id: str, runtime: str) -> bool:
+        if self._txt2img is None or self._loaded_model_id != model_id or self._loaded_runtime != runtime:
+            return False
+        if runtime != "nunchaku":
+            return True
+
+        extra = self._loaded_runtime_extra or {}
+        try:
+            loaded_rank = int(extra.get("nunchaku_rank") or 0)
+        except (TypeError, ValueError):
+            loaded_rank = 0
+        if loaded_rank != int(self.settings.nunchaku_rank):
+            return False
+
+        configured_precision = (self.settings.nunchaku_precision or "auto").strip().lower()
+        loaded_precision = str(extra.get("nunchaku_precision") or "").strip().lower()
+        if configured_precision in {"int4", "fp4"} and loaded_precision != configured_precision:
+            return False
+        return True
+
     def _model_family(self, model_id: str | None) -> str:
         normalized = (model_id or self.settings.default_model_id or "").strip().lower()
         if "z-image" in normalized:
@@ -319,10 +339,10 @@ class ModelManager:
     def ensure_model(self, requested_model_id: str | None = None) -> str:
         model_id = requested_model_id or self.settings.default_model_id
         with self._lock:
-            if self._txt2img is not None and self._loaded_model_id == model_id:
+            runtime = self._resolve_runtime(model_id)
+            if self._loaded_pipeline_matches(model_id, runtime):
                 return model_id
 
-            runtime = self._resolve_runtime(model_id)
             self._unload_pipelines()
             self._txt2img = self._load_txt2img_pipeline(model_id, runtime)
             self._txt2img = self._prepare_pipeline(self._txt2img, runtime)
