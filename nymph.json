@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.103",
+  "version": "0.1.104",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -304,7 +304,7 @@
     "diffusers": "0.37.1",
     "nunchaku": {
       "repo": "https://github.com/nymphnerds/nunchaku.git",
-      "commit": "a2a4f2444a092974ba53323ba0681a523ff98031"
+      "commit": "fa45344b7c84711638065e2c9dd1c4e4b46a9cf3"
     },
     "model": "Tongyi-MAI/Z-Image-Turbo",
     "nunchaku_weights": "nunchaku-ai/nunchaku-z-image-turbo",

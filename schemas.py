@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-GenerationMode = Literal["txt2img", "img2img"]
+GenerationMode = Literal["txt2img", "img2img", "controlnet_edit"]
 
 
 class GenerateRequest(BaseModel):
@@ -20,6 +20,7 @@ class GenerateRequest(BaseModel):
     guidance_scale: float | None = None
     seed: int | None = None
     strength: float | None = None
+    controlnet_conditioning_scale: float | None = None
     model_id: str | None = None
     nunchaku_rank: int | None = None
     nunchaku_precision: str | None = None

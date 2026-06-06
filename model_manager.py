@@ -12,6 +12,10 @@ from config import Settings
 from nunchaku_compat import patch_zimage_transformer_forward
 
 
+DEFAULT_ZIMAGE_CONTROLNET_REPO = "alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union"
+DEFAULT_ZIMAGE_CONTROLNET_FILE = "Z-Image-Turbo-Fun-Controlnet-Union.safetensors"
+
+
 def _experimental_nunchaku_img2img_enabled() -> bool:
     raw = os.getenv("Z_IMAGE_NUNCHAKU_IMG2IMG") or os.getenv("NYMPHS2D2_NUNCHAKU_IMG2IMG")
     return (raw or "").strip().lower() in {"1", "true", "yes", "on"}
@@ -93,6 +97,7 @@ class ModelManager:
         self._lock = RLock()
         self._txt2img = None
         self._img2img = None
+        self._controlnet_edit = None
         self._loaded_model_id = None
         self._dtype = self._resolve_torch_dtype(settings.dtype)
         if settings.device == "cpu" and self._dtype != torch.float32:
@@ -113,8 +118,8 @@ class ModelManager:
     def loaded_runtime_extra(self) -> dict:
         return dict(self._loaded_runtime_extra)
 
-    def _loaded_pipeline_matches(self, model_id: str, runtime: str) -> bool:
-        if self._txt2img is None or self._loaded_model_id != model_id or self._loaded_runtime != runtime:
+    def _loaded_runtime_config_matches(self, model_id: str, runtime: str) -> bool:
+        if self._loaded_model_id != model_id or self._loaded_runtime != runtime:
             return False
         if runtime != "nunchaku":
             return True
@@ -132,6 +137,16 @@ class ModelManager:
         if configured_precision in {"int4", "fp4"} and loaded_precision != configured_precision:
             return False
         return True
+
+    def _loaded_pipeline_matches(self, model_id: str, runtime: str) -> bool:
+        if self._txt2img is None:
+            return False
+        return self._loaded_runtime_config_matches(model_id, runtime)
+
+    def _loaded_model_state_matches(self, model_id: str, runtime: str) -> bool:
+        if self._txt2img is None and self._img2img is None and self._controlnet_edit is None:
+            return False
+        return self._loaded_runtime_config_matches(model_id, runtime)
 
     def _model_family(self, model_id: str | None) -> str:
         normalized = (model_id or self.settings.default_model_id or "").strip().lower()
@@ -168,9 +183,17 @@ class ModelManager:
         return _experimental_nunchaku_img2img_enabled()
 
     def supported_modes(self, requested_model_id: str | None = None) -> list[str]:
+        modes = ["txt2img"]
+        if self.supports_controlnet_edit(requested_model_id):
+            modes.append("controlnet_edit")
         if self.supports_img2img(requested_model_id):
-            return ["txt2img", "img2img"]
-        return ["txt2img"]
+            modes.append("img2img")
+        return modes
+
+    def supports_controlnet_edit(self, requested_model_id: str | None = None) -> bool:
+        if self._resolve_runtime(requested_model_id or self.settings.default_model_id) != "nunchaku":
+            return False
+        return self._model_family(requested_model_id or self.settings.default_model_id) == "zimage"
 
     def supports_lora(self, requested_model_id: str | None = None) -> bool:
         runtime = self._resolve_runtime(requested_model_id or self.settings.default_model_id)
@@ -237,6 +260,7 @@ class ModelManager:
     def _unload_pipelines(self):
         self._txt2img = None
         self._img2img = None
+        self._controlnet_edit = None
         self._loaded_model_id = None
         self._loaded_model_family = None
         self._loaded_runtime = None
@@ -314,6 +338,7 @@ class ModelManager:
                 "runtime_dtype": str(dtype).replace("torch.", ""),
                 "zimage_forward_shim": True,
                 "experimental_img2img": _experimental_nunchaku_img2img_enabled(),
+                "controlnet_edit": True,
             }
             pipeline = ZImagePipeline.from_pretrained(
                 model_id,
@@ -350,6 +375,100 @@ class ModelManager:
             self._loaded_model_family = self._model_family(model_id)
             self._loaded_runtime = runtime
             return model_id
+
+    def ensure_controlnet_model(self, requested_model_id: str | None = None) -> str:
+        model_id = requested_model_id or self.settings.default_model_id
+        with self._lock:
+            runtime = self._resolve_runtime(model_id)
+            if runtime != "nunchaku" or self._model_family(model_id) != "zimage":
+                raise RuntimeError("Z-Image ControlNet edit requires Nunchaku runtime with Tongyi-MAI/Z-Image-Turbo.")
+            if self._loaded_model_state_matches(model_id, runtime):
+                return model_id
+
+            self._unload_pipelines()
+            self._loaded_model_id = model_id
+            self._loaded_model_family = self._model_family(model_id)
+            self._loaded_runtime = runtime
+            self._loaded_runtime_extra = {
+                "runtime": "nunchaku",
+                "nunchaku_rank": self.settings.nunchaku_rank,
+                "nunchaku_precision": self.settings.nunchaku_precision,
+                "controlnet_edit": True,
+            }
+            return model_id
+
+    def _resolve_controlnet_path(self) -> tuple[str, str, str]:
+        configured_path = (
+            os.getenv("Z_IMAGE_CONTROLNET_PATH")
+            or os.getenv("NYMPHS2D2_CONTROLNET_PATH")
+            or ""
+        ).strip()
+        if configured_path:
+            return configured_path, "local", configured_path
+
+        repo_id = (
+            os.getenv("Z_IMAGE_CONTROLNET_REPO")
+            or os.getenv("NYMPHS2D2_CONTROLNET_REPO")
+            or DEFAULT_ZIMAGE_CONTROLNET_REPO
+        ).strip()
+        filename = (
+            os.getenv("Z_IMAGE_CONTROLNET_FILE")
+            or os.getenv("NYMPHS2D2_CONTROLNET_FILE")
+            or DEFAULT_ZIMAGE_CONTROLNET_FILE
+        ).strip()
+        from huggingface_hub import hf_hub_download
+
+        path = hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            cache_dir=str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
+            token=self.settings.hf_token,
+        )
+        return str(path), repo_id, filename
+
+    def _ensure_controlnet_edit(self):
+        if self._controlnet_edit is not None:
+            return self._controlnet_edit
+
+        if self._loaded_runtime != "nunchaku" or self._loaded_model_family != "zimage":
+            raise RuntimeError("Z-Image ControlNet edit requires Nunchaku runtime with Tongyi-MAI/Z-Image-Turbo.")
+
+        self._txt2img = None
+        self._img2img = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        try:
+            from diffusers import ZImageControlNetModel, ZImageControlNetPipeline
+        except ImportError as exc:
+            raise RuntimeError(
+                "Current diffusers build does not include Z-Image ControlNet support. "
+                "Install diffusers 0.37.1 or newer before using controlnet_edit."
+            ) from exc
+
+        transformer, rank_path, precision, dtype = self._load_nunchaku_transformer()
+        controlnet_path, controlnet_repo, controlnet_file = self._resolve_controlnet_path()
+        controlnet = ZImageControlNetModel.from_single_file(controlnet_path, torch_dtype=dtype)
+        self._controlnet_edit = ZImageControlNetPipeline.from_pretrained(
+            self._loaded_model_id,
+            transformer=transformer,
+            controlnet=controlnet,
+            **self._pipeline_kwargs(self._loaded_model_id, self._loaded_runtime or "nunchaku"),
+        )
+        self._controlnet_edit = _wrap_pipeline_transformer_for_deferred_lora(self._controlnet_edit)
+        self._controlnet_edit = self._prepare_pipeline(self._controlnet_edit, self._loaded_runtime or "nunchaku")
+        self._loaded_runtime_extra.update(
+            {
+                "nunchaku_precision": precision,
+                "nunchaku_rank_path": rank_path,
+                "runtime_dtype": str(dtype).replace("torch.", ""),
+                "controlnet_edit": True,
+                "controlnet_repo": controlnet_repo,
+                "controlnet_file": controlnet_file,
+            }
+        )
+        return self._controlnet_edit
 
     def _ensure_img2img(self):
         if self._img2img is not None:
@@ -559,6 +678,55 @@ class ModelManager:
             image = result.images[0]
             print("[nymphs:zimage:stage] pipeline.txt2img.image_extracted", flush=True)
             return image, active_model_id
+
+    def generate_controlnet_edit(
+        self,
+        *,
+        prompt: str,
+        negative_prompt: str,
+        control_image,
+        width: int,
+        height: int,
+        steps: int,
+        guidance_scale: float,
+        controlnet_conditioning_scale: float,
+        seed: int | None,
+        model_id: str | None,
+        nunchaku_rank: int | None,
+        nunchaku_precision: str | None,
+        lora_path: str | None,
+        lora_scale: float | None,
+        progress_callback=None,
+    ):
+        with self._lock:
+            active_model_id = self.ensure_controlnet_model(model_id)
+            pipeline = self._ensure_controlnet_edit()
+            self._configure_pipeline_lora(pipeline, lora_path, lora_scale)
+            generator = self._build_generator(seed)
+            callback_kwargs = {}
+            if progress_callback is not None:
+                def _on_step_end(_pipeline, step_index, _timestep, callback_state):
+                    progress_callback(int(step_index) + 1, steps)
+                    return callback_state
+
+                callback_kwargs["callback_on_step_end"] = _on_step_end
+            print("[nymphs:zimage:stage] pipeline.controlnet_edit.begin", flush=True)
+            result = pipeline(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                control_image=control_image,
+                width=width,
+                height=height,
+                num_inference_steps=steps,
+                guidance_scale=guidance_scale,
+                controlnet_conditioning_scale=controlnet_conditioning_scale,
+                generator=generator,
+                **callback_kwargs,
+            )
+            print("[nymphs:zimage:stage] pipeline.controlnet_edit.returned", flush=True)
+            output_image = result.images[0]
+            print("[nymphs:zimage:stage] pipeline.controlnet_edit.image_extracted", flush=True)
+            return output_image, active_model_id
 
     def generate_image_to_image(
         self,

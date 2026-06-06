@@ -201,6 +201,7 @@ class ImageServiceCoordinator:
                 "modes": supported_modes,
                 "supports_txt2img": True,
                 "supports_img2img": "img2img" in supported_modes,
+                "supports_controlnet_edit": "controlnet_edit" in supported_modes,
                 "supports_reference_edit": False,
                 "supports_lora": supports_lora,
                 "supports_parts_extract": False,

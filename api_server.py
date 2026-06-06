@@ -1084,6 +1084,9 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
     steps = payload.steps or SETTINGS.default_steps
     guidance_scale = payload.guidance_scale if payload.guidance_scale is not None else SETTINGS.default_guidance_scale
     strength = payload.strength if payload.strength is not None else SETTINGS.default_strength
+    controlnet_conditioning_scale = (
+        payload.controlnet_conditioning_scale if payload.controlnet_conditioning_scale is not None else 0.75
+    )
     lora_path = (payload.lora_path or "").strip() or None
     lora_scale = payload.lora_scale if lora_path is not None else None
     nunchaku_rank = payload.nunchaku_rank
@@ -1093,14 +1096,18 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
 
     if steps <= 0:
         raise ValueError("steps must be greater than zero.")
-    if payload.mode == "img2img" and not payload.image:
-        raise ValueError("img2img mode requires an input image.")
+    if payload.mode in {"img2img", "controlnet_edit"} and not payload.image:
+        raise ValueError(f"{payload.mode} mode requires an input image.")
     if provider == "zimage" and payload.mode == "img2img" and not MODEL_MANAGER.supports_img2img(payload.model_id):
         raise ValueError("Current runtime supports txt2img only.")
+    if provider == "zimage" and payload.mode == "controlnet_edit" and not MODEL_MANAGER.supports_controlnet_edit(payload.model_id):
+        raise ValueError("controlnet_edit requires Z-Image Nunchaku runtime.")
     if provider == "qwen_edit" and payload.mode != "img2img":
         raise ValueError("provider=qwen_edit requires img2img mode and an input image.")
     if not 0.0 < strength <= 1.0:
         raise ValueError("strength must be between 0 and 1.")
+    if not 0.0 < controlnet_conditioning_scale <= 2.0:
+        raise ValueError("controlnet_conditioning_scale must be between 0 and 2.")
     if lora_scale is not None and lora_scale < 0.0:
         raise ValueError("lora_scale must be zero or greater.")
     if provider != "zimage" and lora_path is not None:
@@ -1120,6 +1127,7 @@ def _normalize_request(payload: GenerateRequest) -> GenerateRequest:
             "steps": steps,
             "guidance_scale": guidance_scale,
             "strength": strength,
+            "controlnet_conditioning_scale": controlnet_conditioning_scale,
             "negative_prompt": payload.negative_prompt or SETTINGS.default_negative_prompt,
             "lora_path": lora_path,
             "lora_scale": lora_scale,
@@ -1315,6 +1323,36 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
                 progress_callback=lambda current, total: _denoise_progress(current, total, "Qwen txt2img"),
             )
         _log_stage("txt2img.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
+    elif payload.mode == "controlnet_edit":
+        control_image = _decode_base64_image(payload.image or "")
+        control_image = _resize_init_image(control_image, payload.width, payload.height)
+        progress_update(
+            status="processing",
+            stage="generating_image",
+            detail="Running controlnet_edit",
+            progress_current=1,
+            progress_total=3,
+            progress_percent=33.0,
+        )
+        _log_stage("controlnet.call.begin", provider=payload.provider or "zimage")
+        image, model_id = MODEL_MANAGER.generate_controlnet_edit(
+            prompt=payload.prompt,
+            negative_prompt=payload.negative_prompt,
+            control_image=control_image,
+            width=payload.width,
+            height=payload.height,
+            steps=payload.steps,
+            guidance_scale=payload.guidance_scale,
+            controlnet_conditioning_scale=payload.controlnet_conditioning_scale,
+            seed=payload.seed,
+            model_id=model_id,
+            nunchaku_rank=payload.nunchaku_rank,
+            nunchaku_precision=payload.nunchaku_precision,
+            lora_path=payload.lora_path,
+            lora_scale=payload.lora_scale,
+            progress_callback=lambda current, total: _denoise_progress(current, total, "Nunchaku ControlNet"),
+        )
+        _log_stage("controlnet.call.end", elapsed=f"{perf_counter() - started_at:.2f}s")
     else:
         init_image = _decode_base64_image(payload.image or "")
         init_image = _resize_init_image(init_image, payload.width, payload.height)
@@ -1383,6 +1421,7 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
         "lora_path": payload.lora_path,
         "lora_scale": payload.lora_scale,
         "strength": payload.strength,
+        "controlnet_conditioning_scale": payload.controlnet_conditioning_scale,
         **_batch_metadata(
             payload.model_dump() if hasattr(payload, "model_dump") else payload.dict(),
             default_type="zimage",
