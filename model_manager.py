@@ -398,24 +398,12 @@ class ModelManager:
             return model_id
 
     def _resolve_controlnet_path(self) -> tuple[str, str, str]:
-        configured_path = (
-            os.getenv("Z_IMAGE_CONTROLNET_PATH")
-            or os.getenv("NYMPHS2D2_CONTROLNET_PATH")
-            or ""
-        ).strip()
+        configured_path = (os.getenv("Z_IMAGE_CONTROLNET_PATH") or "").strip()
         if configured_path:
             return configured_path, "local", configured_path
 
-        repo_id = (
-            os.getenv("Z_IMAGE_CONTROLNET_REPO")
-            or os.getenv("NYMPHS2D2_CONTROLNET_REPO")
-            or DEFAULT_ZIMAGE_CONTROLNET_REPO
-        ).strip()
-        filename = (
-            os.getenv("Z_IMAGE_CONTROLNET_FILE")
-            or os.getenv("NYMPHS2D2_CONTROLNET_FILE")
-            or DEFAULT_ZIMAGE_CONTROLNET_FILE
-        ).strip()
+        repo_id = (os.getenv("Z_IMAGE_CONTROLNET_REPO") or DEFAULT_ZIMAGE_CONTROLNET_REPO).strip()
+        filename = (os.getenv("Z_IMAGE_CONTROLNET_FILE") or DEFAULT_ZIMAGE_CONTROLNET_FILE).strip()
         from huggingface_hub import hf_hub_download
 
         path = hf_hub_download(
