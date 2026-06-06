@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.108",
+  "version": "0.1.109",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -122,6 +122,11 @@
                 "label": "Starter INT4 stack - Z-Image r32 + Qwen Edit balanced",
                 "value": "local_image_stack_qwen_2511_int4",
                 "description": "Downloads the fast Z-Image default plus Qwen Image Edit 2511 balanced INT4"
+              },
+              {
+                "label": "Z-Image ControlNet 2.1 - Sprite Foundry",
+                "value": "zimage_controlnet_2_1",
+                "description": "Downloads only the Z-Image ControlNet weight used by Sprite Foundry direction control"
               },
               {
                 "label": "Z-Image Turbo INT4 r32",
@@ -357,6 +362,7 @@
     "v0.1.105 keeps the Nunchaku Z-Image ControlNet pipeline CUDA-resident and pins the Nunchaku RoPE handling needed by controlnet_edit.",
     "v0.1.106 makes Update rebuild the runtime venv when its pinned Nunchaku/diffusers marker is stale and reports that stale-runtime state in status.",
     "v0.1.107 validates Z-Image ControlNet pipeline imports during install/update, defaults to Alibaba's 2.1 2602 8-step ControlNet union weight, prefetches that weight with model fetch, and loads controlnet_edit without first loading txt2img.",
+    "v0.1.109 adds a standalone Model Fetch option for the Sprite Foundry Z-Image ControlNet 2.1 weight.",
     "v0.1.102 treats Nunchaku rank and precision as part of the loaded pipeline identity so switching between r32/r128/r256 cannot reuse a stale transformer with incompatible LoRA slots.",
     "Do not vendor the Nunchaku clone or model weights into this repo."
   ]

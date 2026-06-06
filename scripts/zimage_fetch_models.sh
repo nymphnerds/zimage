@@ -12,6 +12,7 @@ download_int4_package=false
 download_fp4_package=false
 selected_fetch_label=""
 fetch_zimage=true
+fetch_controlnet_only=false
 fetch_qwen_edit=false
 QWEN_EDIT_MODEL_ID="Qwen/Qwen-Image-Edit-2511"
 QWEN_EDIT_WEIGHT_REPO="QuantFunc/Nunchaku-Qwen-Image-EDIT-2511"
@@ -146,6 +147,9 @@ Published Z-Image Turbo quantized weights for the Nunchaku runtime:
   svdq-fp4_r32-z-image-turbo.safetensors
   svdq-fp4_r128-z-image-turbo.safetensors
 
+Sprite Foundry ControlNet:
+  zimage_controlnet_2_1
+
 Published Qwen Image Edit 2511 Nunchaku weights:
   ultimate_speed INT4/FP4
   balanced INT4/FP4
@@ -209,6 +213,11 @@ if [[ -n "${requested_weight}" ]]; then
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
       Z_IMAGE_NUNCHAKU_RANK="32"
       selected_fetch_label="Local Image Stack: Z-Image Turbo INT4 r32 plus Qwen Image Edit 2511 balanced INT4"
+      ;;
+    zimage_controlnet_2_1|zimage-controlnet-2-1|zimage_controlnet|sprite_foundry_controlnet|sprite-foundry-controlnet)
+      fetch_zimage=false
+      fetch_controlnet_only=true
+      selected_fetch_label="Z-Image ControlNet 2.1 for Sprite Foundry"
       ;;
     svdq-int4_r32-z-image-turbo.safetensors|int4_r32|int4:32)
       Z_IMAGE_NUNCHAKU_PRECISION="int4"
@@ -655,6 +664,7 @@ echo "download_all_weights=${download_all_weights}"
 echo "download_int4_package=${download_int4_package}"
 echo "download_fp4_package=${download_fp4_package}"
 echo "fetch_zimage=${fetch_zimage}"
+echo "fetch_controlnet_only=${fetch_controlnet_only}"
 echo "fetch_qwen_edit=${fetch_qwen_edit}"
 if [[ "${fetch_qwen_edit}" == "true" ]]; then
   echo "qwen_edit_model=${QWEN_EDIT_MODEL_ID}"
@@ -704,6 +714,15 @@ if [[ "${fetch_zimage}" == "true" ]]; then
   unset ZIMAGE_FETCH_ALL_WEIGHTS
   unset ZIMAGE_FETCH_INT4_PACKAGE
   unset ZIMAGE_FETCH_FP4_PACKAGE
+fi
+
+if [[ "${fetch_controlnet_only}" == "true" ]]; then
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="Z-Image Turbo ControlNet union weight for Sprite Foundry direction control"
+  run_with_hf_download_progress \
+    "Z-Image ControlNet weight" \
+    "${Z_IMAGE_CONTROLNET_REPO}" \
+    prefetch_zimage_controlnet_weight
+  unset NYMPHS3D_PREFETCH_COMPONENT_HINT
 fi
 
 if [[ "${fetch_qwen_edit}" == "true" ]]; then
