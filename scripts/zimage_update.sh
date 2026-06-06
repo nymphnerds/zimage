@@ -2,12 +2,39 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODULE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+source "${SCRIPT_DIR}/_zimage_common.sh"
 
-ZIMAGE_INSTALL_ROOT="${ZIMAGE_INSTALL_ROOT:-$HOME/Z-Image}"
 if [[ ! -f "${ZIMAGE_INSTALL_ROOT}/.nymph-module-version" ]]; then
   echo "Z-Image Turbo is not installed yet. Use Install first." >&2
   exit 2
+fi
+
+runtime_marker="${ZIMAGE_VENV_DIR}/.nymphs_nunchaku_runtime.json"
+if [[ ! -x "$(zimage_python)" ]] || [[ ! -f "${runtime_marker}" ]] || ! python3 - "${runtime_marker}" "${ZIMAGE_NUNCHAKU_COMMIT}" "${ZIMAGE_DIFFUSERS_SPEC}" <<'PY'
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+marker = Path(sys.argv[1])
+expected_commit = sys.argv[2].strip()
+expected_diffusers = sys.argv[3].strip()
+
+try:
+    data = json.loads(marker.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+if str(data.get("nunchaku_commit") or "").strip() != expected_commit:
+    raise SystemExit(1)
+if str(data.get("diffusers") or "").strip() != expected_diffusers:
+    raise SystemExit(1)
+PY
+then
+  echo "Z-Image runtime venv is missing or pinned to an older Nunchaku/diffusers build."
+  echo "Rebuilding the runtime through the normal installer path..."
+  exec "${SCRIPT_DIR}/install_zimage.sh"
 fi
 
 mkdir -p "${ZIMAGE_INSTALL_ROOT}/scripts"

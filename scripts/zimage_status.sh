@@ -41,7 +41,46 @@ gpu_vram_mb="${ZIMAGE_STATUS_GPU_VRAM_MB:-unknown}"
 recommended_precision="${ZIMAGE_STATUS_RECOMMENDED_PRECISION:-int4}"
 status_requested_precision="${Z_IMAGE_NUNCHAKU_PRECISION}"
 status_check_precision="${status_requested_precision}"
+nunchaku_runtime_commit=unknown
+nunchaku_expected_commit="${ZIMAGE_NUNCHAKU_COMMIT}"
+nunchaku_runtime_stale=unknown
 detail="Not installed."
+
+read_nunchaku_runtime_marker() {
+  local runtime_marker="${ZIMAGE_VENV_DIR}/.nymphs_nunchaku_runtime.json"
+  if [[ ! -f "${runtime_marker}" ]]; then
+    nunchaku_runtime_stale=true
+    return
+  fi
+
+  local marker_values
+  marker_values="$(
+    python3 - "${runtime_marker}" <<'PY' 2>/dev/null || true
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+try:
+    data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+except Exception:
+    data = {}
+
+print(str(data.get("nunchaku_commit") or "unknown").strip() or "unknown")
+print(str(data.get("diffusers") or "unknown").strip() or "unknown")
+PY
+  )"
+  nunchaku_runtime_commit="$(printf '%s\n' "${marker_values}" | sed -n '1p')"
+  local runtime_diffusers
+  runtime_diffusers="$(printf '%s\n' "${marker_values}" | sed -n '2p')"
+  if [[ "${nunchaku_runtime_commit}" == "${ZIMAGE_NUNCHAKU_COMMIT}" &&
+        "${runtime_diffusers}" == "${ZIMAGE_DIFFUSERS_SPEC}" ]]; then
+    nunchaku_runtime_stale=false
+  else
+    nunchaku_runtime_stale=true
+  fi
+}
 
 read_zimage_model_cache_status() {
   local base_cache="${NYMPHS3D_HF_CACHE_DIR}/models--Tongyi-MAI--Z-Image-Turbo/snapshots"
@@ -325,6 +364,7 @@ fi
 if [[ "${installed}" == "true" && -x "$(zimage_python)" ]]; then
   env_ready=true
   detail="Runtime environment present."
+  read_nunchaku_runtime_marker
   if [[ "${status_check_precision}" == "auto" ]]; then
     status_check_precision="${recommended_precision}"
   fi
@@ -388,6 +428,10 @@ elif [[ "${installed}" == "true" ]]; then
     state=needs_attention
     health=degraded
     detail="Z-Image runtime files are installed, but the Python runtime is missing."
+  elif [[ "${nunchaku_runtime_stale}" == "true" ]]; then
+    state=needs_attention
+    health=runtime-update-needed
+    detail="Z-Image runtime venv is pinned to an older Nunchaku/diffusers build. Run Update to rebuild it."
   elif [[ "${models_ready}" == "false" ]]; then
     state=model_download_needed
     health=model-download-needed
@@ -446,6 +490,9 @@ model_id=${Z_IMAGE_MODEL_ID}
 nunchaku_weight_repo=${Z_IMAGE_NUNCHAKU_MODEL_REPO}
 nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}
 nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}
+nunchaku_runtime_commit=${nunchaku_runtime_commit}
+nunchaku_expected_commit=${nunchaku_expected_commit}
+nunchaku_runtime_stale=${nunchaku_runtime_stale}
 status_requested_precision=${status_requested_precision}
 status_check_precision=${status_check_precision}
 recommended_precision=${recommended_precision}
