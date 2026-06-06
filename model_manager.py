@@ -235,11 +235,11 @@ class ModelManager:
             kwargs["use_safetensors"] = True
         return kwargs
 
-    def _prepare_pipeline(self, pipeline, runtime: str):
+    def _prepare_pipeline(self, pipeline, runtime: str, *, cpu_offload: bool = True):
         if runtime == "nunchaku":
             if hasattr(pipeline, "remove_all_hooks"):
                 pipeline.remove_all_hooks()
-            if self.settings.device != "cpu" and hasattr(pipeline, "enable_sequential_cpu_offload"):
+            if cpu_offload and self.settings.device != "cpu" and hasattr(pipeline, "enable_sequential_cpu_offload"):
                 pipeline.enable_sequential_cpu_offload()
                 pipeline._nymphs_nunchaku_offload_enabled = True
                 return pipeline
@@ -457,7 +457,11 @@ class ModelManager:
             **self._pipeline_kwargs(self._loaded_model_id, self._loaded_runtime or "nunchaku"),
         )
         self._controlnet_edit = _wrap_pipeline_transformer_for_deferred_lora(self._controlnet_edit)
-        self._controlnet_edit = self._prepare_pipeline(self._controlnet_edit, self._loaded_runtime or "nunchaku")
+        self._controlnet_edit = self._prepare_pipeline(
+            self._controlnet_edit,
+            self._loaded_runtime or "nunchaku",
+            cpu_offload=False,
+        )
         self._loaded_runtime_extra.update(
             {
                 "nunchaku_precision": precision,
