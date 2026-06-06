@@ -239,7 +239,9 @@ fi
   "${VENV_PYTHON}" -m py_compile api_server.py brain_client.py config.py image_providers.py image_store.py model_manager.py nunchaku_compat.py progress_state.py schemas.py scripts/prefetch_model.py scripts/run_nunchaku_zimage_test.py
   "${VENV_PYTHON}" - <<'PY'
 from diffusers.pipelines.z_image.pipeline_z_image import ZImagePipeline
+from diffusers.pipelines.z_image.pipeline_z_image_controlnet import ZImageControlNetPipeline
 from diffusers.pipelines.z_image.pipeline_z_image_img2img import ZImageImg2ImgPipeline
+from diffusers.models.controlnets.controlnet_z_image import ZImageControlNetModel
 from nunchaku import NunchakuZImageTransformer2DModel
 from nunchaku_compat import patch_zimage_transformer_forward
 
@@ -255,6 +257,8 @@ if missing_methods:
     raise SystemExit(f"nunchaku LoRA method(s) missing after install: {', '.join(missing_methods)}")
 print(f"zimage_pipeline={ZImagePipeline.__name__}")
 print(f"zimage_img2img_pipeline={ZImageImg2ImgPipeline.__name__}")
+print(f"zimage_controlnet_pipeline={ZImageControlNetPipeline.__name__}")
+print(f"zimage_controlnet_model={ZImageControlNetModel.__name__}")
 print(f"nunchaku_transformer={NunchakuZImageTransformer2DModel.__name__}")
 print("Z-Image Turbo runtime imports validated.")
 PY

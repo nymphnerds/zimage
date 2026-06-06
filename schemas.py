@@ -32,6 +32,7 @@ class GenerateRequest(BaseModel):
     item_label: str | None = None
     item_index: int | None = None
     item_total: int | None = None
+    output_dir: str | None = None
 
 
 class GenerateResponse(BaseModel):

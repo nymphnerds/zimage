@@ -12,8 +12,8 @@ from config import Settings
 from nunchaku_compat import patch_zimage_transformer_forward
 
 
-DEFAULT_ZIMAGE_CONTROLNET_REPO = "alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union"
-DEFAULT_ZIMAGE_CONTROLNET_FILE = "Z-Image-Turbo-Fun-Controlnet-Union.safetensors"
+DEFAULT_ZIMAGE_CONTROLNET_REPO = "alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1"
+DEFAULT_ZIMAGE_CONTROLNET_FILE = "Z-Image-Turbo-Fun-Controlnet-Union-2.1-2602-8steps.safetensors"
 
 
 def _experimental_nunchaku_img2img_enabled() -> bool:
@@ -462,6 +462,8 @@ class ModelManager:
             self._loaded_runtime or "nunchaku",
             cpu_offload=False,
         )
+        execution_device = getattr(self._controlnet_edit, "_execution_device", None)
+        self._loaded_runtime_extra["controlnet_offload"] = False
         self._loaded_runtime_extra.update(
             {
                 "nunchaku_precision": precision,
@@ -470,6 +472,7 @@ class ModelManager:
                 "controlnet_edit": True,
                 "controlnet_repo": controlnet_repo,
                 "controlnet_file": controlnet_file,
+                "controlnet_execution_device": str(execution_device) if execution_device is not None else "",
             }
         )
         return self._controlnet_edit

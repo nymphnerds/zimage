@@ -37,6 +37,19 @@ then
   exec "${SCRIPT_DIR}/install_zimage.sh"
 fi
 
+if ! "$(zimage_python)" - <<'PY'
+from diffusers.pipelines.z_image.pipeline_z_image_controlnet import ZImageControlNetPipeline
+from diffusers.models.controlnets.controlnet_z_image import ZImageControlNetModel
+
+print(f"zimage_controlnet_pipeline={ZImageControlNetPipeline.__name__}")
+print(f"zimage_controlnet_model={ZImageControlNetModel.__name__}")
+PY
+then
+  echo "Z-Image runtime venv is missing Z-Image ControlNet support."
+  echo "Rebuilding the runtime through the normal installer path..."
+  exec "${SCRIPT_DIR}/install_zimage.sh"
+fi
+
 mkdir -p "${ZIMAGE_INSTALL_ROOT}/scripts"
 
 install -m 644 "${MODULE_ROOT}/.env.example" "${ZIMAGE_INSTALL_ROOT}/.env.example"

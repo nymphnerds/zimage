@@ -230,6 +230,26 @@ def _prefetch_nunchaku_weights(args, settings, cache_dir) -> None:
         )
         print(f"nunchaku_weight_path={path}", flush=True)
 
+    controlnet_repo = (
+        os.getenv("Z_IMAGE_CONTROLNET_REPO")
+        or "alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1"
+    )
+    controlnet_file = (
+        os.getenv("Z_IMAGE_CONTROLNET_FILE")
+        or "Z-Image-Turbo-Fun-Controlnet-Union-2.1-2602-8steps.safetensors"
+    )
+    print(f"controlnet_weight={controlnet_repo}/{controlnet_file}", flush=True)
+    if args.dry_run:
+        return
+    path = hf_hub_download(
+        repo_id=controlnet_repo,
+        filename=controlnet_file,
+        cache_dir=str(cache_dir) if cache_dir else None,
+        token=args.token,
+        local_files_only=args.local_files_only,
+    )
+    print(f"controlnet_weight_path={path}", flush=True)
+
 
 def main() -> int:
     args = _parse_args()

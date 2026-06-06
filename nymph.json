@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.106",
+  "version": "0.1.107",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -356,6 +356,7 @@
     "v0.1.103 pads or trims Z-Image Nunchaku LoRA low-rank tensors to the active CUDA rank slot so r32 pixel-art LoRAs no longer fail with qkv_proj_down 32-to-128 shape errors.",
     "v0.1.105 keeps the Nunchaku Z-Image ControlNet pipeline CUDA-resident and pins the Nunchaku RoPE handling needed by controlnet_edit.",
     "v0.1.106 makes Update rebuild the runtime venv when its pinned Nunchaku/diffusers marker is stale and reports that stale-runtime state in status.",
+    "v0.1.107 validates Z-Image ControlNet pipeline imports during install/update, defaults to Alibaba's 2.1 2602 8-step ControlNet union weight, prefetches that weight with model fetch, and loads controlnet_edit without first loading txt2img.",
     "v0.1.102 treats Nunchaku rank and precision as part of the loaded pipeline identity so switching between r32/r128/r256 cannot reuse a stale transformer with incompatible LoRA slots.",
     "Do not vendor the Nunchaku clone or model weights into this repo."
   ]

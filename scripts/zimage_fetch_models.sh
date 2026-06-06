@@ -577,6 +577,24 @@ PY
   )
 }
 
+prefetch_zimage_controlnet_weight() {
+  (
+    cd "${ZIMAGE_INSTALL_ROOT}"
+    "$(zimage_python)" - <<'PY'
+import os
+from huggingface_hub import hf_hub_download
+
+repo_id = os.getenv("Z_IMAGE_CONTROLNET_REPO") or "alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1"
+filename = os.getenv("Z_IMAGE_CONTROLNET_FILE") or "Z-Image-Turbo-Fun-Controlnet-Union-2.1-2602-8steps.safetensors"
+cache_dir = os.getenv("NYMPHS3D_HF_CACHE_DIR") or None
+token = os.getenv("NYMPHS3D_HF_TOKEN") or None
+print(f"Z-Image ControlNet prefetch: {repo_id}/{filename}", flush=True)
+path = hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=cache_dir, token=token)
+print(f"Z-Image ControlNet ready: {path}", flush=True)
+PY
+  )
+}
+
 prefetch_hf_snapshot_model() {
   local model_id="$1"
   local profile="${2:-full}"
@@ -632,6 +650,7 @@ echo "zimage_model=${Z_IMAGE_MODEL_ID}"
 echo "nunchaku_weight_repo=${Z_IMAGE_NUNCHAKU_MODEL_REPO}"
 echo "nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}"
 echo "nunchaku_rank=${Z_IMAGE_NUNCHAKU_RANK}"
+echo "controlnet_weight=${Z_IMAGE_CONTROLNET_REPO}/${Z_IMAGE_CONTROLNET_FILE}"
 echo "download_all_weights=${download_all_weights}"
 echo "download_int4_package=${download_int4_package}"
 echo "download_fp4_package=${download_fp4_package}"
@@ -670,10 +689,18 @@ if [[ "${fetch_zimage}" == "true" ]]; then
     export NYMPHS3D_PREFETCH_COMPONENT_HINT="selected Nunchaku-compatible runtime weight: ${Z_IMAGE_NUNCHAKU_PRECISION} r${Z_IMAGE_NUNCHAKU_RANK}"
   fi
   run_with_hf_download_progress \
-    "Z-Image selected Blender weight" \
+    "Z-Image selected Nunchaku weight" \
     "${Z_IMAGE_NUNCHAKU_MODEL_REPO}" \
     prefetch_zimage_nunchaku_weight
   unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+
+  export NYMPHS3D_PREFETCH_COMPONENT_HINT="Z-Image Turbo ControlNet union weight for Sprite Foundry direction control"
+  run_with_hf_download_progress \
+    "Z-Image ControlNet weight" \
+    "${Z_IMAGE_CONTROLNET_REPO}" \
+    prefetch_zimage_controlnet_weight
+  unset NYMPHS3D_PREFETCH_COMPONENT_HINT
+
   unset ZIMAGE_FETCH_ALL_WEIGHTS
   unset ZIMAGE_FETCH_INT4_PACKAGE
   unset ZIMAGE_FETCH_FP4_PACKAGE

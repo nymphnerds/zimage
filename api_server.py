@@ -471,6 +471,19 @@ def _output_relative_path(path: Path) -> str:
         return path.name
 
 
+def _request_output_dir(value: str | None) -> Path:
+    if not value:
+        return SETTINGS.output_dir
+    root = (Path.home() / "NymphsData" / "outputs").resolve()
+    candidate = Path(value).expanduser().resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("output_dir must be inside ~/NymphsData/outputs.") from exc
+    candidate.mkdir(parents=True, exist_ok=True)
+    return candidate
+
+
 def _output_collision_path(path: Path) -> Path:
     if not path.exists():
         return path
@@ -1273,7 +1286,10 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             raise ValueError("Selected model is not loaded yet. Load the selected Z-Image model before generating.")
     if payload.provider == "zimage":
         _log_stage("model.load.begin", model_id=payload.model_id or SETTINGS.default_model_id)
-        model_id = MODEL_MANAGER.ensure_model(payload.model_id)
+        if payload.mode == "controlnet_edit":
+            model_id = MODEL_MANAGER.ensure_controlnet_model(payload.model_id)
+        else:
+            model_id = MODEL_MANAGER.ensure_model(payload.model_id)
         _log_stage("model.load.end", model_id=model_id, elapsed=f"{perf_counter() - started_at:.2f}s")
     else:
         model_id = payload.model_id or "Qwen/Qwen-Image-Edit-2511"
@@ -1429,10 +1445,11 @@ def _generate(payload: GenerateRequest) -> GenerateResponse:
             default_item_label=payload.item_label or payload.provider or "Z-Image",
         ),
     }
-    _log_stage("save.begin", output_dir=SETTINGS.output_dir)
+    output_dir = _request_output_dir(payload.output_dir)
+    _log_stage("save.begin", output_dir=output_dir)
     output_path, metadata_path = save_image_and_metadata(
         image,
-        SETTINGS.output_dir,
+        output_dir,
         mode=payload.mode,
         prompt=payload.prompt,
         metadata=metadata,
