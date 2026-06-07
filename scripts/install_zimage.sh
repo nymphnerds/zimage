@@ -244,10 +244,16 @@ from diffusers.pipelines.z_image.pipeline_z_image_img2img import ZImageImg2ImgPi
 from diffusers.models.controlnets.controlnet_z_image import ZImageControlNetModel
 from nunchaku import NunchakuZImageTransformer2DModel
 from nunchaku_compat import patch_zimage_transformer_forward
+import inspect
 
 patched = patch_zimage_transformer_forward(NunchakuZImageTransformer2DModel)
 if not patched:
     raise SystemExit("nunchaku forward patch validation failed")
+forward_parameters = inspect.signature(NunchakuZImageTransformer2DModel.forward).parameters
+if "controlnet_block_samples" not in forward_parameters and not any(
+    parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in forward_parameters.values()
+):
+    raise SystemExit("nunchaku Z-Image transformer cannot accept ControlNet residuals")
 missing_methods = [
     name
     for name in ("update_lora_params", "set_lora_strength", "reset_lora")

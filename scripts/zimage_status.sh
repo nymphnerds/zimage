@@ -44,6 +44,8 @@ status_check_precision="${status_requested_precision}"
 nunchaku_runtime_commit=unknown
 nunchaku_expected_commit="${ZIMAGE_NUNCHAKU_COMMIT}"
 nunchaku_runtime_stale=unknown
+nunchaku_controlnet_runtime_ok=unknown
+diffusers_controlnet_runtime_ok=unknown
 detail="Not installed."
 
 read_nunchaku_runtime_marker() {
@@ -80,6 +82,53 @@ PY
   else
     nunchaku_runtime_stale=true
   fi
+}
+
+read_controlnet_runtime_capability() {
+  if [[ ! -x "$(zimage_python)" ]]; then
+    nunchaku_controlnet_runtime_ok=false
+    diffusers_controlnet_runtime_ok=false
+    return
+  fi
+
+  local capability_values
+  capability_values="$(
+    "$(zimage_python)" - <<'PY' 2>/dev/null || true
+from __future__ import annotations
+
+import inspect
+
+diffusers_ok = False
+nunchaku_ok = False
+
+try:
+    from diffusers.pipelines.z_image.pipeline_z_image_controlnet import ZImageControlNetPipeline
+    from diffusers.models.controlnets.controlnet_z_image import ZImageControlNetModel
+
+    diffusers_ok = bool(ZImageControlNetPipeline and ZImageControlNetModel)
+except Exception:
+    diffusers_ok = False
+
+try:
+    from nunchaku import NunchakuZImageTransformer2DModel
+    from nunchaku_compat import patch_zimage_transformer_forward
+
+    patch_zimage_transformer_forward(NunchakuZImageTransformer2DModel)
+    parameters = inspect.signature(NunchakuZImageTransformer2DModel.forward).parameters
+    nunchaku_ok = "controlnet_block_samples" in parameters or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
+except Exception:
+    nunchaku_ok = False
+
+print("true" if diffusers_ok else "false")
+print("true" if nunchaku_ok else "false")
+PY
+  )"
+  diffusers_controlnet_runtime_ok="$(printf '%s\n' "${capability_values}" | sed -n '1p')"
+  nunchaku_controlnet_runtime_ok="$(printf '%s\n' "${capability_values}" | sed -n '2p')"
+  [[ -n "${diffusers_controlnet_runtime_ok}" ]] || diffusers_controlnet_runtime_ok=false
+  [[ -n "${nunchaku_controlnet_runtime_ok}" ]] || nunchaku_controlnet_runtime_ok=false
 }
 
 read_zimage_model_cache_status() {
@@ -365,6 +414,10 @@ if [[ "${installed}" == "true" && -x "$(zimage_python)" ]]; then
   env_ready=true
   detail="Runtime environment present."
   read_nunchaku_runtime_marker
+  read_controlnet_runtime_capability
+  if [[ "${diffusers_controlnet_runtime_ok}" != "true" || "${nunchaku_controlnet_runtime_ok}" != "true" ]]; then
+    nunchaku_runtime_stale=true
+  fi
   if [[ "${status_check_precision}" == "auto" ]]; then
     status_check_precision="${recommended_precision}"
   fi
@@ -431,7 +484,7 @@ elif [[ "${installed}" == "true" ]]; then
   elif [[ "${nunchaku_runtime_stale}" == "true" ]]; then
     state=needs_attention
     health=runtime-update-needed
-    detail="Z-Image runtime venv is pinned to an older Nunchaku/diffusers build. Run Update to rebuild it."
+    detail="Z-Image runtime venv is missing the current Nunchaku/Diffusers ControlNet support. Run Update to rebuild it."
   elif [[ "${models_ready}" == "false" ]]; then
     state=model_download_needed
     health=model-download-needed
@@ -493,6 +546,8 @@ nunchaku_precision=${Z_IMAGE_NUNCHAKU_PRECISION}
 nunchaku_runtime_commit=${nunchaku_runtime_commit}
 nunchaku_expected_commit=${nunchaku_expected_commit}
 nunchaku_runtime_stale=${nunchaku_runtime_stale}
+nunchaku_controlnet_runtime_ok=${nunchaku_controlnet_runtime_ok}
+diffusers_controlnet_runtime_ok=${diffusers_controlnet_runtime_ok}
 status_requested_precision=${status_requested_precision}
 status_check_precision=${status_check_precision}
 recommended_precision=${recommended_precision}

@@ -38,11 +38,23 @@ then
 fi
 
 if ! "$(zimage_python)" - <<'PY'
+import inspect
+
 from diffusers.pipelines.z_image.pipeline_z_image_controlnet import ZImageControlNetPipeline
 from diffusers.models.controlnets.controlnet_z_image import ZImageControlNetModel
+from nunchaku import NunchakuZImageTransformer2DModel
+from nunchaku_compat import patch_zimage_transformer_forward
+
+patch_zimage_transformer_forward(NunchakuZImageTransformer2DModel)
+forward_parameters = inspect.signature(NunchakuZImageTransformer2DModel.forward).parameters
+if "controlnet_block_samples" not in forward_parameters and not any(
+    parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in forward_parameters.values()
+):
+    raise SystemExit("nunchaku Z-Image transformer cannot accept ControlNet residuals")
 
 print(f"zimage_controlnet_pipeline={ZImageControlNetPipeline.__name__}")
 print(f"zimage_controlnet_model={ZImageControlNetModel.__name__}")
+print(f"nunchaku_transformer={NunchakuZImageTransformer2DModel.__name__}")
 PY
 then
   echo "Z-Image runtime venv is missing Z-Image ControlNet support."
