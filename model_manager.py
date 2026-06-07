@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import os
+from time import monotonic
 from threading import RLock
 
 import torch
@@ -9,7 +10,7 @@ import torch.nn as nn
 from safetensors.torch import load_file
 
 from config import Settings
-from nunchaku_compat import patch_zimage_transformer_forward
+from nunchaku_compat import patch_zimage_controlnet_forward, patch_zimage_transformer_forward
 
 
 DEFAULT_ZIMAGE_CONTROLNET_REPO = "alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1"
@@ -88,6 +89,147 @@ def _wrap_pipeline_transformer_for_deferred_lora(pipeline):
     if transformer is None or isinstance(transformer, DeferredNunchakuLoraWrapper):
         return pipeline
     pipeline.transformer = DeferredNunchakuLoraWrapper(transformer)
+    return pipeline
+
+
+def _wrap_controlnet_debug_probes(pipeline):
+    raw = os.getenv("NYMPHS_ZIMAGE_CONTROLNET_DEBUG", "")
+    if raw.strip().lower() not in {"1", "true", "yes", "on"}:
+        return pipeline
+    if getattr(pipeline, "_nymphs_controlnet_debug_wrapped", False):
+        return pipeline
+
+    def wrap_forward(module, label: str):
+        original_forward = module.forward
+
+        def forward(*args, **kwargs):
+            started = monotonic()
+            print(f"[nymphs:zimage:debug] {label}.begin", flush=True)
+            try:
+                result = original_forward(*args, **kwargs)
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                print(
+                    f"[nymphs:zimage:debug] {label}.end elapsed={monotonic() - started:.2f}s",
+                    flush=True,
+                )
+                return result
+            except Exception as exc:
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                print(
+                    f"[nymphs:zimage:debug] {label}.error elapsed={monotonic() - started:.2f}s detail={exc}",
+                    flush=True,
+                )
+                raise
+
+        module.forward = forward
+
+    def wrap_method(obj, method_name: str, label: str):
+        original_method = getattr(obj, method_name)
+
+        def method(*args, **kwargs):
+            started = monotonic()
+            print(f"[nymphs:zimage:debug] {label}.begin", flush=True)
+            try:
+                result = original_method(*args, **kwargs)
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                print(
+                    f"[nymphs:zimage:debug] {label}.end elapsed={monotonic() - started:.2f}s",
+                    flush=True,
+                )
+                return result
+            except Exception as exc:
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                print(
+                    f"[nymphs:zimage:debug] {label}.error elapsed={monotonic() - started:.2f}s detail={exc}",
+                    flush=True,
+                )
+                raise
+
+        setattr(obj, method_name, method)
+
+    wrap_forward(pipeline.text_encoder, "text_encoder.forward")
+    wrap_method(pipeline.vae, "encode", "vae.encode")
+    wrap_method(pipeline.vae, "decode", "vae.decode")
+    wrap_method(pipeline, "encode_prompt", "pipeline.encode_prompt")
+    wrap_method(pipeline, "prepare_image", "pipeline.prepare_image")
+    wrap_method(pipeline, "prepare_latents", "pipeline.prepare_latents")
+    wrap_forward(pipeline.controlnet, "controlnet.forward")
+    wrap_forward(pipeline.transformer, "transformer.forward")
+    pipeline._nymphs_controlnet_debug_wrapped = True
+    print("[nymphs:zimage:debug] controlnet_debug_probes.installed", flush=True)
+    return pipeline
+
+
+def _use_cpu_text_encoder_for_controlnet(pipeline, target_device: str):
+    if target_device == "cpu" or getattr(pipeline, "_nymphs_controlnet_cpu_text_encoder", False):
+        return pipeline
+
+    pipeline.text_encoder.to("cpu")
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    def encode_prompt(
+        prompt,
+        device=None,
+        do_classifier_free_guidance=True,
+        negative_prompt=None,
+        prompt_embeds=None,
+        negative_prompt_embeds=None,
+        max_sequence_length=512,
+    ):
+        output_device = device or pipeline._execution_device
+
+        def encode_items(items, embeds):
+            if embeds is not None:
+                return [embed.to(device=output_device) for embed in embeds]
+            items = [items] if isinstance(items, str) else list(items)
+            templated = []
+            for item in items:
+                templated.append(
+                    pipeline.tokenizer.apply_chat_template(
+                        [{"role": "user", "content": item}],
+                        tokenize=False,
+                        add_generation_prompt=True,
+                        enable_thinking=True,
+                    )
+                )
+            text_inputs = pipeline.tokenizer(
+                templated,
+                padding="max_length",
+                max_length=max_sequence_length,
+                truncation=True,
+                return_tensors="pt",
+            )
+            input_ids = text_inputs.input_ids
+            prompt_masks = text_inputs.attention_mask.bool()
+            hidden_states = pipeline.text_encoder(
+                input_ids=input_ids,
+                attention_mask=prompt_masks,
+                output_hidden_states=True,
+            ).hidden_states[-2]
+            return [
+                hidden_states[index][prompt_masks[index]].to(device=output_device)
+                for index in range(len(hidden_states))
+            ]
+
+        prompt_embeds = encode_items(prompt, prompt_embeds)
+
+        if do_classifier_free_guidance:
+            if negative_prompt is None:
+                negative_prompt = ["" for _ in prompt_embeds]
+            elif isinstance(negative_prompt, str):
+                negative_prompt = [negative_prompt]
+            negative_prompt_embeds = encode_items(negative_prompt, negative_prompt_embeds)
+        else:
+            negative_prompt_embeds = []
+        return prompt_embeds, negative_prompt_embeds
+
+    pipeline.encode_prompt = encode_prompt
+    pipeline._nymphs_controlnet_cpu_text_encoder = True
     return pipeline
 
 
@@ -434,6 +576,7 @@ class ModelManager:
                 "Current diffusers build does not include Z-Image ControlNet support. "
                 "Install diffusers 0.37.1 or newer before using controlnet_edit."
             ) from exc
+        patch_zimage_controlnet_forward(ZImageControlNetModel)
 
         transformer, rank_path, precision, dtype = self._load_nunchaku_transformer()
         controlnet_path, controlnet_repo, controlnet_file = self._resolve_controlnet_path()
@@ -450,6 +593,11 @@ class ModelManager:
             self._loaded_runtime or "nunchaku",
             cpu_offload=False,
         )
+        self._controlnet_edit = _use_cpu_text_encoder_for_controlnet(
+            self._controlnet_edit,
+            self.settings.device,
+        )
+        self._controlnet_edit = _wrap_controlnet_debug_probes(self._controlnet_edit)
         execution_device = getattr(self._controlnet_edit, "_execution_device", None)
         self._loaded_runtime_extra["controlnet_offload"] = False
         self._loaded_runtime_extra.update(
@@ -461,6 +609,7 @@ class ModelManager:
                 "controlnet_repo": controlnet_repo,
                 "controlnet_file": controlnet_file,
                 "controlnet_execution_device": str(execution_device) if execution_device is not None else "",
+                "controlnet_text_encoder_device": "cpu" if self.settings.device != "cpu" else self.settings.device,
             }
         )
         return self._controlnet_edit

@@ -133,3 +133,57 @@ def patch_zimage_transformer_forward(transformer_cls: type) -> bool:
     transformer_cls.forward = forward
     transformer_cls._nymphs2d2_zimage_forward_shim = True
     return True
+
+
+def patch_zimage_controlnet_forward(controlnet_cls: type) -> bool:
+    """Patch Z-Image ControlNet when it shares Nunchaku refiner modules.
+
+    Diffusers builds ``ZImageControlNetModel`` from the active transformer and
+    shares embed/refiner modules from that transformer. With a Nunchaku
+    transformer those shared refiner blocks contain Nunchaku attention modules,
+    which expect the same packed RoPE pre-hook used by the transformer forward.
+    The stock ControlNet forward calls those shared blocks directly, so install
+    the hook around ControlNet calls when Nunchaku attention modules are present.
+    """
+
+    if getattr(controlnet_cls, "_nymphs2d2_zimage_controlnet_forward_shim", False):
+        return False
+
+    original_forward = controlnet_cls.forward
+
+    def _iter_nunchaku_attention_modules(model: Any):
+        for attr_name in ("noise_refiner", "context_refiner"):
+            blocks = getattr(model, attr_name, None)
+            if blocks is None:
+                continue
+            for block in blocks:
+                attention = getattr(block, "attention", None)
+                if attention is None:
+                    continue
+                module_name = attention.__class__.__module__
+                class_name = attention.__class__.__name__
+                if module_name.startswith("nunchaku.") or class_name.startswith("Nunchaku"):
+                    yield attention
+
+    def forward(self: Any, *args, **kwargs):
+        attention_modules = list(_iter_nunchaku_attention_modules(self))
+        if not attention_modules:
+            return original_forward(self, *args, **kwargs)
+
+        from nunchaku.models.transformers.transformer_zimage import NunchakuZImageRopeHook
+
+        rope_hook = NunchakuZImageRopeHook()
+        handles = [
+            attention.register_forward_pre_hook(rope_hook, with_kwargs=True)
+            for attention in attention_modules
+        ]
+        try:
+            return original_forward(self, *args, **kwargs)
+        finally:
+            for handle in handles:
+                handle.remove()
+            del rope_hook
+
+    controlnet_cls.forward = forward
+    controlnet_cls._nymphs2d2_zimage_controlnet_forward_shim = True
+    return True
