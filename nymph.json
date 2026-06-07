@@ -3,7 +3,7 @@
   "id": "zimage",
   "name": "Nymphs Image",
   "short_name": "NI",
-  "version": "0.1.110",
+  "version": "0.1.111",
   "description": "Nymphs Image frontend for local Z-Image Turbo, Gemini Flash image generation, and part extraction.",
   "category": "image",
   "kind": "image",
@@ -364,6 +364,7 @@
     "v0.1.107 validates Z-Image ControlNet pipeline imports during install/update, defaults to Alibaba's 2.1 2602 8-step ControlNet union weight, prefetches that weight with model fetch, and loads controlnet_edit without first loading txt2img.",
     "v0.1.109 adds a standalone Model Fetch option for the Sprite Foundry Z-Image ControlNet 2.1 weight.",
     "v0.1.110 validates the installed Diffusers and Nunchaku Z-Image ControlNet runtime signatures during status/update and rebuilds stale runtimes instead of reporting them ready.",
+    "v0.1.111 runs the ControlNet runtime capability probe with the installed Z-Image root on PYTHONPATH so status/update can find nunchaku_compat.",
     "v0.1.102 treats Nunchaku rank and precision as part of the loaded pipeline identity so switching between r32/r128/r256 cannot reuse a stale transformer with incompatible LoRA slots.",
     "Do not vendor the Nunchaku clone or model weights into this repo."
   ]

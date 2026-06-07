@@ -37,7 +37,7 @@ then
   exec "${SCRIPT_DIR}/install_zimage.sh"
 fi
 
-if ! "$(zimage_python)" - <<'PY'
+if ! PYTHONPATH="${ZIMAGE_INSTALL_ROOT}:${PYTHONPATH:-}" "$(zimage_python)" - <<'PY'
 import inspect
 
 from diffusers.pipelines.z_image.pipeline_z_image_controlnet import ZImageControlNetPipeline

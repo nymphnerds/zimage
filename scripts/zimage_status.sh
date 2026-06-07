@@ -93,7 +93,7 @@ read_controlnet_runtime_capability() {
 
   local capability_values
   capability_values="$(
-    "$(zimage_python)" - <<'PY' 2>/dev/null || true
+    PYTHONPATH="${ZIMAGE_INSTALL_ROOT}:${PYTHONPATH:-}" "$(zimage_python)" - <<'PY' 2>/dev/null || true
 from __future__ import annotations
 
 import inspect
